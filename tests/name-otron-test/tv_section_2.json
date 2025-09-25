@@ -1,0 +1,146 @@
+{
+  "MediaContainer": {
+    "size": 6,
+    "Metadata": [
+      {
+        "ratingKey": "2001",
+        "key": "/library/metadata/2001",
+        "type": "show",
+        "title": "Breaking Bad",
+        "year": 2008,
+        "thumb": "/library/metadata/2001/thumb/1629821111",
+        "Location": [
+          {
+            "id": 2,
+            "path": "/test_media/TV/Breaking.Bad"
+          }
+        ],
+        "children": [
+          {
+            "ratingKey": "2101",
+            "key": "/library/metadata/2101",
+            "type": "season",
+            "title": "Season 1",
+            "index": 1,
+            "leafCount": 7,
+            "Episode": [
+              {
+                "ratingKey": "2111",
+                "key": "/library/metadata/2111",
+                "type": "episode",
+                "title": "Pilot",
+                "season": 1,
+                "index": 1,
+                "Media": [
+                  {
+                    "Part": [
+                      {
+                        "file": "/test_media/TV/Breaking.Bad/Season 1/Breaking.Bad.S01E01.Pilot.avi"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "ratingKey": "2112-13",
+                "key": "/library/metadata/2112-13",
+                "type": "episode",
+                "title": "Double Trouble",
+                "season": 1,
+                "index": 2,
+                "indexedEpisodes": [
+                  2,
+                  3
+                ],
+                "Media": [
+                  {
+                    "Part": [
+                      {
+                        "file": "/test_media/TV/Breaking.Bad/Season 1/Breaking.Bad.S01E02-03.avi"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "ratingKey": "21SP",
+                "key": "/library/metadata/21SP",
+                "type": "episode",
+                "title": "Special OVA",
+                "season": 0,
+                "index": 0,
+                "Media": [
+                  {
+                    "Part": [
+                      {
+                        "file": "/test_media/TV/Breaking.Bad/Season 1/Breaking.Bad.S01.Special.OVA.mkv"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "ratingKey": "2114",
+                "key": "/library/metadata/2114",
+                "type": "episode",
+                "title": "Director's Cut Episode",
+                "season": 1,
+                "index": 4,
+                "originallyAvailableAt": "2008-02-12",
+                "Media": [
+                  {
+                    "Part": [
+                      {
+                        "file": "/test_media/TV/Breaking.Bad/Season 1/Breaking.Bad.S01E04.Directors.Cut.mkv"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "3001",
+        "key": "/library/metadata/3001",
+        "type": "show",
+        "title": "Attack on Titan",
+        "Location": [
+          {
+            "id": 2,
+            "path": "/test_media/TV/Attack.on.Titan"
+          }
+        ],
+        "children": [
+          {
+            "ratingKey": "3100",
+            "key": "/library/metadata/3100",
+            "type": "season",
+            "title": "Season 00",
+            "index": 0,
+            "Episode": [
+              {
+                "ratingKey": "3101",
+                "key": "/library/metadata/3101",
+                "type": "episode",
+                "title": "Attack on Titan - Special Director's Cut",
+                "season": 0,
+                "index": 1,
+                "Media": [
+                  {
+                    "Part": [
+                      {
+                        "file": "/test_media/TV/Attack.on.Titan/Season 00/AOT.Special.DirectorsCut.mkv"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
