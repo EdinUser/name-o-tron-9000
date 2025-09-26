@@ -1,51 +1,66 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { useEffect, useState } from "react";
+import Home from "./pages/Home";
+import LibrarySelection from "./pages/LibrarySelection";
+import Preview from "./pages/Preview";
+import SettingsPage from "./pages/Settings";
+import type { PlexLibrary, PlexServer } from "./types/plex";
+
+type Screen = "home" | "libraries" | "preview" | "settings";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [screen, setScreen] = useState<Screen>("home");
+  const [server, setServer] = useState<PlexServer | null>(null);
+  const [library, setLibrary] = useState<PlexLibrary | null>(null);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+  useEffect(() => {
+    (window as any).__goto_settings = () => setScreen("settings");
+    return () => { delete (window as any).__goto_settings; };
+  }, []);
+
+  if (screen === "home") {
+    return (
+      <Home
+        onSelectServer={(s) => {
+          setServer(s);
+          setScreen("libraries");
+        }}
+        // Quick path to settings
+      />
+    );
   }
 
-  return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+  if (screen === "settings") {
+    return (
+      <SettingsPage
+        onBack={() => setScreen(server ? "libraries" : "home")}
+      />
+    );
+  }
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
+  if (screen === "libraries" && server) {
+    return (
+      <LibrarySelection
+        server={server}
+        onBack={() => setScreen("home")}
+        onSelectLibrary={(lib) => {
+          setLibrary(lib);
+          setScreen("preview");
         }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
-  );
+      />
+    );
+  }
+
+  if (screen === "preview" && server && library) {
+    return (
+      <Preview
+        server={server}
+        library={library}
+        onBack={() => setScreen("libraries")}
+      />
+    );
+  }
+
+  return <Home onSelectServer={(s) => { setServer(s); setScreen("libraries"); }} />;
 }
 
 export default App;
