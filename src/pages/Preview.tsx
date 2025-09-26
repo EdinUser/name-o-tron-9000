@@ -1,7 +1,8 @@
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import type {PlexLibrary, PlexServer} from "../types/plex";
 import {IconArrowBack, IconBolt, IconSelectOff, IconSettings} from "../components/icons";
-import {loadSettings} from "../state/settings";
+import {loadSettings, saveSettings} from "../state/settings";
+import {renderTemplate} from "../utils/template";
 
 type Props = {
     server: PlexServer;
@@ -77,20 +78,43 @@ function hasNonLatin(name: string) {
 
 function safeFolderName(name: string) { return name.replace(/[\\/:*?"<>|]/g, "_"); }
 
-function computeMovieProposal(m: MovieItem, opts: { ownFolder: boolean }): PreviewRow {
-    const ext = extname(m.file) || ".mkv";
-    let proposed = `${m.title}${m.year ? ` (${m.year})` : ""}`;
-    // ISO/disc images marker per settings
-    if (ext.toLowerCase() === ".iso") proposed += " [ISO]";
-    const baseName = proposed + ext;
-    let path = baseName;
-    if (opts.ownFolder) {
-        const folder = safeFolderName(proposed);
-        path = `${folder}/${baseName}`;
+function normalizeShowTitle(raw: string) {
+    return raw.replace(/[._]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function parseEpisodeInfo(filePath: string, fallbackTitle: string): { showTitle: string; season?: number; index?: number } {
+    const file = basename(filePath).replace(/\.[^.]+$/, "");
+    const seMatch = file.match(/S(\d{1,2})E(\d{1,2})/i);
+    let season: number | undefined;
+    let index: number | undefined;
+    if (seMatch) {
+        season = parseInt(seMatch[1], 10);
+        index = parseInt(seMatch[2], 10);
     }
-    proposed = normalizeUnicode(path);
+    let head = file;
+    if (seMatch && seMatch.index != null) head = file.slice(0, seMatch.index);
+    let showTitle = normalizeShowTitle(head);
+    if (!showTitle) {
+        // Try from the item title before " - "
+        const tHead = String(fallbackTitle || "").split(" - ")[0];
+        showTitle = normalizeShowTitle(tHead) || "Unknown Show";
+    }
+    return { showTitle, season, index };
+}
+
+function computeMovieProposal(m: MovieItem, template: string): PreviewRow {
+    const ext = extname(m.file) || ".mkv";
+    // Base context for movies
+    const ctx = {
+        title: m.title,
+        year: m.year ?? "",
+        ext,
+    } as any;
+    let proposed = renderTemplate(template, ctx);
+    if (!proposed.endsWith(ext)) proposed += ext; // safety net if template omitted {ext}
+    proposed = normalizeUnicode(proposed);
     const flags: string[] = [];
-    const {ok, reason} = sanitizeProposal(baseName);
+    const {ok, reason} = sanitizeProposal(basename(proposed));
     let status: PreviewRow["status"] = "green";
     if (!VIDEO_EXTS.has(ext)) {
         status = "yellow";
@@ -105,34 +129,35 @@ function computeMovieProposal(m: MovieItem, opts: { ownFolder: boolean }): Previ
         status = status === "green" ? "yellow" : status;
         flags.push("non-latin");
     }
-    if (m.file.length > 255) {
+    if (proposed.length > 255) {
         status = "red";
         flags.push(">255 path");
-    } else if (m.file.length > 200 && status !== "red") {
+    } else if (proposed.length > 200 && status !== "red") {
         status = "yellow";
         flags.push(">200 path");
     }
     return {id: m.ratingKey, kind: "movie", filePath: m.file, proposed, status, flags};
 }
 
-function computeEpisodeProposal(e: EpisodeItem): PreviewRow {
+function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolders: boolean): PreviewRow {
     const ext = extname(e.file) || ".mkv";
-    let se = "S00E00";
-    if (typeof e.season === "number" && typeof e.index === "number") {
-        const s = String(e.season).padStart(2, "0");
-        const ep = String(e.index).padStart(2, "0");
-        se = `S${s}E${ep}`;
-    }
-    let fileName = `${e.showTitle} - ${se} - ${e.title}${ext}`;
-    const s = loadSettings();
-    let proposedPath = fileName;
-    if (s.tv.seasonFolders) {
+    const ctx = {
+        showTitle: e.showTitle,
+        title: e.title,
+        season: typeof e.season === "number" ? e.season : 0,
+        episode: typeof e.index === "number" ? e.index : 0,
+        ext,
+    } as any;
+    let proposed = renderTemplate(template, ctx);
+    if (!proposed.endsWith(ext)) proposed += ext;
+    // Optional season folders can be expressed via template, but keep legacy support
+    if (useSeasonFolders && !/\{.*season.*\}/i.test(template)) {
         const seasonLabel = typeof e.season === "number" ? `Season ${String(e.season).padStart(2, "0")}` : "Season 00";
-        proposedPath = `${safeFolderName(e.showTitle)}/${seasonLabel}/${fileName}`;
+        proposed = `${safeFolderName(e.showTitle)}/${seasonLabel}/` + proposed;
     }
-    const proposed = normalizeUnicode(proposedPath);
+    proposed = normalizeUnicode(proposed);
     const flags: string[] = [];
-    const {ok, reason} = sanitizeProposal(proposed);
+    const {ok, reason} = sanitizeProposal(basename(proposed));
     let status: PreviewRow["status"] = "green";
     if (!VIDEO_EXTS.has(ext)) {
         status = "yellow";
@@ -147,10 +172,10 @@ function computeEpisodeProposal(e: EpisodeItem): PreviewRow {
         status = status === "green" ? "yellow" : status;
         flags.push("non-latin");
     }
-    if (e.file.length > 255) {
+    if (proposed.length > 255) {
         status = "red";
         flags.push(">255 path");
-    } else if (e.file.length > 200 && status !== "red") {
+    } else if (proposed.length > 200 && status !== "red") {
         status = "yellow";
         flags.push(">200 path");
     }
@@ -164,6 +189,12 @@ export default function Preview({server, library, onBack}: Props) {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const [colWidths, setColWidths] = useState<{ current: number; proposed: number; flags: number }>({ current: 480, proposed: 480, flags: 320 });
+    const [template, setTemplate] = useState<string>(() => {
+        const s = loadSettings();
+        return library.type === "movie" ? s.templates.movie : s.templates.episode;
+    });
 
     useEffect(() => {
         async function load() {
@@ -191,29 +222,54 @@ export default function Preview({server, library, onBack}: Props) {
                             file: String(file),
                         };
                         const s = loadSettings();
-                        list.push(computeMovieProposal(m, {ownFolder: !!s.movies.ownFolderPerMovie}));
+                        const tpl = s.templates.movie || template;
+                        list.push(computeMovieProposal(m, tpl));
                     }
                 } else if (library.type === "show") {
-                    for (const show of md) {
-                        const showTitle = String(show.title ?? "Unknown Show");
-                        const children = show.children ?? [];
-                        for (const season of children) {
-                            const seasonNum = parseInt(String(season.title).replace(/[^0-9]/g, "")) || undefined;
-                            const eps = season.Episode ?? [];
-                            for (const ep of eps) {
-                                const file = ep?.Media?.[0]?.Part?.[0]?.file;
-                                if (!file) continue;
-                                const e: EpisodeItem = {
-                                    type: "episode",
-                                    ratingKey: String(ep.ratingKey ?? ep.key ?? file),
-                                    showTitle,
-                                    title: String(ep.title ?? "Episode"),
-                                    season: seasonNum,
-                                    index: typeof ep.index === "number" ? ep.index : undefined,
-                                    file: String(file),
-                                };
-                                list.push(computeEpisodeProposal(e));
+                    const hasChildren = md.some((it: any) => Array.isArray(it?.children));
+                    if (hasChildren) {
+                        for (const show of md) {
+                            const showTitle = String(show.title ?? "Unknown Show");
+                            const children = show.children ?? [];
+                            for (const season of children) {
+                                const seasonNum = parseInt(String(season.title).replace(/[^0-9]/g, "")) || undefined;
+                                const eps = season.Episode ?? [];
+                                for (const ep of eps) {
+                                    const file = ep?.Media?.[0]?.Part?.[0]?.file;
+                                    if (!file) continue;
+                                    const e: EpisodeItem = {
+                                        type: "episode",
+                                        ratingKey: String(ep.ratingKey ?? ep.key ?? file),
+                                        showTitle,
+                                        title: String(ep.title ?? "Episode"),
+                                        season: seasonNum,
+                                        index: typeof ep.index === "number" ? ep.index : undefined,
+                                        file: String(file),
+                                    };
+                                    const s = loadSettings();
+                                    const tpl = s.templates.episode || template;
+                                    list.push(computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders));
+                                }
                             }
+                        }
+                    } else {
+                        // Flat list of episodes under Metadata
+                        for (const item of md) {
+                            const file = item?.Media?.[0]?.Part?.[0]?.file;
+                            if (!file) continue;
+                            const parsed = parseEpisodeInfo(String(file), String(item.title ?? "Episode"));
+                            const e: EpisodeItem = {
+                                type: "episode",
+                                ratingKey: String(item.ratingKey ?? item.key ?? file),
+                                showTitle: parsed.showTitle,
+                                title: String(item.title ?? "Episode"),
+                                season: parsed.season,
+                                index: parsed.index,
+                                file: String(file),
+                            };
+                            const s = loadSettings();
+                            const tpl = s.templates.episode || template;
+                            list.push(computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders));
                         }
                     }
                 }
@@ -228,7 +284,14 @@ export default function Preview({server, library, onBack}: Props) {
         }
 
         load();
-    }, [server.address, library.key, library.type]);
+    }, [server.address, library.key, library.type, template]);
+
+    // Live recompute when template changes
+    useEffect(() => {
+        if (rows.length === 0) return;
+        // Trigger a re-load to recompute proposals with full metadata
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [template]);
 
     const anyRedSelected = useMemo(() => rows.some(r => r.status === "red" && selectedIds.has(r.id)), [rows, selectedIds]);
     const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -254,12 +317,82 @@ export default function Preview({server, library, onBack}: Props) {
         console.log("Rename plan", plan);
     }
 
-    // no column resizing; using fluid CSS grid columns
+    // Column resizing + fluid width support
+    useEffect(() => {
+        function distributeInitial() {
+            const el = containerRef.current;
+            if (!el) return;
+            const containerWidth = el.clientWidth;
+            const gapPx = 8; // gap-2
+            const fixed = 28 + 120 + gapPx * 4; // checkbox + status + gaps
+            const avail = Math.max(0, containerWidth - fixed);
+            const w1 = Math.max(240, Math.floor(avail * (1.5 / 4.0)));
+            const w2 = Math.max(240, Math.floor(avail * (1.5 / 4.0)));
+            const w3 = Math.max(160, Math.max(0, avail - w1 - w2));
+            setColWidths({ current: w1, proposed: w2, flags: w3 });
+        }
+
+        function onResize() {
+            const el = containerRef.current;
+            if (!el) return;
+            const containerWidth = el.clientWidth;
+            const gapPx = 8;
+            const fixed = 28 + 120 + gapPx * 4;
+            const avail = Math.max(0, containerWidth - fixed);
+            const totalFlex = colWidths.current + colWidths.proposed + colWidths.flags;
+            if (avail <= 0 || totalFlex <= 0) return;
+            const ratio = avail / totalFlex;
+            let current = Math.max(160, Math.floor(colWidths.current * ratio));
+            let proposed = Math.max(160, Math.floor(colWidths.proposed * ratio));
+            let flags = Math.max(160, Math.floor(avail - current - proposed));
+            if (flags < 160) flags = 160;
+            setColWidths({ current, proposed, flags });
+        }
+
+        // Initial distribution and resize listener
+        distributeInitial();
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    function startResize(which: "current" | "proposed", ev: React.MouseEvent) {
+        ev.preventDefault();
+        const startX = ev.clientX;
+        const start = { ...colWidths };
+        const el = containerRef.current;
+        const gapPx = 8;
+        const fixed = 28 + 120 + gapPx * 4;
+        const containerWidth = el?.clientWidth ?? 0;
+        const avail = Math.max(0, containerWidth - fixed);
+        const min = 160;
+
+        function onMove(e: MouseEvent) {
+            const dx = e.clientX - startX;
+            let current = start.current;
+            let proposed = start.proposed;
+            if (which === "current") {
+                current = Math.max(min, Math.min(avail - min - min, start.current + dx));
+            } else {
+                proposed = Math.max(min, Math.min(avail - min - min, start.proposed + dx));
+            }
+            let flags = Math.max(min, avail - current - proposed);
+            setColWidths({ current, proposed, flags });
+        }
+        function onUp() {
+            window.removeEventListener("mousemove", onMove);
+            window.removeEventListener("mouseup", onUp);
+        }
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+    }
+
+    const gridTemplate = `28px ${colWidths.current}px ${colWidths.proposed}px 120px ${colWidths.flags}px`;
 
     return (
         <main className="min-h-screen bg-neutral-900 text-neutral-100">
             <header className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-900/80 backdrop-blur">
-                <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+                <div className="mx-auto flex items-center justify-between px-6 py-3">
                     <div className="flex items-center gap-2 text-sm text-neutral-300">
                         <button onClick={onBack} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             <IconArrowBack className="h-5 w-5"/>
@@ -276,6 +409,45 @@ export default function Preview({server, library, onBack}: Props) {
                             <IconBolt className="h-5 w-5"/>
                             Proceed
                         </button>
+                        <input
+                            value={template}
+                            onChange={(e) => {
+                                const next = e.target.value;
+                                setTemplate(next);
+                                const s = loadSettings();
+                                const updated = {
+                                    ...s,
+                                    templates: {
+                                        ...s.templates,
+                                        [library.type === "movie" ? "movie" : "episode"]: next,
+                                    }
+                                } as any;
+                                saveSettings(updated);
+                            }}
+                            placeholder={library.type === "movie" ? "Movie template" : "Episode template"}
+                            className="w-[420px] rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const def = library.type === "movie"
+                              ? "{title}[ ({year})]{ext}"
+                              : "{showTitle} - S{season:02}E{episode:02} - {title}{ext}";
+                            setTemplate(def);
+                            const s = loadSettings();
+                            const updated = {
+                              ...s,
+                              templates: {
+                                ...s.templates,
+                                [library.type === "movie" ? "movie" : "episode"]: def,
+                              }
+                            } as any;
+                            saveSettings(updated);
+                          }}
+                          className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
+                        >
+                          Reset
+                        </button>
                         <button type="button" onClick={() => (window as any).__goto_settings?.()} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             <IconSettings className="h-5 w-5"/>
                             Settings
@@ -284,23 +456,27 @@ export default function Preview({server, library, onBack}: Props) {
                 </div>
             </header>
 
-            <section className="mx-auto max-w-6xl px-6 py-6">
+            <section className="mx-auto px-6 py-6">
                 {loading && <p className="text-center text-neutral-400">Loading preview…</p>}
                 {error && <p className="text-center text-red-300">Error: {error}</p>}
 
                 {!loading && !error && (
-                    <div className="overflow-auto rounded-xl border border-neutral-800">
-                        <div className="grid items-center gap-2 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm font-semibold"
-                             style={{gridTemplateColumns: "28px minmax(240px,1.5fr) minmax(240px,1.5fr) 120px minmax(160px,1fr)"}}>
+                    <div ref={containerRef} className="overflow-auto rounded-xl border border-neutral-800">
+                        <div className="grid items-center gap-2 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm font-semibold" style={{gridTemplateColumns: gridTemplate}}>
                             <div/>
-                            <div>Current</div>
-                            <div>Proposed</div>
+                            <div className="relative select-none">
+                                <span>Current</span>
+                                <span onMouseDown={(e) => startResize("current", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize"/>
+                            </div>
+                            <div className="relative select-none">
+                                <span>Proposed</span>
+                                <span onMouseDown={(e) => startResize("proposed", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize"/>
+                            </div>
                             <div>Status</div>
                             <div>Flags</div>
                         </div>
                         {pageRows.map((r) => (
-                            <div key={r.id} className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40"
-                                 style={{gridTemplateColumns: "28px minmax(240px,1.5fr) minmax(240px,1.5fr) 120px minmax(160px,1fr)"}}>
+                            <div key={r.id} className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40" style={{gridTemplateColumns: gridTemplate}}>
                                 <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggle(r.id)} className="h-4 w-4 accent-cyan-500"/>
                                 <div className="truncate" title={r.filePath}>{r.filePath}</div>
                                 <div className="truncate" title={r.proposed}>{r.proposed}</div>

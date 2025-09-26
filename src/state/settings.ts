@@ -44,12 +44,27 @@ export type MiscSettings = {
   warnings: { pathLength: boolean; reservedNames: boolean; nonMediaDetection: boolean };
 };
 
+export type TemplateSettings = {
+  /**
+   * Template for Movie path (relative). Use placeholders like {title}, {year}, {ext}.
+   * Example: "{title}[ ({year})]{ext}" or "{title}[ ({year})]/{title}[ ({year})]{ext}"
+   */
+  movie: string;
+  /**
+   * Template for Episode path (relative).
+   * Supported placeholders include {showTitle}, {season}, {episode}, {title}, {ext}.
+   * Example: "{showTitle} - S{season:02}E{episode:02} - {title}{ext}"
+   */
+  episode: string;
+};
+
 export type Settings = {
   general: GeneralSettings;
   movies: MovieSettings;
   tv: TvSettings;
   music: MusicSettings;
   misc: MiscSettings;
+  templates: TemplateSettings;
 };
 
 const defaultSettings: Settings = {
@@ -89,6 +104,10 @@ const defaultSettings: Settings = {
     nonMediaHandling: "skip",
     warnings: { pathLength: true, reservedNames: true, nonMediaDetection: true },
   },
+  templates: {
+    movie: "{title}[ ({year})]{ext}",
+    episode: "{showTitle} - S{season:02}E{episode:02} - {title}{ext}",
+  },
 };
 
 const KEY = "nameotron.settings.v1";
@@ -98,7 +117,12 @@ export function loadSettings(): Settings {
     const raw = localStorage.getItem(KEY);
     if (!raw) return defaultSettings;
     const parsed = JSON.parse(raw);
-    return { ...defaultSettings, ...parsed, general: { ...defaultSettings.general, ...parsed.general } } as Settings;
+    return {
+      ...defaultSettings,
+      ...parsed,
+      general: { ...defaultSettings.general, ...parsed.general },
+      templates: { ...defaultSettings.templates, ...(parsed.templates || {}) },
+    } as Settings;
   } catch {
     return defaultSettings;
   }

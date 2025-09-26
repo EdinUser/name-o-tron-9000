@@ -11,11 +11,16 @@ function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [server, setServer] = useState<PlexServer | null>(null);
   const [library, setLibrary] = useState<PlexLibrary | null>(null);
+  const [lastNonSettingsScreen, setLastNonSettingsScreen] = useState<Exclude<Screen, "settings">>("home");
 
   useEffect(() => {
-    (window as any).__goto_settings = () => setScreen("settings");
+    (window as any).__goto_settings = () => {
+      // Remember where we came from before entering settings
+      if (screen !== "settings") setLastNonSettingsScreen(screen as Exclude<Screen, "settings">);
+      setScreen("settings");
+    };
     return () => { delete (window as any).__goto_settings; };
-  }, []);
+  }, [screen]);
 
   if (screen === "home") {
     return (
@@ -32,7 +37,7 @@ function App() {
   if (screen === "settings") {
     return (
       <SettingsPage
-        onBack={() => setScreen(server ? "libraries" : "home")}
+        onBack={() => setScreen(lastNonSettingsScreen)}
       />
     );
   }

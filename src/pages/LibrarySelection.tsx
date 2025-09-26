@@ -11,6 +11,9 @@ type Props = {
 type LibrariesResponse = {
     MediaContainer?: {
         size?: number;
+        // Newer/real Plex shape
+        Directory?: Array<{ key: string; type: string; title: string }>;
+        // Older mock shape
         directories?: Array<{ key: string; type: string; title: string }>;
     };
 };
@@ -29,8 +32,10 @@ export default function LibrarySelection({server, onBack, onSelectLibrary}: Prop
                 const res = await fetch(`${server.address}/library/sections`);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = (await res.json()) as LibrariesResponse;
-                const dirs = data?.MediaContainer?.directories ?? [];
-                const libs: PlexLibrary[] = dirs.map((d) => ({key: d.key, type: d.type, title: d.title}));
+                const dirs = (data?.MediaContainer?.Directory ?? data?.MediaContainer?.directories ?? []) as Array<{ key: string; type: string; title: string }>;
+                const libs: PlexLibrary[] = dirs
+                    .filter(Boolean)
+                    .map((d) => ({key: String(d.key), type: String(d.type) as any, title: String(d.title)}));
                 setLibraries(libs);
                 if (libs.length) setSelectedIdx(0);
             } catch (e: any) {
