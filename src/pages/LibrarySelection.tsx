@@ -2,7 +2,7 @@ import {useEffect, useState} from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {invoke} from "@tauri-apps/api/core";
 import type {PlexLibrary, PlexServer} from "../types/plex";
-import {IconArrowBack, IconArrowForward, IconHome, IconOpenInNew, IconServer, IconSettings} from "../components/icons";
+import {IconArrowBack, IconArrowForward, IconHome, IconInfo, IconOpenInNew, IconServer, IconSettings} from "../components/icons";
 
 type Props = {
     server: PlexServer;
@@ -10,15 +10,6 @@ type Props = {
     onSelectLibrary: (library: PlexLibrary) => void;
 };
 
-type LibrariesResponse = {
-    MediaContainer?: {
-        size?: number;
-        // Newer/real Plex shape
-        Directory?: Array<{ key: string; type: string; title: string }>;
-        // Older mock shape
-        directories?: Array<{ key: string; type: string; title: string }>;
-    };
-};
 
 export default function LibrarySelection({server, onBack, onSelectLibrary}: Props) {
     const [loading, setLoading] = useState(false);
@@ -65,14 +56,21 @@ export default function LibrarySelection({server, onBack, onSelectLibrary}: Prop
                             Back
                         </button>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-neutral-400">
-                        <IconServer className="h-5 w-5"/>
-                        {server.name} — {server.address}
-                        <button type="button" onClick={() => (window as any).__goto_home?.()} className="ml-2 inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 hover:bg-neutral-700">
+                    <div className="flex items-center gap-2">
+                        <div className="group relative">
+                            <IconInfo className="h-5 w-5 text-neutral-400 hover:text-neutral-200 cursor-help"/>
+                            <div className="invisible group-hover:visible absolute right-0 mt-2 w-64 rounded-md bg-neutral-800 p-3 text-sm text-neutral-200 shadow-lg z-20">
+                                <div className="flex items-center gap-2">
+                                    <IconServer className="h-4 w-4 flex-shrink-0"/>
+                                    <span>Server: {server.name} ({server.address})</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" onClick={() => (window as any).__goto_home?.()} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             <IconHome className="h-5 w-5"/>
                             Home
                         </button>
-                        <button type="button" onClick={() => (window as any).__goto_settings?.()} className="ml-2 inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 hover:bg-neutral-700">
+                        <button type="button" onClick={() => (window as any).__goto_settings?.()} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             <IconSettings className="h-5 w-5"/>
                             Settings
                         </button>

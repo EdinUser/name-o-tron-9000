@@ -412,7 +412,6 @@ export default function Preview({server, library, onBack}: Props) {
                             <IconSettings className="h-5 w-5"/>
                             Settings
                         </button>
-                        <span className="hidden md:inline">Library: {library.title} — Server: {server.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <button onClick={skipReds} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
