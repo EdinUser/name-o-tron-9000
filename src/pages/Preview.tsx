@@ -1,7 +1,8 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import type {PlexLibrary, PlexServer} from "../types/plex";
 import {IconArrowBack, IconBolt, IconHome, IconSelectOff, IconSettings} from "../components/icons";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import {getCurrentWindow} from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import {loadSettings, saveSettings} from "../state/settings";
 import {renderTemplate} from "../utils/template";
 
@@ -202,10 +203,15 @@ export default function Preview({server, library, onBack}: Props) {
             setLoading(true);
             setError(null);
             try {
-                const url = `${server.address}/library/sections/${library.key}/all`;
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const data: SectionResponse = await res.json();
+                let token: string | null = null;
+                try { token = localStorage.getItem("plexToken"); } catch {}
+                
+                // Use Tauri invoke to fetch library content with proper token handling
+                const data = await invoke<SectionResponse>("fetch_library_content", {
+                    server: server.address,
+                    libraryKey: library.key,
+                    token: token ?? null,
+                });
 
                 const list: PreviewRow[] = [];
                 const mc = data?.MediaContainer;

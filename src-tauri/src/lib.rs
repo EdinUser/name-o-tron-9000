@@ -1,6 +1,10 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::Serialize;
+use plex_api::{list_libraries, plex_login, plex_login_status, plex_logout};
 mod plex_api;
+
+// Re-export the fetch_library_content function
+pub use plex_api::fetch_library_content;
 
 #[derive(Serialize)]
 pub struct PlexServerDto {
@@ -170,10 +174,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             plex_discover,
-            plex_api::plex_login,
-            plex_api::plex_login_status,
-            plex_api::plex_logout,
-            plex_api::list_libraries,
+            plex_login,
+            plex_login_status,
+            plex_logout,
+            list_libraries,
+            plex_api::fetch_library_content,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
