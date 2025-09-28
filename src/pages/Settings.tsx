@@ -1,6 +1,7 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {type EncodingMode, loadSettings, saveSettings, type Settings} from "../state/settings";
-import {IconArrowBack} from "../components/icons";
+import {IconArrowBack, IconHome} from "../components/icons";
 
 type Props = { onBack: () => void };
 
@@ -9,6 +10,7 @@ type TabKey = "general" | "movies" | "tv" | "music" | "misc";
 export default function SettingsPage({onBack}: Props) {
     const [tab, setTab] = useState<TabKey>("general");
     const [s, setS] = useState<Settings>(() => loadSettings());
+    useEffect(() => { try { getCurrentWindow().setTitle("Name-o-Tron 9000 — Settings"); } catch {} }, []);
 
     function update<K extends keyof Settings>(k: K, v: Settings[K]) {
         const next = {...s, [k]: v} as Settings;
@@ -24,6 +26,10 @@ export default function SettingsPage({onBack}: Props) {
                         <button onClick={onBack} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             <IconArrowBack className="h-5 w-5"/>
                             Back
+                        </button>
+                        <button onClick={() => (window as any).__goto_home?.()} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+                            <IconHome className="h-5 w-5"/>
+                            Home
                         </button>
                         <h1 className="ml-2 text-lg font-semibold">Settings</h1>
                     </div>

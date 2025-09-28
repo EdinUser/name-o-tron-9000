@@ -32,7 +32,9 @@ Key goals:
   - Logging/rollback: JSON logs to user dir
 
 IPC contract (suggested Tauri commands):
-- `list_libraries()` → libraries
+- `plex_discover({ hints? })` → [{ name, address, machineIdentifier?, owned? }]
+- `plex_login()` / `plex_login_status()` / `plex_logout()`
+- `list_libraries({ server, token? })` → libraries
 - `preview_renames({libraryId, scope, settings})` → [{old, new, status, flags}]
 - `apply_renames({plan, settings})` → {summary, logPath}
 - `undo_last_rename()` → summary
@@ -86,6 +88,8 @@ Agent practices:
 - Use small, focused patches tied to the docs
 - Preserve public API expectations of Tauri commands
 - If adding features, update related docs in `docs/` accordingly
+  - Discovery specifics are documented in `docs/plex-discovery.md`.
+  - UX conventions: window title reflects the current screen; the Discover action appears only on Home and the discovered servers are cached for the session.
 
 Planning & messaging (for agent UIs):
 - Maintain a short plan; one step in progress
@@ -113,4 +117,3 @@ From `docs/name-o-tron-9000-first-commits.md:1`:
 - Logs/rollback implemented and verified
 - Minimal, scoped changes with clear rationale
 - Docs updated if behavior or options changed
-

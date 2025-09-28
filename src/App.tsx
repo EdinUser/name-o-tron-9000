@@ -19,6 +19,9 @@ function App() {
       if (screen !== "settings") setLastNonSettingsScreen(screen as Exclude<Screen, "settings">);
       setScreen("settings");
     };
+    (window as any).__goto_home = () => {
+      setScreen("home");
+    };
     return () => { delete (window as any).__goto_settings; };
   }, [screen]);
 

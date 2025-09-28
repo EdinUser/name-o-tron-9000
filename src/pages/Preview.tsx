@@ -1,6 +1,7 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import type {PlexLibrary, PlexServer} from "../types/plex";
-import {IconArrowBack, IconBolt, IconSelectOff, IconSettings} from "../components/icons";
+import {IconArrowBack, IconBolt, IconHome, IconSelectOff, IconSettings} from "../components/icons";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {loadSettings, saveSettings} from "../state/settings";
 import {renderTemplate} from "../utils/template";
 
@@ -389,14 +390,27 @@ export default function Preview({server, library, onBack}: Props) {
 
     const gridTemplate = `28px ${colWidths.current}px ${colWidths.proposed}px 120px ${colWidths.flags}px`;
 
+    // Window title
+    useEffect(() => {
+        try { getCurrentWindow().setTitle(`Name-o-Tron 9000 — Preview`); } catch {}
+    }, []);
+
     return (
         <main className="min-h-screen bg-neutral-900 text-neutral-100">
             <header className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-900/80 backdrop-blur">
-                <div className="mx-auto flex items-center justify-between px-6 py-3">
+                <div className="mx-auto flex min-w-[1000px] items-center justify-between px-6 py-3">
                     <div className="flex items-center gap-2 text-sm text-neutral-300">
                         <button onClick={onBack} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             <IconArrowBack className="h-5 w-5"/>
                             Back
+                        </button>
+                        <button type="button" onClick={() => (window as any).__goto_home?.()} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+                            <IconHome className="h-5 w-5"/>
+                            Home
+                        </button>
+                        <button type="button" onClick={() => (window as any).__goto_settings?.()} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+                            <IconSettings className="h-5 w-5"/>
+                            Settings
                         </button>
                         <span className="hidden md:inline">Library: {library.title} — Server: {server.name}</span>
                     </div>
@@ -457,6 +471,7 @@ export default function Preview({server, library, onBack}: Props) {
             </header>
 
             <section className="mx-auto px-6 py-6">
+                <div className="mb-2 text-sm text-neutral-400">Library: <span className="text-neutral-200">{library.title}</span> — Server: <span className="text-neutral-200">{server.name}</span></div>
                 {loading && <p className="text-center text-neutral-400">Loading preview…</p>}
                 {error && <p className="text-center text-red-300">Error: {error}</p>}
 

@@ -1,6 +1,8 @@
 import {useEffect, useState} from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import {invoke} from "@tauri-apps/api/core";
 import type {PlexLibrary, PlexServer} from "../types/plex";
-import {IconArrowBack, IconArrowForward, IconOpenInNew, IconServer, IconSettings} from "../components/icons";
+import {IconArrowBack, IconArrowForward, IconHome, IconOpenInNew, IconServer, IconSettings} from "../components/icons";
 
 type Props = {
     server: PlexServer;
@@ -24,19 +26,22 @@ export default function LibrarySelection({server, onBack, onSelectLibrary}: Prop
     const [libraries, setLibraries] = useState<PlexLibrary[]>([]);
     const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
+    useEffect(() => { try { getCurrentWindow().setTitle("Name-o-Tron 9000 — Libraries"); } catch {} }, []);
+
     useEffect(() => {
         async function load() {
             setLoading(true);
             setError(null);
             try {
-                const res = await fetch(`${server.address}/library/sections`);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const data = (await res.json()) as LibrariesResponse;
-                const dirs = (data?.MediaContainer?.Directory ?? data?.MediaContainer?.directories ?? []) as Array<{ key: string; type: string; title: string }>;
-                const libs: PlexLibrary[] = dirs
-                    .filter(Boolean)
-                    .map((d) => ({key: String(d.key), type: String(d.type) as any, title: String(d.title)}));
-                setLibraries(libs);
+                let token: string | null = null;
+                try { token = localStorage.getItem("plexToken"); } catch {}
+
+                const libs = await invoke<Array<{key: string; type: string; title: string}>>("list_libraries", {
+                    server: server.address,
+                    token: token ?? null,
+                });
+                const mapped: PlexLibrary[] = (libs || []).map(d => ({ key: String(d.key), type: String(d.type) as any, title: String(d.title) }));
+                setLibraries(mapped);
                 if (libs.length) setSelectedIdx(0);
             } catch (e: any) {
                 setError(e?.message ?? String(e));
@@ -63,6 +68,10 @@ export default function LibrarySelection({server, onBack, onSelectLibrary}: Prop
                     <div className="flex items-center gap-2 text-sm text-neutral-400">
                         <IconServer className="h-5 w-5"/>
                         {server.name} — {server.address}
+                        <button type="button" onClick={() => (window as any).__goto_home?.()} className="ml-2 inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 hover:bg-neutral-700">
+                            <IconHome className="h-5 w-5"/>
+                            Home
+                        </button>
                         <button type="button" onClick={() => (window as any).__goto_settings?.()} className="ml-2 inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 hover:bg-neutral-700">
                             <IconSettings className="h-5 w-5"/>
                             Settings

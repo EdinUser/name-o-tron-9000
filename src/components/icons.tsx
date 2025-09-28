@@ -74,3 +74,28 @@ export function IconSelectOff({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconCheck({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+    </svg>
+  );
+}
+
+export function IconHome({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3l9-8z" />
+    </svg>
+  );
+}
+
+export function IconLogout({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M14 3h-4v2h4v14h-4v2h4a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
+      <path d="M10 12l-6-5v3H2v4h2v3l6-5z" />
+    </svg>
+  );
+}
