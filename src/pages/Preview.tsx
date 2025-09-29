@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import type {PlexLibrary, PlexServer} from "../types/plex";
-import {IconArrowBack, IconBolt, IconHome, IconSelectOff, IconSettings} from "../components/icons";
+import {IconArrowBack, IconBolt, IconHome, IconRefresh, IconSelectOff, IconSettings} from "../components/icons";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import {loadSettings, saveSettings} from "../state/settings";
@@ -207,6 +207,7 @@ export default function Preview({server, library, onBack}: Props) {
     });
     const [folderInput, setFolderInput] = useState<string>(libraryFolder ?? "");
 
+    const [reloadTick, setReloadTick] = useState(0);
     useEffect(() => {
         async function load() {
             setLoading(true);
@@ -300,7 +301,7 @@ export default function Preview({server, library, onBack}: Props) {
         }
 
         load();
-    }, [server.address, library.key, library.type, template]);
+    }, [server.address, library.key, library.type, template, reloadTick]);
 
     // Live recompute when template changes
     useEffect(() => {
@@ -436,6 +437,10 @@ export default function Preview({server, library, onBack}: Props) {
                         <button onClick={applyRename} disabled={anyRedSelected} className="inline-flex items-center gap-1 rounded-md bg-cyan-500 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-cyan-400 disabled:opacity-50">
                             <IconBolt className="h-5 w-5"/>
                             Proceed
+                        </button>
+                        <button title="Reload library" onClick={() => setReloadTick(t => t + 1)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+                            <IconRefresh className="h-5 w-5"/>
+                            Reload
                         </button>
                         <input
                             value={template}

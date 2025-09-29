@@ -357,21 +357,24 @@ pub async fn fetch_library_content(
     bases.sort();
     bases.dedup();
 
-    // Candidate URLs: combinations of base, query paging, token in query, and optional type filter
+    // Candidate URLs: combinations of base, leaf-or-all path, query paging, token in query, and optional type filter
     let mut urls: Vec<String> = Vec::new();
     let paging = "X-Plex-Container-Start=0&X-Plex-Container-Size=200"; // keep responses reasonable
-    let type_opts = ["", "&type=1", "&type=4"]; // try both movie and show types
+    let type_opts = ["", "&type=1", "&type=2", "&type=4"]; // 1=movie, 2=show, 4=episode
+    let paths = ["allLeaves", "all"]; // prefer leaves for TV to get episodes directly
     for b in &bases {
-        if let Some(t) = token.as_ref() {
-            let tok = urlencoding::encode(t);
-            for tparam in type_opts.iter() {
-                urls.push(format!("{}/library/sections/{}/all?{}{}&X-Plex-Token={}", b, library_key, paging, tparam, tok));
-                urls.push(format!("{}/library/sections/{}/all?X-Plex-Token={}{}", b, library_key, tok, tparam));
+        for p in &paths {
+            if let Some(t) = token.as_ref() {
+                let tok = urlencoding::encode(t);
+                for tparam in type_opts.iter() {
+                    urls.push(format!("{}/library/sections/{}/{}?{}{}&X-Plex-Token={}", b, library_key, p, paging, tparam, tok));
+                    urls.push(format!("{}/library/sections/{}/{}?X-Plex-Token={}{}", b, library_key, p, tok, tparam));
+                }
             }
-        }
-        for tparam in type_opts.iter() {
-            urls.push(format!("{}/library/sections/{}/all?{}{}", b, library_key, paging, tparam));
-            urls.push(format!("{}/library/sections/{}/all{}", b, library_key, tparam));
+            for tparam in type_opts.iter() {
+                urls.push(format!("{}/library/sections/{}/{}?{}{}", b, library_key, p, paging, tparam));
+                urls.push(format!("{}/library/sections/{}/{}{}", b, library_key, p, tparam));
+            }
         }
     }
 
@@ -464,16 +467,111 @@ pub async fn fetch_library_content(
 
     let text = response.text().await.map_err(|e| format!("read response error: {e}"))?;
     let trimmed = text.trim();
-    // Prefer JSON if possible, otherwise return the raw body as string value (UI handles both)
+    // Prefer JSON if possible
     if trimmed.starts_with('{') || trimmed.starts_with('[') {
         match serde_json::from_str::<serde_json::Value>(trimmed) {
             Ok(v) => return Ok(v),
-            Err(e) => {
-                println!("fetch_library_content: JSON parse error: {}", e);
-            }
+            Err(e) => println!("fetch_library_content: JSON parse error: {}", e),
         }
     }
+
+    // Try minimal XML → JSON adapter for MediaContainer/Video/Part.file
+    if trimmed.starts_with('<') {
+        println!("fetch_library_content: attempting XML parse fallback");
+        if let Some(json) = xml_media_to_json(&text) {
+            println!("fetch_library_content: XML parsed into JSON-like value ({} items)", json["MediaContainer"]["Metadata"].as_array().map(|a| a.len()).unwrap_or(0));
+            return Ok(json);
+        } else {
+            println!("fetch_library_content: XML parse fallback failed");
+        }
+    }
+
+    // As last resort, return raw text
     Ok(serde_json::Value::String(text))
+}
+
+// Minimal XML parser that extracts <Video> nodes with <Media><Part file=.../>
+fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
+    use quick_xml::events::Event;
+    use quick_xml::Reader;
+    use serde_json::{json, Value};
+
+    let mut reader = Reader::from_str(xml);
+    reader.trim_text(true);
+    let mut buf = Vec::new();
+
+    #[derive(Default, Debug)]
+    struct Item {
+        rating_key: Option<String>,
+        title: Option<String>,
+        year: Option<i64>,
+        index: Option<i64>, // episode index
+        media_files: Vec<String>,
+    }
+
+    let mut items: Vec<Item> = Vec::new();
+    let mut current: Option<Item> = None;
+    let mut in_video = false;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                let name = e.name();
+                if name.as_ref() == b"Video" {
+                    in_video = true;
+                    let mut it = Item::default();
+                    for a in e.attributes().flatten() {
+                        let k = a.key.as_ref();
+                        let v = a.unescape_value().unwrap_or_default();
+                        if k == b"ratingKey" { it.rating_key = Some(v.to_string()); }
+                        else if k == b"title" { it.title = Some(v.to_string()); }
+                        else if k == b"year" { if let Ok(n) = v.parse::<i64>() { it.year = Some(n); } }
+                        else if k == b"index" { if let Ok(n) = v.parse::<i64>() { it.index = Some(n); } }
+                    }
+                    current = Some(it);
+                } else if in_video && name.as_ref() == b"Part" {
+                    // capture file attr
+                    if let Some(cur) = current.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"file" {
+                                let v = a.unescape_value().unwrap_or_default();
+                                cur.media_files.push(v.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(Event::End(e)) => {
+                if e.name().as_ref() == b"Video" {
+                    in_video = false;
+                    if let Some(it) = current.take() { items.push(it); }
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(_e) => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    let mut meta: Vec<Value> = Vec::new();
+    for it in items {
+        // Build Media/Part array resembling Plex JSON
+        let parts: Vec<Value> = it.media_files.into_iter().map(|f| json!({"file": f})).collect();
+        let media = if parts.is_empty() { Vec::new() } else { vec![json!({"Part": parts})] };
+        let mut obj = json!({
+            "title": it.title.unwrap_or_default(),
+            "Media": media,
+        });
+        if let Some(rk) = it.rating_key { obj["ratingKey"] = json!(rk); }
+        if let Some(y) = it.year { obj["year"] = json!(y); }
+        if let Some(idx) = it.index { obj["index"] = json!(idx); }
+        meta.push(obj);
+    }
+
+    Some(json!({
+        "MediaContainer": { "Metadata": meta }
+    }))
 }
 
 #[tauri::command]
