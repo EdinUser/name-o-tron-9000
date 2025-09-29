@@ -541,6 +541,32 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
                     }
                 }
             }
+            Ok(Event::Empty(e)) => {
+                // handle self-closing <Directory .../> or <Part .../>
+                let name = e.name();
+                if name.as_ref() == b"Video" {
+                    // Rare, but handle self-closing Video without parts
+                    let mut it = Item::default();
+                    for a in e.attributes().flatten() {
+                        let k = a.key.as_ref();
+                        let v = a.unescape_value().unwrap_or_default();
+                        if k == b"ratingKey" { it.rating_key = Some(v.to_string()); }
+                        else if k == b"title" { it.title = Some(v.to_string()); }
+                        else if k == b"year" { if let Ok(n) = v.parse::<i64>() { it.year = Some(n); } }
+                        else if k == b"index" { if let Ok(n) = v.parse::<i64>() { it.index = Some(n); } }
+                    }
+                    items.push(it);
+                } else if name.as_ref() == b"Part" {
+                    if let Some(cur) = current.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"file" {
+                                let v = a.unescape_value().unwrap_or_default();
+                                cur.media_files.push(v.to_string());
+                            }
+                        }
+                    }
+                }
+            }
             Ok(Event::End(e)) => {
                 if e.name().as_ref() == b"Video" {
                     in_video = false;
@@ -572,6 +598,251 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
     Some(json!({
         "MediaContainer": { "Metadata": meta }
     }))
+}
+
+// Parse XML that consists of <Directory .../> entries (e.g., shows list)
+fn xml_directory_to_json(xml: &str) -> Option<serde_json::Value> {
+    use quick_xml::events::Event;
+    use quick_xml::Reader;
+    use serde_json::{json, Value};
+
+    let mut reader = Reader::from_str(xml);
+    reader.trim_text(true);
+    let mut buf = Vec::new();
+    let mut dirs: Vec<Value> = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) if e.name().as_ref() == b"Directory" => {
+                let mut rating_key: Option<String> = None;
+                let mut key: Option<String> = None;
+                let mut title: Option<String> = None;
+                for a in e.attributes().flatten() {
+                    let k = a.key.as_ref();
+                    let v = a.unescape_value().unwrap_or_default();
+                    if k == b"ratingKey" { rating_key = Some(v.to_string()); }
+                    else if k == b"key" { key = Some(v.to_string()); }
+                    else if k == b"title" { title = Some(v.to_string()); }
+                }
+                if title.is_some() || rating_key.is_some() || key.is_some() {
+                    let mut obj = json!({
+                        "title": title.unwrap_or_default(),
+                    });
+                    if let Some(r) = rating_key { obj["ratingKey"] = json!(r); }
+                    if let Some(k) = key { obj["key"] = json!(k); }
+                    dirs.push(obj);
+                }
+            }
+            Ok(Event::Empty(e)) if e.name().as_ref() == b"Directory" => {
+                let mut rating_key: Option<String> = None;
+                let mut key: Option<String> = None;
+                let mut title: Option<String> = None;
+                for a in e.attributes().flatten() {
+                    let k = a.key.as_ref();
+                    let v = a.unescape_value().unwrap_or_default();
+                    if k == b"ratingKey" { rating_key = Some(v.to_string()); }
+                    else if k == b"key" { key = Some(v.to_string()); }
+                    else if k == b"title" { title = Some(v.to_string()); }
+                }
+                if title.is_some() || rating_key.is_some() || key.is_some() {
+                    let mut obj = json!({
+                        "title": title.unwrap_or_default(),
+                    });
+                    if let Some(r) = rating_key { obj["ratingKey"] = json!(r); }
+                    if let Some(k) = key { obj["key"] = json!(k); }
+                    dirs.push(obj);
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+    Some(json!({"MediaContainer": {"Directory": dirs}}))
+}
+
+// -- Additional helpers for TV-specific flows --
+
+async fn http_get_with_variants(
+    urls: &[String],
+    token: Option<&str>,
+    client_id: &str,
+) -> Result<reqwest::Response, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(8))
+        .http1_only()
+        .pool_max_idle_per_host(0)
+        .danger_accept_invalid_certs(true)
+        .user_agent(format!("Name-o-Tron-9000/{}", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|e| format!("http client error: {e:?}"))?;
+
+    let mut last_err: Option<String> = None;
+    for (i, url) in urls.iter().enumerate() {
+        let mut req = with_plex_headers(client.get(url), client_id)
+            .header("Accept", "application/json, application/xml;q=0.9")
+            .header("Accept-Encoding", "identity")
+            .header("Connection", "close");
+        if let Some(t) = token { req = req.header("X-Plex-Token", t); }
+        println!("http_get_with_variants: attempt {} → {}", i + 1, url);
+        match req.send().await {
+            Ok(r) => {
+                println!("http_get_with_variants: success {} → {}", r.status(), url);
+                return Ok(r)
+            },
+            Err(e) => {
+                println!("http_get_with_variants: error on {} → {}", url, e);
+                last_err = Some(format!("{e}"));
+            }
+        }
+    }
+    Err(format!(
+        "all attempts failed{}",
+        last_err.map(|e| format!(": {e}")).unwrap_or_default()
+    ))
+}
+
+#[tauri::command]
+pub async fn fetch_tv_shows(
+    server: String,
+    library_key: String,
+    token: Option<String>,
+    start: Option<usize>,
+    size: Option<usize>,
+    query: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let start = start.unwrap_or(0);
+    let size = size.unwrap_or(200);
+
+    let base_in = server.trim_end_matches('/');
+    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
+        base_in.to_string()
+    } else { format!("http://{}", base_in) }];
+    if base_in.starts_with("http://") {
+        bases.push(base_in.replacen("http://", "https://", 1));
+    } else if base_in.starts_with("https://") {
+        bases.push(base_in.replacen("https://", "http://", 1));
+    } else {
+        bases.push(format!("https://{}", base_in));
+    }
+    bases.sort();
+    bases.dedup();
+
+    let paging = format!("X-Plex-Container-Start={}&X-Plex-Container-Size={}", start, size);
+    let mut urls: Vec<String> = Vec::new();
+    for b in &bases {
+        if let Some(q) = query.as_ref().filter(|s| !s.trim().is_empty()) {
+            let qenc = urlencoding::encode(q.trim());
+            if let Some(t) = token.as_ref() {
+                let tok = urlencoding::encode(t);
+                urls.push(format!("{}/library/sections/{}/search?type=2&query={}&{}&X-Plex-Token={}", b, library_key, qenc, paging, tok));
+                urls.push(format!("{}/library/sections/{}/search?type=2&query={}&X-Plex-Token={}", b, library_key, qenc, tok));
+            }
+            urls.push(format!("{}/library/sections/{}/search?type=2&query={}&{}", b, library_key, qenc, paging));
+            urls.push(format!("{}/library/sections/{}/search?type=2&query={}", b, library_key, qenc));
+        } else {
+            if let Some(t) = token.as_ref() {
+                let tok = urlencoding::encode(t);
+                urls.push(format!("{}/library/sections/{}/all?{}&type=2&X-Plex-Token={}", b, library_key, paging, tok));
+                urls.push(format!("{}/library/sections/{}/all?type=2&X-Plex-Token={}", b, library_key, tok));
+            }
+            urls.push(format!("{}/library/sections/{}/all?{}&type=2", b, library_key, paging));
+            urls.push(format!("{}/library/sections/{}/all?type=2", b, library_key));
+        }
+    }
+
+    let client_id = current_client_id();
+    let resp = http_get_with_variants(&urls, token.as_deref(), &client_id).await?;
+    let status = resp.status();
+    let text = resp.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(format!("HTTP {}: {}", status, text));
+    }
+    let trimmed = text.trim();
+    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+        if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(trimmed) {
+            // Normalize to MediaContainer.Directory array
+            if let Some(mc) = v.get("MediaContainer").cloned() {
+                let mut dirs: Vec<serde_json::Value> = Vec::new();
+                if let Some(arr) = mc.get("Directory").and_then(|d| d.as_array()) {
+                    dirs.extend(arr.iter().cloned());
+                } else if let Some(obj) = mc.get("Directory").and_then(|d| d.as_object()) {
+                    dirs.push(serde_json::Value::Object(obj.clone()));
+                } else if let Some(arr) = mc.get("Metadata").and_then(|m| m.as_array()) {
+                    for it in arr {
+                        let title = it.get("title").cloned().unwrap_or(serde_json::Value::String(String::new()));
+                        let rk = it.get("ratingKey").cloned();
+                        let mut o = serde_json::json!({"title": title});
+                        if let Some(r) = rk { o["ratingKey"] = r; }
+                        dirs.push(o);
+                    }
+                }
+                let out = serde_json::json!({"MediaContainer": {"Directory": dirs}});
+                println!("fetch_tv_shows: normalized shows = {}", out["MediaContainer"]["Directory"].as_array().map(|a| a.len()).unwrap_or(0));
+                return Ok(out);
+            }
+            return Ok(v);
+        }
+    }
+    if trimmed.starts_with('<') {
+        if let Some(v) = xml_directory_to_json(&text) { return Ok(v); }
+    }
+    // minimal pass-through if we cannot parse
+    Ok(serde_json::json!({"_raw": text}))
+}
+
+#[tauri::command]
+pub async fn fetch_show_episodes(
+    server: String,
+    show_rating_key: String,
+    token: Option<String>,
+    start: Option<usize>,
+    size: Option<usize>,
+) -> Result<serde_json::Value, String> {
+    let start = start.unwrap_or(0);
+    let size = size.unwrap_or(200);
+    let base_in = server.trim_end_matches('/');
+    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
+        base_in.to_string()
+    } else { format!("http://{}", base_in) }];
+    if base_in.starts_with("http://") {
+        bases.push(base_in.replacen("http://", "https://", 1));
+    } else if base_in.starts_with("https://") {
+        bases.push(base_in.replacen("https://", "http://", 1));
+    } else {
+        bases.push(format!("https://{}", base_in));
+    }
+    bases.sort();
+    bases.dedup();
+
+    let paging = format!("X-Plex-Container-Start={}&X-Plex-Container-Size={}", start, size);
+    let mut urls: Vec<String> = Vec::new();
+    for b in &bases {
+        if let Some(t) = token.as_ref() {
+            let tok = urlencoding::encode(t);
+            urls.push(format!("{}/library/metadata/{}/allLeaves?{}&X-Plex-Token={}", b, show_rating_key, paging, tok));
+            urls.push(format!("{}/library/metadata/{}/allLeaves?X-Plex-Token={}", b, show_rating_key, tok));
+        }
+        urls.push(format!("{}/library/metadata/{}/allLeaves?{}", b, show_rating_key, paging));
+        urls.push(format!("{}/library/metadata/{}/allLeaves", b, show_rating_key));
+    }
+
+    let client_id = current_client_id();
+    let resp = http_get_with_variants(&urls, token.as_deref(), &client_id).await?;
+    let status = resp.status();
+    let text = resp.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(format!("HTTP {}: {}", status, text));
+    }
+    let trimmed = text.trim();
+    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) { return Ok(v); }
+    }
+    if trimmed.starts_with('<') {
+        if let Some(v) = xml_media_to_json(&text) { return Ok(v); }
+    }
+    Ok(serde_json::json!({"_raw": text}))
 }
 
 #[tauri::command]

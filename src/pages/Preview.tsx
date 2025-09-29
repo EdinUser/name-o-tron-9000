@@ -40,6 +40,7 @@ type PreviewRow = {
 };
 
 type SectionResponse = any; // shape varies by library type (mock fixtures)
+type TvShow = { ratingKey: string; title: string };
 
 const RESERVED = new Set([
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
@@ -197,6 +198,13 @@ export default function Preview({server, library, onBack}: Props) {
         const s = loadSettings();
         return library.type === "movie" ? s.templates.movie : s.templates.episode;
     });
+    const [shows, setShows] = useState<TvShow[]>([]);
+    const [selectedShow, setSelectedShow] = useState<string | null>(() => {
+        const preset = (window as any).__initialShow as (TvShow | undefined);
+        return preset?.ratingKey ?? null;
+    });
+    const showsPaging = useRef({ start: 0, size: 200, exhausted: false });
+    const episodesPaging = useRef({ start: 0, size: 200, exhausted: false });
     const folderMapKey = useMemo(() => `${server.address}::${library.key}`, [server.address, library.key]);
     const [libraryFolder, setLibraryFolder] = useState<string | null>(() => {
         try {
@@ -216,18 +224,17 @@ export default function Preview({server, library, onBack}: Props) {
                 let token: string | null = null;
                 try { token = localStorage.getItem("plexToken"); } catch {}
                 
-                // Use Tauri invoke to fetch library content with proper token handling
-                const data = await invoke<SectionResponse>("fetch_library_content", {
-                    server: server.address,
-                    libraryKey: library.key,
-                    token: token ?? null,
-                });
-
                 const list: PreviewRow[] = [];
-                const mc = data?.MediaContainer;
-                const md = mc?.Metadata ?? [];
-
+                
                 if (library.type === "movie") {
+                    // Fetch movie items using the existing command
+                    const data = await invoke<SectionResponse>("fetch_library_content", {
+                        server: server.address,
+                        libraryKey: library.key,
+                        token: token ?? null,
+                    });
+                    const mc = data?.MediaContainer;
+                    const md = mc?.Metadata ?? [];
                     for (const item of md) {
                         const file = item?.Media?.[0]?.Part?.[0]?.file;
                         if (!file) continue;
@@ -243,34 +250,39 @@ export default function Preview({server, library, onBack}: Props) {
                         list.push(computeMovieProposal(m, tpl));
                     }
                 } else if (library.type === "show") {
-                    const hasChildren = md.some((it: any) => Array.isArray(it?.children));
-                    if (hasChildren) {
-                        for (const show of md) {
-                            const showTitle = String(show.title ?? "Unknown Show");
-                            const children = show.children ?? [];
-                            for (const season of children) {
-                                const seasonNum = parseInt(String(season.title).replace(/[^0-9]/g, "")) || undefined;
-                                const eps = season.Episode ?? [];
-                                for (const ep of eps) {
-                                    const file = ep?.Media?.[0]?.Part?.[0]?.file;
-                                    if (!file) continue;
-                                    const e: EpisodeItem = {
-                                        type: "episode",
-                                        ratingKey: String(ep.ratingKey ?? ep.key ?? file),
-                                        showTitle,
-                                        title: String(ep.title ?? "Episode"),
-                                        season: seasonNum,
-                                        index: typeof ep.index === "number" ? ep.index : undefined,
-                                        file: String(file),
-                                    };
-                                    const s = loadSettings();
-                                    const tpl = s.templates.episode || template;
-                                    list.push(computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders));
-                                }
-                            }
+                    // If no show selected, load shows list first; if there is a preset, seed it
+                    if (!selectedShow) {
+                        const preset = (window as any).__initialShow as (TvShow | undefined);
+                        if (preset && preset.ratingKey) {
+                            setShows([preset]);
+                            setSelectedShow(preset.ratingKey);
+                            (window as any).__initialShow = undefined;
                         }
-                    } else {
-                        // Flat list of episodes under Metadata
+                    }
+                    if (!selectedShow) {
+                        const showsResp = await invoke<any>("fetch_tv_shows", {
+                            server: server.address,
+                            libraryKey: library.key,
+                            token: token ?? null,
+                            start: showsPaging.current.start,
+                            size: showsPaging.current.size,
+                            query: null,
+                        });
+                        const dir = showsResp?.MediaContainer?.Directory ?? [];
+                        const nextShows: TvShow[] = dir.map((d: any) => ({ ratingKey: String(d.ratingKey ?? d.key ?? ""), title: String(d.title ?? "") })).filter((s: TvShow) => s.ratingKey);
+                        if (showsPaging.current.start === 0) setShows(nextShows);
+                        if (nextShows.length > 0 && !selectedShow) setSelectedShow(nextShows[0]?.ratingKey ?? null);
+                        // Nothing more to do until a show is selected
+                    }
+                    if (selectedShow) {
+                        const epsResp = await invoke<any>("fetch_show_episodes", {
+                            server: server.address,
+                            showRatingKey: selectedShow,
+                            token: token ?? null,
+                            start: episodesPaging.current.start,
+                            size: episodesPaging.current.size,
+                        });
+                        const md = epsResp?.MediaContainer?.Metadata ?? [];
                         for (const item of md) {
                             const file = item?.Media?.[0]?.Part?.[0]?.file;
                             if (!file) continue;
@@ -301,7 +313,7 @@ export default function Preview({server, library, onBack}: Props) {
         }
 
         load();
-    }, [server.address, library.key, library.type, template, reloadTick]);
+    }, [server.address, library.key, library.type, template, reloadTick, selectedShow]);
 
     // Live recompute when template changes
     useEffect(() => {
@@ -491,6 +503,94 @@ export default function Preview({server, library, onBack}: Props) {
 
             <section className="mx-auto px-6 py-6">
                 <div className="mb-2 text-sm text-neutral-400">Library: <span className="text-neutral-200">{library.title}</span> — Server: <span className="text-neutral-200">{server.name}</span></div>
+                {library.type === "show" && (
+                  <div className="mb-3 flex items-center gap-2 text-sm">
+                    <label className="text-neutral-300">Show</label>
+                    <select
+                      value={selectedShow ?? ""}
+                      onChange={(e) => {
+                        setRows([]);
+                        episodesPaging.current = { start: 0, size: 200, exhausted: false };
+                        setSelectedShow(e.target.value || null);
+                      }}
+                      className="min-w-[320px] rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-200"
+                    >
+                      {shows.length === 0 && <option value="">Loading shows…</option>}
+                      {shows.map(s => <option key={s.ratingKey} value={s.ratingKey}>{s.title}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 hover:bg-neutral-700"
+                      onClick={async () => {
+                        // Fetch next page of shows
+                        showsPaging.current.start += showsPaging.current.size;
+                        setLoading(true);
+                        try {
+                          const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
+                          const showsResp = await invoke<any>("fetch_tv_shows", {
+                            server: server.address,
+                            libraryKey: library.key,
+                            token,
+                            start: showsPaging.current.start,
+                            size: showsPaging.current.size,
+                          });
+                          const dir = showsResp?.MediaContainer?.Directory ?? [];
+                          const next = dir.map((d: any) => ({ ratingKey: String(d.ratingKey ?? d.key ?? ""), title: String(d.title ?? "") })).filter((s: any) => s.ratingKey);
+                          if (next.length === 0) showsPaging.current.exhausted = true;
+                          setShows(prev => [...prev, ...next]);
+                        } catch (e) {
+                          console.warn("Load more shows failed", e);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                    >Load more shows</button>
+                    {selectedShow && (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 hover:bg-neutral-700"
+                        onClick={async () => {
+                          // Load next page of episodes for current show
+                          episodesPaging.current.start += episodesPaging.current.size;
+                          setLoading(true);
+                          try {
+                            const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
+                            const epsResp = await invoke<any>("fetch_show_episodes", {
+                              server: server.address,
+                              showRatingKey: selectedShow,
+                              token,
+                              start: episodesPaging.current.start,
+                              size: episodesPaging.current.size,
+                            });
+                            const md = epsResp?.MediaContainer?.Metadata ?? [];
+                            const more: PreviewRow[] = [];
+                            for (const item of md) {
+                              const file = item?.Media?.[0]?.Part?.[0]?.file; if (!file) continue;
+                              const parsed = parseEpisodeInfo(String(file), String(item.title ?? "Episode"));
+                              const eItem: EpisodeItem = {
+                                type: "episode",
+                                ratingKey: String(item.ratingKey ?? item.key ?? file),
+                                showTitle: parsed.showTitle,
+                                title: String(item.title ?? "Episode"),
+                                season: parsed.season,
+                                index: parsed.index,
+                                file: String(file),
+                              };
+                              const s = loadSettings();
+                              const tpl = s.templates.episode || template;
+                              more.push(computeEpisodeProposal(eItem, tpl, !!s.tv.seasonFolders));
+                            }
+                            setRows(prev => [...prev, ...more]);
+                          } catch (e) {
+                            console.warn("Load more episodes failed", e);
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                      >Load more episodes</button>
+                    )}
+                  </div>
+                )}
                 {loading && <p className="text-center text-neutral-400">Loading preview…</p>}
                 {error && <p className="text-center text-red-300">Error: {error}</p>}
 

@@ -3,8 +3,10 @@ use serde::Serialize;
 use plex_api::{list_libraries, plex_login, plex_login_status, plex_logout};
 mod plex_api;
 
-// Re-export the fetch_library_content function
+// Re-export functions used by frontend
 pub use plex_api::fetch_library_content;
+pub use plex_api::fetch_tv_shows;
+pub use plex_api::fetch_show_episodes;
 
 #[derive(Serialize)]
 pub struct PlexServerDto {
@@ -143,7 +145,8 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
                 format!("http://{}:32400", host)
             };
 
-            // Use reachability check on host part
+            // Use reachability check on host part. Even if unreachable now, include as a candidate
+            // so the user can still proceed (network flakiness/SSDP issues). UI can validate later.
             let host_for_check = host
                 .trim_start_matches("http://")
                 .trim_start_matches("https://")
@@ -151,13 +154,15 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
                 .split(':')
                 .next()
                 .unwrap_or(host);
-            if is_reachable(host_for_check) {
-                servers.push(PlexServerDto {
-                    name: format!("Plex ({})", host_for_check),
-                    address: normalized,
-                    machine_identifier: None,
-                    owned: None,
-                });
+            let reachable = is_reachable(host_for_check);
+            servers.push(PlexServerDto {
+                name: format!("Plex ({})", host_for_check),
+                address: normalized,
+                machine_identifier: None,
+                owned: None,
+            });
+            if !reachable {
+                // keep, but don't add duplicates; the subsequent dedup will handle it
             }
         }
     }
@@ -179,6 +184,8 @@ pub fn run() {
             plex_logout,
             list_libraries,
             plex_api::fetch_library_content,
+            plex_api::fetch_tv_shows,
+            plex_api::fetch_show_episodes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
