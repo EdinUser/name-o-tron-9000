@@ -115,3 +115,44 @@ export function IconLogout({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconMovie({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M4 4h3l2 4h3l-2-4h3l2 4h3l-2-4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+    </svg>
+  );
+}
+
+export function IconTv({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M21 6H3a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h6l-2 2h10l-2-2h6a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2zM3 16V8h18v8H3z" />
+    </svg>
+  );
+}
+
+export function IconMusic({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
+    </svg>
+  );
+}
+
+export function IconBadgeCheck({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M12 2l2.5 2.5L17 3l1 3 3 1-1 3 2 2-2 2 1 3-3 1-1 3-2.5-1.5L12 22l-2.5-2.5L7 21l-1-3-3-1 1-3-2-2 2-2-1-3 3-1 1-3 2.5 1.5L12 2z" />
+      <path d="M10.5 13.5l-2-2L7 13l3.5 3.5L17 10l-1.5-1.5-5 5z" />
+    </svg>
+  );
+}
+
+export function IconBadgeAlert({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M12 2l10 18H2L12 2zm0 5l-1 6h2l-1-6zm0 10a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z" />
+    </svg>
+  );
+}

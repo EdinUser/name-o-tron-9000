@@ -22,6 +22,8 @@ export default function Home({onSelectServer}: Props) {
             selectedIdx != null ? servers[selectedIdx] : null,
         [selectedIdx, servers]);
 
+    // Mapping moved to Select Library screen
+
     async function discoverServers() {
         const runId = ++discoverRun.current;
         setError(null);
@@ -189,7 +191,7 @@ export default function Home({onSelectServer}: Props) {
     async function proceed() {
         if (!selected) return;
         const tok = await ensurePlexLogin();
-        if (!tok) return; // show pending/expired/error banner until resolved
+        if (!tok) return; // waiting for login/pending
         onSelectServer(selected);
     }
 
@@ -370,6 +372,8 @@ export default function Home({onSelectServer}: Props) {
                     </div>
                 </div>
             )}
+
+            
         </main>
     );
 }

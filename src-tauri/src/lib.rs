@@ -1,6 +1,8 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::Serialize;
 use plex_api::{list_libraries, plex_login, plex_login_status, plex_logout};
+mod path_map;
+mod settings;
 mod plex_api;
 
 // Re-export functions used by frontend
@@ -177,6 +179,7 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             plex_discover,
             plex_login,
@@ -186,6 +189,9 @@ pub fn run() {
             plex_api::fetch_library_content,
             plex_api::fetch_tv_shows,
             plex_api::fetch_show_episodes,
+            path_map::test_mapping,
+            settings::get_settings,
+            settings::save_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

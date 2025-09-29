@@ -310,6 +310,8 @@ pub struct PlexLibraryDto {
     #[serde(rename = "type")]
     pub r#type: String,
     pub title: String,
+    #[serde(default)]
+    pub roots: Vec<String>,
 }
 
 fn current_client_id() -> String {
@@ -932,16 +934,26 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text) {
         println!("Successfully parsed JSON response");
         if let Some(media_container) = json.get("MediaContainer") {
-            if let Some(directories) = media_container.get("Directory") {
-                match serde_json::from_value::<Vec<PlexLibraryDto>>(directories.clone()) {
-                    Ok(dirs) => {
-                        println!("Successfully parsed {} libraries from JSON", dirs.len());
-                        return Ok(dirs);
-                    },
-                    Err(e) => {
-                        println!("Failed to parse directories from JSON: {}", e);
+            if let Some(dirs_val) = media_container.get("Directory") {
+                let dirs_slice: Vec<&serde_json::Value> = match dirs_val {
+                    serde_json::Value::Array(a) => a.iter().collect(),
+                    _ => vec![dirs_val],
+                };
+                let mut dirs: Vec<PlexLibraryDto> = Vec::new();
+                for d in dirs_slice {
+                    let key = d.get("key").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                    let typ = d.get("type").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                    let title = d.get("title").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                    if key.is_empty() || title.is_empty() { continue; }
+                    let mut roots: Vec<String> = parse_roots_from_directory_json(d);
+                    if roots.is_empty() {
+                        // Fallback to per-section request if locations not present in this payload
+                        if let Ok(r) = fetch_section_roots(&bases, &key, token.as_deref(), &client_id).await { roots = r; }
                     }
+                    dirs.push(PlexLibraryDto { key, r#type: typ, title, roots });
                 }
+                println!("Parsed {} libraries (JSON)", dirs.len());
+                return Ok(dirs);
             } else {
                 println!("No 'Directory' field found in MediaContainer");
             }
@@ -957,11 +969,28 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
     let mut reader = Reader::from_str(&response_text);
     reader.trim_text(true);
     let mut buf = Vec::new();
-    let mut out = Vec::new();
+    let mut out: Vec<PlexLibraryDto> = Vec::new();
+    let mut in_dir = false;
+    let mut cur_key = String::new();
+    let mut cur_type = String::new();
+    let mut cur_title = String::new();
+    let mut cur_roots: Vec<String> = Vec::new();
 
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) if e.name().as_ref() == b"Directory" => {
+                in_dir = true;
+                cur_key.clear(); cur_type.clear(); cur_title.clear(); cur_roots.clear();
+                for a in e.attributes().flatten() {
+                    let k = a.key.as_ref();
+                    let v = a.unescape_value().unwrap_or_default();
+                    if k == b"key" { cur_key = v.to_string(); }
+                    else if k == b"type" { cur_type = v.to_string(); }
+                    else if k == b"title" { cur_title = v.to_string(); }
+                }
+            }
+            Ok(Event::Empty(e)) if e.name().as_ref() == b"Directory" => {
+                // Self-closing Directory without nested Locations
                 let mut key = String::new();
                 let mut typ = String::new();
                 let mut title = String::new();
@@ -973,11 +1002,33 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                     else if k == b"title" { title = v.to_string(); }
                 }
                 if !key.is_empty() && !title.is_empty() {
-                    println!("Found library: {} (type: {})", title, typ);
-                    out.push(PlexLibraryDto { key, r#type: typ, title });
+                    out.push(PlexLibraryDto { key, r#type: typ, title, roots: Vec::new() });
+                }
+            }
+            Ok(Event::Start(e)) if e.name().as_ref() == b"Location" && in_dir => {
+                for a in e.attributes().flatten() {
+                    if a.key.as_ref() == b"path" {
+                        let v = a.unescape_value().unwrap_or_default();
+                        if !v.is_empty() { cur_roots.push(v.to_string()); }
+                    }
+                }
+            }
+            Ok(Event::Empty(e)) if e.name().as_ref() == b"Location" && in_dir => {
+                for a in e.attributes().flatten() {
+                    if a.key.as_ref() == b"path" {
+                        let v = a.unescape_value().unwrap_or_default();
+                        if !v.is_empty() { cur_roots.push(v.to_string()); }
+                    }
                 }
             }
             Ok(Event::Eof) => break,
+            Ok(Event::End(e)) if e.name().as_ref() == b"Directory" => {
+                if !cur_key.is_empty() && !cur_title.is_empty() {
+                    out.push(PlexLibraryDto { key: cur_key.clone(), r#type: cur_type.clone(), title: cur_title.clone(), roots: cur_roots.clone() });
+                }
+                in_dir = false;
+                cur_roots.clear();
+            }
             Err(e) => {
                 println!("XML parsing error: {}", e);
                 break;
@@ -1046,7 +1097,7 @@ fn fetch_sections_with_ureq(
                         let typ = d.get("type").and_then(|x| x.as_str()).unwrap_or("").to_string();
                         let title = d.get("title").and_then(|x| x.as_str()).unwrap_or("").to_string();
                         if !key.is_empty() && !title.is_empty() {
-                            out.push(PlexLibraryDto { key, r#type: typ, title });
+                            out.push(PlexLibraryDto { key, r#type: typ, title, roots: Vec::new() });
                         }
                     }
                     return Ok(out);
@@ -1070,7 +1121,7 @@ fn fetch_sections_with_ureq(
                                     else if k == b"title" { title = v.to_string(); }
                                 }
                                 if !key.is_empty() && !title.is_empty() {
-                                    out.push(PlexLibraryDto { key, r#type: typ, title });
+                                    out.push(PlexLibraryDto { key, r#type: typ, title, roots: Vec::new() });
                                 }
                             }
                             Ok(Event::Eof) => break,
@@ -1086,4 +1137,148 @@ fn fetch_sections_with_ureq(
         }
     }
     Err(format!("ureq libraries request error: {} — server {}", last_err.unwrap_or_else(|| "unknown".into()), base))
+}
+
+// Fetch roots for a single section key by querying /library/sections/{key}
+async fn fetch_section_roots(
+    bases: &[String],
+    key: &str,
+    token: Option<&str>,
+    client_id: &str,
+) -> Result<Vec<String>, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(20))
+        .http1_only()
+        .pool_max_idle_per_host(0)
+        .danger_accept_invalid_certs(true)
+        .user_agent(format!("Name-o-Tron-9000/{}", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|e| format!("http client error: {e:?}"))?;
+
+    let mut urls: Vec<String> = Vec::new();
+    for b in bases {
+        if let Some(t) = token {
+            urls.push(format!("{}/library/sections/{}?X-Plex-Token={}", b, key, urlencoding::encode(t)));
+            urls.push(format!("{}/library/sections/{}/?X-Plex-Token={}", b, key, urlencoding::encode(t)));
+        } else {
+            urls.push(format!("{}/library/sections/{}", b, key));
+            urls.push(format!("{}/library/sections/{}/", b, key));
+        }
+    }
+
+    let mut last_err: Option<String> = None;
+    for url in &urls {
+        let mut req = with_plex_headers(client.get(url), client_id)
+            .header("Accept", "application/json, application/xml;q=0.9")
+            .header("Accept-Encoding", "identity")
+            .header("Connection", "close");
+        if let Some(t) = token { req = req.header("X-Plex-Token", t); }
+        match req.send().await {
+            Ok(resp) => {
+                let status = resp.status();
+                let body = resp.text().await.unwrap_or_default();
+                if !status.is_success() { last_err = Some(format!("HTTP {} @ {}", status, url)); continue; }
+                // JSON first
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                    if let Some(roots) = parse_roots_from_json(&json) { return Ok(roots); }
+                }
+                // XML fallback
+                if let Some(roots) = parse_roots_from_xml(&body) { return Ok(roots); }
+                // As a fallback, return empty to avoid hard-fail
+                return Ok(Vec::new());
+            }
+            Err(e) => { last_err = Some(format!("{e:?} @ {}", url)); }
+        }
+    }
+    Err(last_err.unwrap_or_else(|| "unknown error fetching section roots".into()))
+}
+
+fn parse_roots_from_json(v: &serde_json::Value) -> Option<Vec<String>> {
+    let mc = v.get("MediaContainer")?;
+    let dir = mc.get("Directory")?;
+    // Directory can be object or array with single object
+    let dirs: Vec<&serde_json::Value> = match dir {
+        serde_json::Value::Array(a) => a.iter().collect(),
+        _ => vec![dir],
+    };
+    let mut out: Vec<String> = Vec::new();
+    for d in dirs {
+        match d.get("Location") {
+            Some(serde_json::Value::Array(locs)) => {
+                for loc in locs {
+                    if let Some(path) = loc.get("path").and_then(|x| x.as_str()) {
+                        if !path.is_empty() { out.push(path.to_string()); }
+                    }
+                }
+            }
+            Some(obj @ serde_json::Value::Object(_)) => {
+                if let Some(path) = obj.get("path").and_then(|x| x.as_str()) {
+                    if !path.is_empty() { out.push(path.to_string()); }
+                }
+            }
+            _ => {}
+        }
+    }
+    Some(out)
+}
+
+fn parse_roots_from_directory_json(d: &serde_json::Value) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    match d.get("Location") {
+        Some(serde_json::Value::Array(locs)) => {
+            for loc in locs {
+                if let Some(path) = loc.get("path").and_then(|x| x.as_str()) {
+                    if !path.is_empty() { out.push(path.to_string()); }
+                }
+            }
+        }
+        Some(obj @ serde_json::Value::Object(_)) => {
+            if let Some(path) = obj.get("path").and_then(|x| x.as_str()) {
+                if !path.is_empty() { out.push(path.to_string()); }
+            }
+        }
+        _ => {}
+    }
+    out
+}
+
+fn parse_roots_from_xml(xml: &str) -> Option<Vec<String>> {
+    let mut reader = Reader::from_str(xml);
+    reader.trim_text(true);
+    let mut buf = Vec::new();
+    let mut in_directory = false;
+    let mut out: Vec<String> = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                if e.name().as_ref() == b"Directory" { in_directory = true; }
+                else if in_directory && e.name().as_ref() == b"Location" {
+                    for a in e.attributes().flatten() {
+                        if a.key.as_ref() == b"path" {
+                            let v = a.unescape_value().unwrap_or_default();
+                            if !v.is_empty() { out.push(v.to_string()); }
+                        }
+                    }
+                }
+            }
+            Ok(Event::Empty(e)) => {
+                if e.name().as_ref() == b"Location" {
+                    for a in e.attributes().flatten() {
+                        if a.key.as_ref() == b"path" {
+                            let v = a.unescape_value().unwrap_or_default();
+                            if !v.is_empty() { out.push(v.to_string()); }
+                        }
+                    }
+                }
+            }
+            Ok(Event::End(e)) => {
+                if e.name().as_ref() == b"Directory" { in_directory = false; }
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+    Some(out)
 }
