@@ -197,6 +197,15 @@ export default function Preview({server, library, onBack}: Props) {
         const s = loadSettings();
         return library.type === "movie" ? s.templates.movie : s.templates.episode;
     });
+    const folderMapKey = useMemo(() => `${server.address}::${library.key}`, [server.address, library.key]);
+    const [libraryFolder, setLibraryFolder] = useState<string | null>(() => {
+        try {
+            const raw = localStorage.getItem("nameotron.libraryFolders.v1");
+            const map = raw ? JSON.parse(raw) as Record<string, string> : {};
+            return map[folderMapKey] || null;
+        } catch { return null; }
+    });
+    const [folderInput, setFolderInput] = useState<string>(libraryFolder ?? "");
 
     useEffect(() => {
         async function load() {
@@ -512,6 +521,52 @@ export default function Preview({server, library, onBack}: Props) {
                         {rows.length === 0 && <p className="px-3 py-2 text-neutral-400">No items to preview.</p>}
                     </div>
                 )}
+
+                {/* Library folder mapping helper (text input to avoid extra plugin dependency) */}
+                <div className="mt-3 flex items-center justify-between text-sm text-neutral-300">
+                    <div>
+                        <span className="text-neutral-400">Mapped folder:</span>{" "}
+                        <span className="text-neutral-200">{libraryFolder ?? "Not set"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={folderInput}
+                          onChange={(e) => setFolderInput(e.target.value)}
+                          placeholder="/path/to/your/library/root"
+                          className="w-[380px] rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-500"
+                        />
+                        <button type="button" onClick={() => {
+                          const trimmed = folderInput.trim();
+                          if (!trimmed) return;
+                          setLibraryFolder(trimmed);
+                          try {
+                            const raw = localStorage.getItem("nameotron.libraryFolders.v1");
+                            const map = raw ? JSON.parse(raw) as Record<string, string> : {};
+                            map[folderMapKey] = trimmed;
+                            localStorage.setItem("nameotron.libraryFolders.v1", JSON.stringify(map));
+                          } catch { /* ignore */ }
+                        }} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">Set</button>
+                        {libraryFolder && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLibraryFolder(null);
+                              setFolderInput("");
+                              try {
+                                const raw = localStorage.getItem("nameotron.libraryFolders.v1");
+                                const map = raw ? JSON.parse(raw) as Record<string, string> : {};
+                                delete map[folderMapKey];
+                                localStorage.setItem("nameotron.libraryFolders.v1", JSON.stringify(map));
+                              } catch { /* ignore */ }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
+                          >
+                            Clear
+                          </button>
+                        )}
+                    </div>
+                </div>
 
                 {rows.length > pageSize && (
                     <div className="mt-3 flex items-center justify-between text-sm text-neutral-300">

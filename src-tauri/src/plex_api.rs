@@ -321,86 +321,159 @@ fn current_client_id() -> String {
     FALLBACK.clone()
 }
 
-use reqwest::header;
-
-use reqwest::blocking::Client as BlockingClient;
+// Note: keep imports lean; unused imports trigger warnings in dev builds.
 
 #[tauri::command]
-pub async fn fetch_library_content(server: String, library_key: String, token: Option<String>) -> Result<serde_json::Value, String> {
-    // Create a client with more detailed error handling
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .connect_timeout(std::time::Duration::from_secs(5))
-        .build() {
-            Ok(client) => client,
-            Err(e) => return Err(format!("Failed to create HTTP client: {}", e))
-        };
+pub async fn fetch_library_content(
+    server: String,
+    library_key: String,
+    token: Option<String>,
+ ) -> Result<serde_json::Value, String> {
+    // Build a robust HTTP client similar to list_libraries
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(8))
+        .http1_only() // PMS often speaks HTTP/1.1 on 32400
+        .pool_max_idle_per_host(0)
+        .danger_accept_invalid_certs(true)
+        .user_agent(format!("Name-o-Tron-9000/{}", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|e| format!("http client error: {e:?}"))?;
 
-    // Build the URL with protocol if missing
-    let base_url = if server.starts_with("http") { 
-        server.trim_end_matches('/').to_string() 
-    } else { 
-        format!("http://{}", server.trim_end_matches('/'))
-    };
-    
-    let url = format!("{}/library/sections/{}/all", base_url, library_key);
-    println!("Attempting to fetch from: {}", url);
-
-    // Get client ID for headers
-    let client_id = current_client_id();
-    
-    // Build request with Plex headers
-    let request = client.get(&url);
-    let mut request = with_plex_headers(request, &client_id)
-        .header("Accept", "application/json");
-    
-    // Add token if available
-    if let Some(t) = &token {
-        request = request.header("X-Plex-Token", t);
-        println!("Using Plex token for authentication");
+    // Normalize bases and try both http/https like list_libraries
+    let base_in = server.trim_end_matches('/');
+    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
+        base_in.to_string()
     } else {
-        println!("No authentication token provided");
+        format!("http://{}", base_in)
+    }];
+    if base_in.starts_with("http://") {
+        bases.push(base_in.replacen("http://", "https://", 1));
+    } else if base_in.starts_with("https://") {
+        bases.push(base_in.replacen("https://", "http://", 1));
+    } else {
+        bases.push(format!("https://{}", base_in));
+    }
+    bases.sort();
+    bases.dedup();
+
+    // Candidate URLs: combinations of base, query paging, token in query, and optional type filter
+    let mut urls: Vec<String> = Vec::new();
+    let paging = "X-Plex-Container-Start=0&X-Plex-Container-Size=200"; // keep responses reasonable
+    let type_opts = ["", "&type=1", "&type=4"]; // try both movie and show types
+    for b in &bases {
+        if let Some(t) = token.as_ref() {
+            let tok = urlencoding::encode(t);
+            for tparam in type_opts.iter() {
+                urls.push(format!("{}/library/sections/{}/all?{}{}&X-Plex-Token={}", b, library_key, paging, tparam, tok));
+                urls.push(format!("{}/library/sections/{}/all?X-Plex-Token={}{}", b, library_key, tok, tparam));
+            }
+        }
+        for tparam in type_opts.iter() {
+            urls.push(format!("{}/library/sections/{}/all?{}{}", b, library_key, paging, tparam));
+            urls.push(format!("{}/library/sections/{}/all{}", b, library_key, tparam));
+        }
     }
 
-    // Execute request with detailed error handling
-    let response = match request.send().await {
-        Ok(resp) => resp,
-        Err(e) => {
-            let error = if e.is_timeout() {
-                "Request timed out. Is the server running and accessible?"
-            } else if e.is_connect() {
-                "Failed to connect to server. Check if the server is running and accessible."
-            } else if e.is_request() {
-                "Invalid request. Please check the server URL and parameters."
-            } else {
-                "Failed to send request to server"
-            };
-            return Err(format!("{}: {}", error, e));
+    // Prepare common headers
+    let client_id = current_client_id();
+
+    // Try reqwest first across candidates
+    let mut last_reqwest_err: Option<String> = None;
+    let mut response_opt = None;
+    for (i, url) in urls.iter().enumerate() {
+        let mut req = with_plex_headers(client.get(url), &client_id)
+            .header("Accept", "application/json, application/xml;q=0.9")
+            .header("Accept-Encoding", "identity")
+            .header("Connection", "close");
+        if let Some(t) = token.as_ref() {
+            req = req.header("X-Plex-Token", t);
+        }
+        println!("fetch_library_content: attempt {} → {}", i + 1, url);
+        match req.send().await {
+            Ok(resp) => { response_opt = Some(resp); break; }
+            Err(e) => {
+                let mut kind = "send error".to_string();
+                if e.is_timeout() { kind = "timeout".into(); }
+                else if e.is_connect() { kind = "connect".into(); }
+                else if e.is_request() { kind = "request".into(); }
+                println!("fetch_library_content: reqwest {} on {} → {}", kind, url, e);
+                last_reqwest_err = Some(format!("{} @ {}", kind, url));
+            }
+        }
+    }
+
+    let response = match response_opt {
+        Some(r) => r,
+        None => {
+            // Fallback to ureq (simple blocking client) for tricky servers
+            println!("fetch_library_content: falling back to ureq");
+            let product = "Name-o-Tron 9000";
+            let version = env!("CARGO_PKG_VERSION");
+            let platform = std::env::consts::OS;
+            let agent = ureq::AgentBuilder::new()
+                .timeout(Duration::from_secs(30))
+                .build();
+            for (i, url) in urls.iter().enumerate() {
+                let mut r = agent
+                    .get(url)
+                    .set("Accept", "application/json, application/xml;q=0.9")
+                    .set("Accept-Encoding", "identity")
+                    .set("Connection", "close")
+                    .set("User-Agent", &format!("{product}/{version}"))
+                    .set("X-Plex-Product", product)
+                    .set("X-Plex-Version", version)
+                    .set("X-Plex-Client-Identifier", &client_id)
+                    .set("X-Plex-Platform", platform)
+                    .set("X-Plex-Device", platform)
+                    .set("X-Plex-Device-Name", &whoami::devicename());
+                if let Some(t) = token.as_ref() { r = r.set("X-Plex-Token", t); }
+                println!("fetch_library_content/ureq: attempt {} → {}", i + 1, url);
+                match r.call() {
+                    Ok(resp) => {
+                        let ct = resp.header("content-type").unwrap_or("").to_ascii_lowercase();
+                        if ct.contains("application/json") {
+                            let v: serde_json::Value = resp
+                                .into_json()
+                                .map_err(|e| format!("read json error: {e}"))?;
+                            return Ok(v);
+                        } else {
+                            let body = resp.into_string().map_err(|e| format!("read body error: {e}"))?;
+                            return Ok(serde_json::Value::String(body));
+                        }
+                    }
+                    Err(e) => {
+                        println!("fetch_library_content/ureq: error on {} → {}", url, e);
+                    }
+                }
+            }
+            return Err(format!(
+                "fetch_library_content failed: {} | ureq fallback also failed",
+                last_reqwest_err.unwrap_or_else(|| "unknown".into())
+            ));
         }
     };
 
-    // Check response status
-    if !response.status().is_success() {
-        let status = response.status();
-        let error_text = match response.text().await {
-            Ok(text) => text,
-            Err(_) => "No error details available".to_string()
-        };
-        return Err(format!("Server returned {}: {}", status, error_text));
+    let status = response.status();
+    println!("fetch_library_content: response status {}", status);
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        println!("fetch_library_content: non-success {} body len {}", status, body.len());
+        return Err(format!("HTTP {}: {}", status, body));
     }
 
-    // Parse response
-    let text = match response.text().await {
-        Ok(text) => text,
-        Err(e) => return Err(format!("Failed to read response: {}", e))
-    };
-
-    // Try to parse as JSON, return as string if not valid JSON
-    match serde_json::from_str::<serde_json::Value>(&text) {
-        Ok(json) => Ok(json),
-        Err(_) if !text.trim().is_empty() => Ok(serde_json::Value::String(text)),
-        Err(e) => Err(format!("Failed to parse response: {}", e))
+    let text = response.text().await.map_err(|e| format!("read response error: {e}"))?;
+    let trimmed = text.trim();
+    // Prefer JSON if possible, otherwise return the raw body as string value (UI handles both)
+    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+        match serde_json::from_str::<serde_json::Value>(trimmed) {
+            Ok(v) => return Ok(v),
+            Err(e) => {
+                println!("fetch_library_content: JSON parse error: {}", e);
+            }
+        }
     }
+    Ok(serde_json::Value::String(text))
 }
 
 #[tauri::command]
