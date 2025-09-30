@@ -14,7 +14,9 @@ const TEMPLATE_FIELDS: TemplateField[] = [
   { name: "ext", description: "File extension (e.g., .mkv, .mp4)", example: ".mkv", availableIn: "both" },
 
   // Movie-specific fields
-  { name: "edition", description: "Edition name if available (e.g., Director's Cut, Extended)", example: "Director's Cut", availableIn: "movies" },
+  { name: "edition", description: "Edition name (processed based on settings - use actual Plex tokens like {edition-extended})", example: "{edition-extended}", availableIn: "movies" },
+  { name: "editionToken", description: "The raw Plex edition token (e.g., '{edition-extended}')", example: "{edition-extended}", availableIn: "movies" },
+  { name: "editionTitle", description: "Human-readable edition name (e.g., 'Extended Edition')", example: "Extended Edition", availableIn: "movies" },
   { name: "genre", description: "Primary genre of the movie", example: "Sci-Fi", availableIn: "movies" },
   { name: "rating", description: "Content rating (e.g., PG-13, R)", example: "PG-13", availableIn: "movies" },
   { name: "studio", description: "Production studio", example: "Warner Bros.", availableIn: "movies" },
@@ -36,6 +38,12 @@ const TEMPLATE_FIELDS: TemplateField[] = [
   // Formatting options
   { name: "title:02", description: "Pad numbers with leading zeros (e.g., {season:02})", example: "05", availableIn: "both" },
   { name: "title:03", description: "Pad numbers with 3 digits (e.g., {episode:03})", example: "012", availableIn: "both" },
+
+  // ID fields available in both movies and episodes
+  { name: "imdb", description: "IMDB ID (extracted from Plex GUID)", example: "tt0111161", availableIn: "both" },
+  { name: "thetvdb", description: "TVDB ID (extracted from Plex GUID)", example: "81189", availableIn: "both" },
+  { name: "tmdb", description: "TMDb ID (extracted from Plex GUID)", example: "278", availableIn: "both" },
+  { name: "ids", description: "All available IDs combined (based on settings)", example: " {imdb} {thetvdb}", availableIn: "both" },
 ];
 
 type Props = {
@@ -105,11 +113,18 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
           <h3 className="text-sm font-medium text-neutral-200 mb-2">Example Templates</h3>
           <div className="space-y-2 text-sm">
             {fieldAvailability === "movies" && (
-              <div className="bg-neutral-800 rounded p-2">
-                <span className="text-neutral-400">Movies:</span>{" "}
-                <code className="text-cyan-400">{"{title}[ ({year})]{ext}"}</code>
-                <span className="text-neutral-300 ml-2">→ Inception (2010).mkv</span>
-              </div>
+              <>
+                <div className="bg-neutral-800 rounded p-2">
+                  <span className="text-neutral-400">Movies:</span>{" "}
+                  <code className="text-cyan-400">{"{title}[ ({year})]{ext}"}</code>
+                  <span className="text-neutral-300 ml-2">→ Inception (2010).mkv</span>
+                </div>
+                <div className="bg-neutral-800 rounded p-2">
+                  <span className="text-neutral-400">With Edition:</span>{" "}
+                  <code className="text-cyan-400">{"{title}[ ({year})]{edition}{ext}"}</code>
+                  <span className="text-neutral-300 ml-2">→ Inception (2010) {edition-extended}.mkv</span>
+                </div>
+              </>
             )}
             {fieldAvailability === "episodes" && (
               <div className="bg-neutral-800 rounded p-2">

@@ -26,7 +26,7 @@ export type MovieSettings = {
   chronologicalPrefix: "none" | "year" | "collection_order";
   folderStructure: "none" | "alpha" | "alpha_ranges" | "genre" | "year_decade";
   ownFolderPerMovie: boolean;
-  editions: { preserveTokens: boolean; expandHuman: boolean; keepBoth: boolean; detectFromFilenames: boolean };
+  editions: { mode: "preserve" | "expand" | "both" | "none"; detectFromFilenames: boolean };
   versions: { appendVersionIfMultiple: boolean };
   ids: "none" | "preserve" | "auto_append_all";
   specials: { moveExtras: boolean; markISO: boolean };
@@ -39,6 +39,7 @@ export type TvSettings = {
   detectOVAsSeason00: boolean;
   normalizeMultiEpisode: boolean;
   warnEpisodeCountMismatch: boolean;
+  ids: "none" | "preserve" | "auto_append_all";
 };
 
 export type MusicSettings = {
@@ -102,7 +103,7 @@ const defaultSettings: Settings = {
     chronologicalPrefix: "none",
     folderStructure: "none",
     ownFolderPerMovie: true,
-    editions: { preserveTokens: true, expandHuman: false, keepBoth: false, detectFromFilenames: true },
+    editions: { mode: "preserve", detectFromFilenames: true },
     versions: { appendVersionIfMultiple: true },
     ids: "preserve",
     specials: { moveExtras: true, markISO: true },
@@ -114,6 +115,7 @@ const defaultSettings: Settings = {
     detectOVAsSeason00: true,
     normalizeMultiEpisode: true,
     warnEpisodeCountMismatch: true,
+    ids: "preserve",
   },
   music: {
     formatAAT: true,

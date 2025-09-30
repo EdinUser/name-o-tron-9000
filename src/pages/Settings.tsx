@@ -325,14 +325,13 @@ function Movies({s, onChange}: { s: Settings; onChange: (v: Settings["movies"]) 
             </Section>
 
             <Section title="Editions & Versions">
-                <Row label="Preserve Plex edition tokens ({edition-extended})">
-                    <input type="checkbox" checked={m.editions.preserveTokens} onChange={(e) => set({editions: {...m.editions, preserveTokens: e.target.checked}})}/>
-                </Row>
-                <Row label="Expand to human-readable (- Extended Edition)">
-                    <input type="checkbox" checked={m.editions.expandHuman} onChange={(e) => set({editions: {...m.editions, expandHuman: e.target.checked}})}/>
-                </Row>
-                <Row label="Keep both (Edition + token)">
-                    <input type="checkbox" checked={m.editions.keepBoth} onChange={(e) => set({editions: {...m.editions, keepBoth: e.target.checked}})}/>
+                <Row label="Edition handling">
+                    <Radio value={m.editions.mode} setValue={(v) => set({editions: {...m.editions, mode: v as any}})} opts={[
+                        {value: "preserve", label: "Preserve Plex tokens ({edition-extended})"},
+                        {value: "expand", label: "Expand to human-readable (- Extended Edition)"},
+                        {value: "both", label: "Keep both (- Extended Edition {edition-extended})"},
+                        {value: "none", label: "None"},
+                    ]}/>
                 </Row>
                 <Row label="Detect editions from filenames">
                     <input type="checkbox" checked={m.editions.detectFromFilenames} onChange={(e) => set({editions: {...m.editions, detectFromFilenames: e.target.checked}})}/>
@@ -377,6 +376,15 @@ function TV({s, onChange}: { s: Settings; onChange: (v: Settings["tv"]) => void 
                 </Row>
                 <Row label="Warn if episode count doesn’t match Plex DB">
                     <input type="checkbox" checked={t.warnEpisodeCountMismatch} onChange={(e) => set({warnEpisodeCountMismatch: e.target.checked})}/>
+                </Row>
+            </Section>
+            <Section title="IDs">
+                <Row label="Include IDs in filenames">
+                    <Radio value={t.ids} setValue={(v) => set({ids: v as any})} opts={[
+                        {value: "none", label: "Do not include"},
+                        {value: "preserve", label: "Preserve existing"},
+                        {value: "auto_append_all", label: "Auto-append all"},
+                    ]}/>
                 </Row>
             </Section>
         </>

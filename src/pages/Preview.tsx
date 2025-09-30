@@ -6,7 +6,7 @@ import TemplateHelpModal from "../components/TemplateHelpModal";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import {useSettings} from "../state/settings";
-import {renderTemplate} from "../utils/template";
+import {renderTemplate, detectEditionFromPath, type DetectedEdition, extractImdbId, extractTvdbId, extractTmdbId} from "../utils/template";
 
 type Props = {
     server: PlexServer;
@@ -21,6 +21,7 @@ type MovieItem = {
     year?: number;
     file: string;
     edition?: string;
+    editionTitle?: string;
     genre?: string;
     rating?: string;
     studio?: string;
@@ -29,6 +30,9 @@ type MovieItem = {
     country?: string;
     tagline?: string;
     summary?: string;
+    guid?: string;
+    imdbId?: string;
+    thetvdbId?: string;
 };
 
 type EpisodeItem = {
@@ -43,6 +47,9 @@ type EpisodeItem = {
     parentTitle?: string;
     parentIndex?: number;
     year?: number;
+    guid?: string;
+    imdbId?: string;
+    thetvdbId?: string;
 };
 
 type PreviewRow = {
@@ -169,12 +176,64 @@ function parseEpisodeInfo(filePath: string, fallbackTitle: string): { showTitle:
 
 function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie: boolean, collectionsEnabled: boolean, collectionName: string, settings: any): PreviewRow {
     const ext = extname(m.file) || ".mkv";
+
+    // Get edition from Plex API or detect from file path
+    let editionToken: string | undefined = m.edition || undefined;
+    let editionTitle: string | undefined = m.editionTitle || undefined;
+
+    // Detect from path (folders/filename) when enabled or when edition handling is active
+    if (settings.movies.editions.detectFromFilenames || settings.movies.editions.mode !== "none") {
+        const detected: DetectedEdition | null = detectEditionFromPath(m.file);
+        if (detected) {
+            editionToken = detected.token || editionToken;
+            editionTitle = detected.title || editionTitle;
+        }
+    }
+
+    // Extract IDs from GUID
+    const imdbId = m.guid ? extractImdbId(m.guid) : null;
+    const thetvdbId = m.guid ? extractTvdbId(m.guid) : null;
+    const tmdbId = m.guid ? extractTmdbId(m.guid) : null;
+
+    // Process IDs based on user settings
+    let processedIds = "";
+    if (settings.movies.ids === "preserve") {
+        // Preserve existing IDs in the filename
+        if (imdbId) processedIds += ` {imdb}`;
+        if (thetvdbId) processedIds += ` {thetvdb}`;
+        if (tmdbId) processedIds += ` {tmdb}`;
+    } else if (settings.movies.ids === "auto_append_all") {
+        // Auto-append all available IDs
+        if (imdbId) processedIds += ` {imdb}`;
+        if (thetvdbId) processedIds += ` {thetvdb}`;
+        if (tmdbId) processedIds += ` {tmdb}`;
+    }
+
+    // Process edition based on user settings
+    let editionDisplay = "";
+    if (editionToken || editionTitle) {
+        if (settings.movies.editions.mode === "preserve") {
+            // Use the Plex edition token as-is
+            editionDisplay = editionToken || "";
+        } else if (settings.movies.editions.mode === "expand") {
+            // Use human-readable version (if editionTitle is available, otherwise use the token)
+            editionDisplay = editionTitle ? ` - ${editionTitle}` : (editionToken || "");
+        } else if (settings.movies.editions.mode === "both") {
+            // Include both human-readable and token
+            const humanReadable = editionTitle ? ` - ${editionTitle}` : "";
+            editionDisplay = `${humanReadable} ${editionToken || ""}`.trim();
+        }
+        // For "none" mode, don't include edition information
+    }
+
     // Expanded context for movies
     const ctx = {
         title: m.title,
         year: m.year ?? "",
         ext,
-        edition: m.edition ?? "",
+        edition: editionDisplay,
+        editionToken: editionToken || "",
+        editionTitle: editionTitle || "",
         genre: m.genre ?? "",
         rating: m.rating ?? "",
         studio: m.studio ?? "",
@@ -184,12 +243,42 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
         tagline: m.tagline ?? "",
         summary: m.summary ?? "",
         collection: collectionName,
+        // ID fields
+        imdb: imdbId ?? "",
+        thetvdb: thetvdbId ?? "",
+        tmdb: tmdbId ?? "",
+        ids: processedIds,
     } as any;
-    console.log("Movie template context:", ctx);
-    console.log("Template:", template);
     let proposed = renderTemplate(template, ctx);
-    console.log("Proposed name:", proposed);
     if (!proposed.endsWith(ext)) proposed += ext; // safety net if template omitted {ext}
+
+    // If user selected an edition mode and the template did not include any edition
+    // placeholders, enforce insertion before the extension.
+    if ((editionToken || editionTitle) && settings.movies.editions.mode !== "none") {
+    const lower = proposed.toLowerCase();
+        const hasEditionAlready = lower.includes("{edition-") ||
+            (editionTitle ? lower.includes(editionTitle.toLowerCase()) : false);
+        if (!hasEditionAlready) {
+            let injection = "";
+            if (settings.movies.editions.mode === "preserve") {
+                injection = editionToken ? ` ${editionToken}` : "";
+            } else if (settings.movies.editions.mode === "expand") {
+                injection = editionTitle ? ` - ${editionTitle}` : (editionToken ? ` ${editionToken}` : "");
+            } else if (settings.movies.editions.mode === "both") {
+                if (editionTitle && editionToken) injection = ` - ${editionTitle} ${editionToken}`;
+                else if (editionTitle) injection = ` - ${editionTitle}`;
+                else if (editionToken) injection = ` ${editionToken}`;
+            }
+            if (injection) {
+                const dot = proposed.lastIndexOf(ext);
+                if (dot > 0) {
+                    proposed = proposed.slice(0, dot) + injection + proposed.slice(dot);
+                } else {
+                    proposed += injection;
+                }
+            }
+        }
+    }
 
     // Handle collection-based folders if collections are enabled and movie has a collection
     if (collectionsEnabled && collectionName && collectionName.trim()) {
@@ -213,6 +302,34 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
 
     proposed = normalizeUnicode(proposed);
     const flags: string[] = [];
+
+    // Handle special cases for extras and ISO files
+    if (settings.movies.specials.moveExtras) {
+        // Check if this looks like an extras file (common patterns)
+        const filename = basename(m.file).toLowerCase();
+        const extrasPatterns = [
+            /\bextra\b/, /\bextras\b/, /\bdeleted\b/, /\bscene\b/, /\bbehind.the.scenes\b/,
+            /\binterview\b/, /\btrailer\b/, /\bfeaturette\b/, /\bbloopers?\b/,
+            /\bcommentary\b/, /\bintro\b/, /\boutro\b/, /\bending\b/
+        ];
+
+        const isExtras = extrasPatterns.some(pattern => pattern.test(filename));
+        if (isExtras) {
+            // Move to Extras folder
+            const fileName = basename(proposed);
+            proposed = `Extras/${fileName}`;
+            flags.push("moved-to-extras");
+        }
+    }
+
+    // Mark ISO files
+    if (settings.movies.specials.markISO && ext.toLowerCase() === ".iso") {
+        const fileName = basename(proposed);
+        const nameWithoutExt = fileName.replace(/\.iso$/i, "");
+        proposed = proposed.replace(fileName, `${nameWithoutExt} [ISO].iso`);
+        flags.push("marked-iso");
+    }
+
     const {ok, reason} = sanitizeProposal(basename(proposed));
     let status: PreviewRow["status"] = "green";
     if (!VIDEO_EXTS.has(ext)) {
@@ -240,6 +357,26 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
 
 function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolders: boolean, settings: any): PreviewRow {
     const ext = extname(e.file) || ".mkv";
+
+    // Extract IDs from GUID
+    const imdbId = e.guid ? extractImdbId(e.guid) : null;
+    const thetvdbId = e.guid ? extractTvdbId(e.guid) : null;
+    const tmdbId = e.guid ? extractTmdbId(e.guid) : null;
+
+    // Process IDs based on user settings
+    let processedIds = "";
+    if (settings.tv.ids === "preserve") {
+        // Preserve existing IDs in the filename
+        if (imdbId) processedIds += ` {imdb}`;
+        if (thetvdbId) processedIds += ` {thetvdb}`;
+        if (tmdbId) processedIds += ` {tmdb}`;
+    } else if (settings.tv.ids === "auto_append_all") {
+        // Auto-append all available IDs
+        if (imdbId) processedIds += ` {imdb}`;
+        if (thetvdbId) processedIds += ` {thetvdb}`;
+        if (tmdbId) processedIds += ` {tmdb}`;
+    }
+
     const ctx = {
         showTitle: e.showTitle,
         title: e.title,
@@ -250,6 +387,11 @@ function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolde
         grandparentTitle: e.grandparentTitle ?? e.showTitle,
         parentTitle: e.parentTitle ?? "",
         parentIndex: e.parentIndex ?? e.season ?? 0,
+        // ID fields
+        imdb: imdbId ?? "",
+        thetvdb: thetvdbId ?? "",
+        tmdb: tmdbId ?? "",
+        ids: processedIds,
     } as any;
     let proposed = renderTemplate(template, ctx);
     if (!proposed.endsWith(ext)) proposed += ext;
@@ -260,6 +402,34 @@ function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolde
     }
     proposed = normalizeUnicode(proposed);
     const flags: string[] = [];
+
+    // Handle special cases for extras and ISO files (TV episodes)
+    if (settings.movies.specials.moveExtras) {
+        // Check if this looks like an extras file (common patterns)
+        const filename = basename(e.file).toLowerCase();
+        const extrasPatterns = [
+            /\bextra\b/, /\bextras\b/, /\bdeleted\b/, /\bscene\b/, /\bbehind.the.scenes\b/,
+            /\binterview\b/, /\btrailer\b/, /\bfeaturette\b/, /\bbloopers?\b/,
+            /\bcommentary\b/, /\bintro\b/, /\boutro\b/, /\bending\b/
+        ];
+
+        const isExtras = extrasPatterns.some(pattern => pattern.test(filename));
+        if (isExtras) {
+            // Move to Extras folder
+            const fileName = basename(proposed);
+            proposed = `Extras/${fileName}`;
+            flags.push("moved-to-extras");
+        }
+    }
+
+    // Mark ISO files
+    if (settings.movies.specials.markISO && ext.toLowerCase() === ".iso") {
+        const fileName = basename(proposed);
+        const nameWithoutExt = fileName.replace(/\.iso$/i, "");
+        proposed = proposed.replace(fileName, `${nameWithoutExt} [ISO].iso`);
+        flags.push("marked-iso");
+    }
+
     const {ok, reason} = sanitizeProposal(basename(proposed));
     let status: PreviewRow["status"] = "green";
     if (!VIDEO_EXTS.has(ext)) {

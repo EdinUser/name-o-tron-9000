@@ -670,6 +670,10 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
         grandparent_title: Option<String>,
         parent_title: Option<String>,
         parent_index: Option<i64>,
+        // ID fields for template support
+        guid: Option<String>,
+        imdb_id: Option<String>,
+        thetvdb_id: Option<String>,
     }
 
     let mut items: Vec<Item> = Vec::new();
@@ -703,6 +707,7 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
                         else if k == b"grandparentTitle" { it.grandparent_title = Some(v.to_string()); }
                         else if k == b"parentTitle" { it.parent_title = Some(v.to_string()); }
                         else if k == b"parentIndex" { if let Ok(n) = v.parse::<i64>() { it.parent_index = Some(n); } }
+                        else if k == b"guid" { it.guid = Some(v.to_string()); }
                     }
                     current = Some(it);
                 } else if in_video && name.as_ref() == b"Part" {
@@ -743,6 +748,7 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
                         else if k == b"grandparentTitle" { it.grandparent_title = Some(v.to_string()); }
                         else if k == b"parentTitle" { it.parent_title = Some(v.to_string()); }
                         else if k == b"parentIndex" { if let Ok(n) = v.parse::<i64>() { it.parent_index = Some(n); } }
+                        else if k == b"guid" { it.guid = Some(v.to_string()); }
                     }
                     items.push(it);
                 } else if name.as_ref() == b"Part" {
@@ -794,6 +800,7 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
         if let Some(grandparent_title) = it.grandparent_title { obj["grandparentTitle"] = json!(grandparent_title); }
         if let Some(parent_title) = it.parent_title { obj["parentTitle"] = json!(parent_title); }
         if let Some(parent_index) = it.parent_index { obj["parentIndex"] = json!(parent_index); }
+        if let Some(guid) = &it.guid { obj["guid"] = json!(guid); }
         meta.push(obj);
     }
 
