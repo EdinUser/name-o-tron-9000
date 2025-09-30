@@ -551,7 +551,7 @@ export default function Preview({server, library, onBack}: Props) {
         return results;
     }, [rows, debouncedSearchQuery, library.roots]);
 
-    // Trigger remote (API) search when no local matches
+    // Trigger remote (API) search for all queries
     useEffect(() => {
         const q = debouncedSearchQuery.trim();
         if (!q) {
@@ -560,16 +560,10 @@ export default function Preview({server, library, onBack}: Props) {
             setSearching(false);
             return;
         }
-        if (filteredRows.length > 0) {
-            // We have local matches; clear remote results to avoid mixing
-            setRemoteResults([]);
-            setRemoteQuery("");
-            setSearching(false);
-            return;
-        }
-        // If local results are empty and we're not currently loading, trigger remote search
+
+        // If we're currently loading initial data, wait for it to complete
         if (loading) {
-            // Wait until loading completes; effect will re-run because of dependency on `loading`
+            // Effect will re-run because of dependency on `loading`
             return;
         }
         let isCancelled = false;
@@ -579,6 +573,7 @@ export default function Preview({server, library, onBack}: Props) {
             try {
                 const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
                 const sectionNum = (() => { const n = Number(library.key); return Number.isFinite(n) ? n : null; })();
+                const libraryRoots = library.roots || [];
                 const searchResults = await invoke<any>("search_content", {
                     server: server.address,
                     query: q,
@@ -589,14 +584,77 @@ export default function Preview({server, library, onBack}: Props) {
                 if (isCancelled) return;
                 const hubs = searchResults?.MediaContainer?.Hub || [];
                 const newRows: PreviewRow[] = [];
+
+                // Debug logging to understand search response structure
+                console.log("SEARCH RESULTS DEBUG:", {
+                    query: q,
+                    libraryKey: library.key,
+                    sectionNum,
+                    hubsCount: hubs.length,
+                    hubs: hubs.map((h: any) => ({
+                        type: h.type,
+                        hubIdentifier: h.hubIdentifier,
+                        title: h.title,
+                        itemsCount: (h.Directory || h.Metadata || []).length
+                    }))
+                });
+
+                // Filter hubs to only include those from the current library section
+                // Note: Plex API may return results from all libraries despite sectionId parameter
+                // We need additional filtering here to ensure only current library results are shown
+
                 for (const hub of hubs) {
+                    // Check if this hub belongs to our current library section
+                    // The hub might contain section information that we can use for filtering
+                    const hubSectionId = hub.sectionId || hub.librarySectionID;
+                    console.log("HUB DEBUG:", {
+                        hubTitle: hub.title,
+                        hubType: hub.type,
+                        hubSectionId,
+                        ourSectionId: sectionNum,
+                        shouldInclude: hubSectionId == sectionNum || !hubSectionId // Include if no section info or matches our section
+                    });
+
+                    // Filter hubs to only include those from the current library section
+                    // If hub has section info and it doesn't match our section, skip it
+                    if (hubSectionId && hubSectionId != sectionNum) {
+                        console.log(`Skipping hub "${hub.title}" - section ${hubSectionId} != ${sectionNum}`);
+                        continue;
+                    }
+
                     const items = hub.Directory || hub.Metadata || [];
                     if (!Array.isArray(items)) continue;
                     for (const item of items) {
                         let filePath = "";
                         try { filePath = String(item?.Media?.[0]?.Part?.[0]?.file || ""); } catch {}
 
+                        // Skip items that don't have actual file paths (API endpoints, metadata, etc.)
+                        if (!filePath || filePath.startsWith('/library/') || filePath.includes('?') || !filePath.includes('.')) {
+                            console.log(`Skipping search result "${item.title}" - no valid file path: "${filePath}"`);
+                            continue;
+                        }
+
+                        // Additional filtering: if item has a file path, check if it's in our library roots
+                        if (filePath && libraryRoots.length > 0) {
+                            const normalizedFilePath = filePath.replace(/\\/g, '/');
+                            const isInLibrary = libraryRoots.some(root => {
+                                const normalizedRoot = root.replace(/\\/g, '/').replace(/\/$/, '');
+                                return normalizedFilePath.startsWith(normalizedRoot + '/');
+                            });
+
+                            if (!isInLibrary) {
+                                console.log(`Skipping item "${item.title}" - file path "${filePath}" not in library roots`);
+                                continue;
+                            }
+                        }
+
                         if (library.type === "movie") {
+                            // Ensure we have a valid file path before proceeding
+                            if (!filePath || filePath.length === 0) {
+                                console.log(`Skipping movie "${item.title}" - no file path`);
+                                continue;
+                            }
+
                             const movieRatingKey = String(item.ratingKey || item.key || filePath || Math.random());
                             // Extract collection information directly from movie metadata
                             const collections = item.Collection || item.collection || [];
@@ -610,7 +668,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 ratingKey: movieRatingKey,
                                 title: String(item.title || "Unknown"),
                                 year: item.year ? Number(item.year) : undefined,
-                                file: filePath || String(item.key || ""),
+                                file: filePath, // Only use actual file paths, not API endpoints
                                 edition: String(item.edition ?? item.editionTitle ?? ""),
                                 genre: String(item.genre ?? ""),
                                 rating: String(item.contentRating ?? ""),
@@ -627,6 +685,12 @@ export default function Preview({server, library, onBack}: Props) {
                             newRows.push(row);
                         } else {
                             // TV episode
+                            // Ensure we have a valid file path before proceeding
+                            if (!filePath || filePath.length === 0) {
+                                console.log(`Skipping episode "${item.title}" - no file path`);
+                                continue;
+                            }
+
                             const showTitle = String(item.grandparentTitle || item.parentTitle || item.title || "Unknown Show");
                             const seasonNum = typeof item.parentIndex === "number" ? item.parentIndex : (item.parentIndex ? Number(item.parentIndex) : undefined);
                             const epIndex = typeof item.index === "number" ? item.index : (item.index ? Number(item.index) : undefined);
@@ -637,7 +701,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 title: String(item.title || "Episode"),
                                 season: seasonNum,
                                 index: epIndex,
-                                file: filePath || String(item.key || ""),
+                                file: filePath, // Only use actual file paths, not API endpoints
                                 year: item.year ? Number(item.year) : undefined,
                                 grandparentTitle: String(item.grandparentTitle ?? showTitle),
                                 parentTitle: String(item.parentTitle ?? ""),
@@ -664,12 +728,24 @@ export default function Preview({server, library, onBack}: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedSearchQuery, filteredRows.length, library.key, server.address, loading]);
 
-    // Final rows to display
+    // Final rows to display - combine local and remote results
     const displayRows = useMemo(() => {
         if (!debouncedSearchQuery.trim()) return rows;
-        if (filteredRows.length > 0) return filteredRows;
-        if (remoteQuery === debouncedSearchQuery) return remoteResults;
-        return [];
+
+        // Combine local filtered results with remote results
+        let combined: PreviewRow[] = [];
+
+        // Add local results first
+        if (filteredRows.length > 0) {
+            combined.push(...filteredRows);
+        }
+
+        // Add remote results if they match the current query
+        if (remoteQuery === debouncedSearchQuery && remoteResults.length > 0) {
+            combined.push(...remoteResults);
+        }
+
+        return combined;
     }, [rows, filteredRows, remoteResults, debouncedSearchQuery, remoteQuery]);
 
     const anyRedSelected = useMemo(() => displayRows.some(r => r.status === "red" && selectedIds.has(r.id)), [displayRows, selectedIds]);
