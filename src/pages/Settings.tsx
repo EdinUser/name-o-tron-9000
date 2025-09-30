@@ -1,17 +1,21 @@
 import React, {useEffect, useState} from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import {type EncodingMode, loadSettings, saveSettings, type Settings} from "../state/settings";
-import {IconArrowBack, IconHome} from "../components/icons";
 
-type Props = { onBack: () => void };
+type Props = { onClose: () => void };
 
 type TabKey = "general" | "movies" | "tv" | "music" | "misc";
 
-export default function SettingsPage({onBack}: Props) {
-    const [tab, setTab] = useState<TabKey>("general");
+export default function SettingsModal({onClose}: Props) {
+    const [tab, setTab] = useState<TabKey>(() => {
+        try { return (localStorage.getItem("nameotron.settings.lastTab") as TabKey) || "general"; } catch { return "general"; }
+    });
     const [s, setS] = useState<Settings>(() => loadSettings());
-    useEffect(() => { try { getCurrentWindow().setTitle("Name-o-Tron 9000 — Settings"); } catch {} }, []);
+
+    // Persist last opened tab
+    useEffect(() => {
+        try { localStorage.setItem("nameotron.settings.lastTab", tab); } catch {}
+    }, [tab]);
 
     // Load canonical settings from Tauri, if available, and hydrate local state
     useEffect(() => {
@@ -31,34 +35,37 @@ export default function SettingsPage({onBack}: Props) {
         saveSettings(next);
     }
 
+    const handleClose = () => {
+        onClose();
+    };
+
     return (
-        <main className="min-h-screen bg-neutral-900 text-neutral-100">
-            <header className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-900/80 backdrop-blur">
-                <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-                    <div className="flex items-center gap-2">
-                        <button onClick={onBack} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
-                            <IconArrowBack className="h-5 w-5"/>
-                            Back
-                        </button>
-                        <button onClick={() => (window as any).__goto_home?.()} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
-                            <IconHome className="h-5 w-5"/>
-                            Home
-                        </button>
-                        <h1 className="ml-2 text-lg font-semibold">Settings</h1>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleClose} style={{ zIndex: 9999 }}>
+            <div className="bg-neutral-900 border border-neutral-700 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-6 border-b border-neutral-800">
+                    <h1 className="text-xl font-semibold text-neutral-100">Settings</h1>
+                    <button onClick={handleClose} className="text-neutral-400 hover:text-neutral-200 transition-colors">
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-6 w-6">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div className="flex flex-col max-h-[calc(90vh-80px)]">
+                    <div className="px-6 pt-4">
+                        <Tabs tab={tab} setTab={setTab}/>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto px-6 pb-6">
+                        {tab === "general" && <General s={s} onChange={(v) => update("general", v)}/>}
+                        {tab === "movies" && <Movies s={s} onChange={(v) => update("movies", v)}/>}
+                        {tab === "tv" && <TV s={s} onChange={(v) => update("tv", v)}/>}
+                        {tab === "music" && <Music s={s} onChange={(v) => update("music", v)}/>}
+                        {tab === "misc" && <Misc s={s} onChange={(v) => update("misc", v)}/>}
                     </div>
                 </div>
-            </header>
-
-            <div className="mx-auto max-w-5xl px-6 py-6">
-                <Tabs tab={tab} setTab={setTab}/>
-
-                {tab === "general" && <General s={s} onChange={(v) => update("general", v)}/>}
-                {tab === "movies" && <Movies s={s} onChange={(v) => update("movies", v)}/>}
-                {tab === "tv" && <TV s={s} onChange={(v) => update("tv", v)}/>}
-                {tab === "music" && <Music s={s} onChange={(v) => update("music", v)}/>}
-                {tab === "misc" && <Misc s={s} onChange={(v) => update("misc", v)}/>}
             </div>
-        </main>
+        </div>
     );
 }
 

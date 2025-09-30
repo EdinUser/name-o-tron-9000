@@ -420,6 +420,9 @@ pub async fn fetch_library_content(
                 last_reqwest_err = Some(format!("{} @ {}", kind, url));
             }
         }
+        if response_opt.is_some() {
+            break;
+        }
     }
 
     let response = match response_opt {
@@ -511,6 +514,129 @@ pub async fn fetch_library_content(
 
     // As last resort, return raw text
     Ok(serde_json::Value::String(text))
+}
+
+// XML parser for collections
+fn xml_collections_to_json(xml: &str) -> Option<serde_json::Value> {
+    use quick_xml::events::Event;
+    use quick_xml::Reader;
+    use serde_json::{json, Value};
+
+    let mut reader = Reader::from_str(xml);
+    reader.trim_text(true);
+    let mut buf = Vec::new();
+
+    #[derive(Default, Debug)]
+    struct Collection {
+        rating_key: Option<String>,
+        title: Option<String>,
+    }
+
+    let mut collections: Vec<Collection> = Vec::new();
+    let mut current: Option<Collection> = None;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                if e.name().as_ref() == b"Directory" {
+                    current = Some(Collection::default());
+                    for a in e.attributes().flatten() {
+                        let k = a.key.as_ref();
+                        let v = a.unescape_value().unwrap_or_default();
+                        if let Some(curr) = current.as_mut() {
+                            if k == b"ratingKey" { curr.rating_key = Some(v.to_string()); }
+                            else if k == b"title" { curr.title = Some(v.to_string()); }
+                        }
+                    }
+                }
+            }
+            Ok(Event::End(e)) => {
+                if e.name().as_ref() == b"Directory" {
+                    if let Some(curr) = current.take() {
+                        collections.push(curr);
+                    }
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                println!("xml_collections_to_json: XML parse error: {}", e);
+                return None;
+            }
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    let meta: Vec<Value> = collections.into_iter().map(|c| {
+        let mut obj = json!({});
+        if let Some(rk) = c.rating_key { obj["ratingKey"] = json!(rk); }
+        if let Some(title) = c.title { obj["title"] = json!(title); }
+        obj
+    }).collect();
+
+    Some(json!({
+        "MediaContainer": { "Metadata": meta }
+    }))
+}
+
+// XML parser for collection items
+fn xml_collection_items_to_json(xml: &str) -> Option<serde_json::Value> {
+    use quick_xml::events::Event;
+    use quick_xml::Reader;
+    use serde_json::{json, Value};
+
+    let mut reader = Reader::from_str(xml);
+    reader.trim_text(true);
+    let mut buf = Vec::new();
+
+    #[derive(Default, Debug)]
+    struct Item {
+        rating_key: Option<String>,
+    }
+
+    let mut items: Vec<Item> = Vec::new();
+    let mut current: Option<Item> = None;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                if e.name().as_ref() == b"Video" || e.name().as_ref() == b"Directory" {
+                    current = Some(Item::default());
+                    for a in e.attributes().flatten() {
+                        let k = a.key.as_ref();
+                        let v = a.unescape_value().unwrap_or_default();
+                        if let Some(curr) = current.as_mut() {
+                            if k == b"ratingKey" { curr.rating_key = Some(v.to_string()); }
+                        }
+                    }
+                }
+            }
+            Ok(Event::End(e)) => {
+                if e.name().as_ref() == b"Video" || e.name().as_ref() == b"Directory" {
+                    if let Some(curr) = current.take() {
+                        items.push(curr);
+                    }
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                println!("xml_collection_items_to_json: XML parse error: {}", e);
+                return None;
+            }
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    let meta: Vec<Value> = items.into_iter().map(|item| {
+        let mut obj = json!({});
+        if let Some(rk) = item.rating_key { obj["ratingKey"] = json!(rk); }
+        obj
+    }).collect();
+
+    Some(json!({
+        "MediaContainer": { "Metadata": meta }
+    }))
 }
 
 // Minimal XML parser that extracts <Video> nodes with <Media><Part file=.../>
@@ -837,7 +963,7 @@ pub async fn fetch_tv_shows(
     }
     let trimmed = text.trim();
     if trimmed.starts_with('{') || trimmed.starts_with('[') {
-        if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(trimmed) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) {
             // Normalize to MediaContainer.Directory array
             if let Some(mc) = v.get("MediaContainer").cloned() {
                 let mut dirs: Vec<serde_json::Value> = Vec::new();
@@ -944,6 +1070,115 @@ fn xml_search_to_json(xml_text: &str) -> Option<serde_json::Value> {
     } else {
         None
     }
+}
+
+#[tauri::command]
+pub async fn fetch_collections(
+    server: String,
+    library_key: String,
+    token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let start = 0;
+    let size = 1000; // Fetch all collections
+    let paging = format!("?X-Plex-Container-Start={}&X-Plex-Container-Size={}", start, size);
+
+    let base_urls = [
+        format!("http://{}/library/sections/{}/collection", server, library_key),
+        format!("https://{}/library/sections/{}/collection", server, library_key),
+    ];
+
+    let client_id = current_client_id();
+
+    for url in &base_urls {
+        let url_with_paging = format!("{}{}", url, paging);
+        let mut req = with_plex_headers(reqwest::Client::new().get(&url_with_paging), &client_id)
+            .header("Accept", "application/json, application/xml;q=0.9")
+            .header("Accept-Encoding", "identity")
+            .header("Connection", "close");
+        if let Some(t) = token.as_ref() {
+            req = req.header("X-Plex-Token", t);
+        }
+
+        match req.send().await {
+            Ok(resp) => {
+                let status = resp.status();
+                if status.is_success() {
+                    let text = resp.text().await.map_err(|e| format!("read response error: {e}"))?;
+                    let trimmed = text.trim();
+
+                    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+                        match serde_json::from_str::<serde_json::Value>(trimmed) {
+                            Ok(v) => return Ok(v),
+                            Err(e) => println!("fetch_collections: JSON parse error: {}", e),
+                        }
+                    }
+
+                    if trimmed.starts_with('<') {
+                        if let Some(json) = xml_collections_to_json(&text) {
+                            return Ok(json);
+                        }
+                    }
+
+                    return Ok(serde_json::Value::String(text));
+                }
+            }
+            Err(e) => println!("fetch_collections: reqwest error on {} → {}", url, e),
+        }
+    }
+
+    Err("fetch_collections failed on all URLs".to_string())
+}
+
+#[tauri::command]
+pub async fn fetch_collection_items(
+    server: String,
+    collection_rating_key: String,
+    token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let base_urls = [
+        format!("http://{}/library/collections/{}/items", server, collection_rating_key),
+        format!("https://{}/library/collections/{}/items", server, collection_rating_key),
+    ];
+
+    let client_id = current_client_id();
+
+    for url in &base_urls {
+        let mut req = with_plex_headers(reqwest::Client::new().get(url), &client_id)
+            .header("Accept", "application/json, application/xml;q=0.9")
+            .header("Accept-Encoding", "identity")
+            .header("Connection", "close");
+        if let Some(t) = token.as_ref() {
+            req = req.header("X-Plex-Token", t);
+        }
+
+        match req.send().await {
+            Ok(resp) => {
+                let status = resp.status();
+                if status.is_success() {
+                    let text = resp.text().await.map_err(|e| format!("read response error: {e}"))?;
+                    let trimmed = text.trim();
+
+                    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+                        match serde_json::from_str::<serde_json::Value>(trimmed) {
+                            Ok(v) => return Ok(v),
+                            Err(e) => println!("fetch_collection_items: JSON parse error: {}", e),
+                        }
+                    }
+
+                    if trimmed.starts_with('<') {
+                        if let Some(json) = xml_collection_items_to_json(&text) {
+                            return Ok(json);
+                        }
+                    }
+
+                    return Ok(serde_json::Value::String(text));
+                }
+            }
+            Err(e) => println!("fetch_collection_items: reqwest error on {} → {}", url, e),
+        }
+    }
+
+    Err("fetch_collection_items failed on all URLs".to_string())
 }
 
 #[tauri::command]

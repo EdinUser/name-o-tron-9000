@@ -191,6 +191,8 @@ pub fn run() {
             plex_api::fetch_library_content,
             plex_api::fetch_tv_shows,
             plex_api::fetch_show_episodes,
+            plex_api::fetch_collections,
+            plex_api::fetch_collection_items,
             plex_api::search_content,
             path_map::test_mapping,
             settings::get_settings,

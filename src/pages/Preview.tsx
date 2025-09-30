@@ -95,6 +95,29 @@ function hasNonLatin(name: string) {
 
 function safeFolderName(name: string) { return name.replace(/[\\/:*?"<>|]/g, "_"); }
 
+// Apply collection naming style from settings
+function formatCollectionFolderName(rawName: string): string {
+    const s = loadSettings();
+    const style = s.movies?.collections?.naming || "original";
+    let label = String(rawName || "").trim();
+    switch (style) {
+        case "prefix_":
+            label = `_${label}`;
+            break;
+        case "prefix_collection":
+            label = `Collection - ${label}`;
+            break;
+        case "suffix_collection":
+            label = `${label} (Collection)`;
+            break;
+        case "original":
+        default:
+            // keep as-is
+            break;
+    }
+    return safeFolderName(label);
+}
+
 function normalizeShowTitle(raw: string) {
     return raw.replace(/[._]+/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -145,7 +168,7 @@ function parseEpisodeInfo(filePath: string, fallbackTitle: string): { showTitle:
     return { showTitle, season, index };
 }
 
-function computeMovieProposal(m: MovieItem, template: string): PreviewRow {
+function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie: boolean, collectionsEnabled: boolean, collectionName: string): PreviewRow {
     const ext = extname(m.file) || ".mkv";
     // Expanded context for movies
     const ctx = {
@@ -161,12 +184,34 @@ function computeMovieProposal(m: MovieItem, template: string): PreviewRow {
         country: m.country ?? "",
         tagline: m.tagline ?? "",
         summary: m.summary ?? "",
+        collection: collectionName,
     } as any;
     console.log("Movie template context:", ctx);
     console.log("Template:", template);
     let proposed = renderTemplate(template, ctx);
     console.log("Proposed name:", proposed);
     if (!proposed.endsWith(ext)) proposed += ext; // safety net if template omitted {ext}
+
+    // Handle collection-based folders if collections are enabled and movie has a collection
+    if (collectionsEnabled && collectionName && collectionName.trim()) {
+        const collectionFolderName = formatCollectionFolderName(collectionName);
+        // When collections are enabled, always use collection as the top-level folder
+        // This overrides any template folder structure
+        if (!proposed.includes('/')) {
+            // Template doesn't include folders, so use collection as folder
+            proposed = `${collectionFolderName}/${proposed}`;
+        } else {
+            // Template includes folders, but collections take precedence - replace entire path
+            const fileName = proposed.substring(proposed.lastIndexOf('/') + 1);
+            proposed = `${collectionFolderName}/${fileName}`;
+        }
+    }
+    // If collections are disabled or movie has no collection, use individual movie folder if enabled
+    else if (ownFolderPerMovie && !proposed.includes('/')) {
+        const folderName = safeFolderName(m.title);
+        proposed = `${folderName}/${proposed}`;
+    }
+
     proposed = normalizeUnicode(proposed);
     const flags: string[] = [];
     const {ok, reason} = sanitizeProposal(basename(proposed));
@@ -295,6 +340,7 @@ export default function Preview({server, library, onBack}: Props) {
         loadPathMappings();
     }, [server.address, server.machineIdentifier, library.key, library.roots]);
 
+
     // Refresh path mappings when modal is saved
     const refreshPathMappings = useCallback(async () => {
         try {
@@ -347,6 +393,8 @@ export default function Preview({server, library, onBack}: Props) {
                     for (const item of md) {
                         const file = item?.Media?.[0]?.Part?.[0]?.file;
                         if (!file) continue;
+                        const movieRatingKey = String(item.ratingKey ?? item.key ?? file);
+
                         console.log("Movie item fields:", {
                             title: item.title,
                             edition: item.edition,
@@ -360,9 +408,17 @@ export default function Preview({server, library, onBack}: Props) {
                             summary: item.summary,
                         });
                         console.log("Full item object:", item);
+                        // Extract collection information directly from movie metadata
+                        const collections = item.Collection || item.collection || [];
+                        console.log(`Raw collections for ${item.title}:`, collections);
+                        const collectionName = Array.isArray(collections) && collections.length > 0
+                            ? (collections[0]?.tag || collections[0])
+                            : "";
+                        console.log(`Movie ${movieRatingKey} (${item.title}) -> Collection: "${collectionName}"`);
+
                         const m: MovieItem = {
                             type: "movie",
-                            ratingKey: String(item.ratingKey ?? item.key ?? file),
+                            ratingKey: movieRatingKey,
                             title: String(item.title ?? "Unknown"),
                             year: item.year ? Number(item.year) : undefined,
                             file: String(file),
@@ -378,7 +434,7 @@ export default function Preview({server, library, onBack}: Props) {
                         };
                         const s = loadSettings();
                         const tpl = s.templates.movie || template;
-                        list.push(computeMovieProposal(m, tpl));
+                        list.push(computeMovieProposal(m, tpl, s.movies.ownFolderPerMovie, s.movies.collections.enabled, collectionName));
                     }
                 } else if (library.type === "show") {
                     // For TV shows, check if a specific show was selected or if we have current show state
@@ -536,9 +592,17 @@ export default function Preview({server, library, onBack}: Props) {
                         try { filePath = String(item?.Media?.[0]?.Part?.[0]?.file || ""); } catch {}
 
                         if (library.type === "movie") {
+                            const movieRatingKey = String(item.ratingKey || item.key || filePath || Math.random());
+                            // Extract collection information directly from movie metadata
+                            const collections = item.Collection || item.collection || [];
+                            const collectionName = Array.isArray(collections) && collections.length > 0
+                                ? (collections[0].tag || collections[0])
+                                : "";
+                            console.log(`Remote movie ${movieRatingKey} (${item.title}) -> Collection: "${collectionName}"`);
+
                             const m: MovieItem = {
                                 type: "movie",
-                                ratingKey: String(item.ratingKey || item.key || filePath || Math.random()),
+                                ratingKey: movieRatingKey,
                                 title: String(item.title || "Unknown"),
                                 year: item.year ? Number(item.year) : undefined,
                                 file: filePath || String(item.key || ""),
@@ -554,7 +618,7 @@ export default function Preview({server, library, onBack}: Props) {
                             };
                             const s = loadSettings();
                             const tpl = s.templates.movie || template;
-                            const row = computeMovieProposal(m, tpl);
+                            const row = computeMovieProposal(m, tpl, s.movies.ownFolderPerMovie, s.movies.collections.enabled, collectionName);
                             row.flags.push("remote-search");
                             newRows.push(row);
                         } else {
@@ -826,9 +890,17 @@ export default function Preview({server, library, onBack}: Props) {
                                             for (const item of md) {
                                                 const file = item?.Media?.[0]?.Part?.[0]?.file;
                                                 if (!file) continue;
+                                                const movieRatingKey = String(item.ratingKey ?? item.key ?? file);
+                                                // Extract collection information directly from movie metadata
+                                                const collections = item.Collection || item.collection || [];
+                                                const collectionName = Array.isArray(collections) && collections.length > 0
+                                                    ? (collections[0].tag || collections[0])
+                                                    : "";
+                                                console.log(`Load more movie ${movieRatingKey} (${item.title}) -> Collection: "${collectionName}"`);
+
                                                 const m: MovieItem = {
                                                     type: "movie",
-                                                    ratingKey: String(item.ratingKey ?? item.key ?? file),
+                                                    ratingKey: movieRatingKey,
                                                     title: String(item.title ?? "Unknown"),
                                                     year: item.year ? Number(item.year) : undefined,
                                                     file: String(file),
@@ -844,7 +916,7 @@ export default function Preview({server, library, onBack}: Props) {
                                                 };
                                                 const s = loadSettings();
                                                 const tpl = s.templates.movie || template;
-                                                more.push(computeMovieProposal(m, tpl));
+                                                more.push(computeMovieProposal(m, tpl, s.movies.ownFolderPerMovie, s.movies.collections.enabled, collectionName));
                                             }
                                             setRows(prev => [...prev, ...more]);
                                         } catch (e) {

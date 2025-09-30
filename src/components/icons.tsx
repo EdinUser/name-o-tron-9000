@@ -159,9 +159,18 @@ export function IconBadgeAlert({ className }: IconProps) {
 
 export function IconQuestionCircle({ className }: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className={className}>
-      <circle cx="12" cy="12" r="10"/>
-      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M12 2.25c5.385 0 9.75 4.365 9.75 9.75s-4.365 9.75-9.75 9.75-9.75-4.365-9.75-9.75 4.365-9.75 9.75-9.75z"/>
+      <path d="M9.88 7.52a3 3 0 1 1 4.24 4.24c-.63.63-1.12 1.23-1.12 2.24v.25"/>
       <path d="M12 17h.01"/>
     </svg>
   );

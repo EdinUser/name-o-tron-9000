@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { IconQuestionCircle } from "./icons";
 
 type TemplateField = {
