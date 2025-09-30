@@ -1,7 +1,8 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import type {PlexLibrary, PlexServer} from "../types/plex";
-import {IconArrowBack, IconBolt, IconHome, IconInfo, IconRefresh, IconSelectOff, IconSettings, IconSearch} from "../components/icons";
+import {IconArrowBack, IconBolt, IconHome, IconInfo, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch} from "../components/icons";
 import PathMappingModal from "../components/PathMappingModal";
+import TemplateHelpModal from "../components/TemplateHelpModal";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import {loadSettings, saveSettings} from "../state/settings";
@@ -19,6 +20,15 @@ type MovieItem = {
     title: string;
     year?: number;
     file: string;
+    edition?: string;
+    genre?: string;
+    rating?: string;
+    studio?: string;
+    director?: string;
+    writer?: string;
+    country?: string;
+    tagline?: string;
+    summary?: string;
 };
 
 type EpisodeItem = {
@@ -29,6 +39,10 @@ type EpisodeItem = {
     season?: number;
     index?: number; // episode number
     file: string;
+    grandparentTitle?: string;
+    parentTitle?: string;
+    parentIndex?: number;
+    year?: number;
 };
 
 type PreviewRow = {
@@ -41,7 +55,6 @@ type PreviewRow = {
 };
 
 type SectionResponse = any; // shape varies by library type (mock fixtures)
-type TvShow = { ratingKey: string; title: string };
 
 const RESERVED = new Set([
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
@@ -134,13 +147,25 @@ function parseEpisodeInfo(filePath: string, fallbackTitle: string): { showTitle:
 
 function computeMovieProposal(m: MovieItem, template: string): PreviewRow {
     const ext = extname(m.file) || ".mkv";
-    // Base context for movies
+    // Expanded context for movies
     const ctx = {
         title: m.title,
         year: m.year ?? "",
         ext,
+        edition: m.edition ?? "",
+        genre: m.genre ?? "",
+        rating: m.rating ?? "",
+        studio: m.studio ?? "",
+        director: m.director ?? "",
+        writer: m.writer ?? "",
+        country: m.country ?? "",
+        tagline: m.tagline ?? "",
+        summary: m.summary ?? "",
     } as any;
+    console.log("Movie template context:", ctx);
+    console.log("Template:", template);
     let proposed = renderTemplate(template, ctx);
+    console.log("Proposed name:", proposed);
     if (!proposed.endsWith(ext)) proposed += ext; // safety net if template omitted {ext}
     proposed = normalizeUnicode(proposed);
     const flags: string[] = [];
@@ -177,6 +202,10 @@ function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolde
         season: typeof e.season === "number" ? e.season : 0,
         episode: typeof e.index === "number" ? e.index : 0,
         ext,
+        year: e.year ?? "",
+        grandparentTitle: e.grandparentTitle ?? e.showTitle,
+        parentTitle: e.parentTitle ?? "",
+        parentIndex: e.parentIndex ?? e.season ?? 0,
     } as any;
     let proposed = renderTemplate(template, ctx);
     if (!proposed.endsWith(ext)) proposed += ext;
@@ -229,6 +258,7 @@ export default function Preview({server, library, onBack}: Props) {
     });
     const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
     const [showMapModal, setShowMapModal] = useState(false);
+    const [showTemplateHelp, setShowTemplateHelp] = useState(false);
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
     const [currentShow, setCurrentShow] = useState<{ ratingKey: string; title: string } | null>(null);
@@ -309,34 +339,70 @@ export default function Preview({server, library, onBack}: Props) {
                     });
                     const mc = data?.MediaContainer;
                     const md = mc?.Metadata ?? [];
+                    if (md.length === 0) {
+                        setMoviesPaging(prev => ({ ...prev, exhausted: true }));
+                    } else if (md.length < moviesPaging.size) {
+                        setMoviesPaging(prev => ({ ...prev, exhausted: true }));
+                    }
                     for (const item of md) {
                         const file = item?.Media?.[0]?.Part?.[0]?.file;
                         if (!file) continue;
+                        console.log("Movie item fields:", {
+                            title: item.title,
+                            edition: item.edition,
+                            genre: item.genre,
+                            contentRating: item.contentRating,
+                            studio: item.studio,
+                            director: item.director,
+                            writer: item.writer,
+                            country: item.country,
+                            tagline: item.tagline,
+                            summary: item.summary,
+                        });
+                        console.log("Full item object:", item);
                         const m: MovieItem = {
                             type: "movie",
                             ratingKey: String(item.ratingKey ?? item.key ?? file),
                             title: String(item.title ?? "Unknown"),
                             year: item.year ? Number(item.year) : undefined,
                             file: String(file),
+                            edition: String(item.edition ?? item.editionTitle ?? ""),
+                            genre: String(item.genre ?? ""),
+                            rating: String(item.contentRating ?? ""),
+                            studio: String(item.studio ?? ""),
+                            director: String(item.director ?? ""),
+                            writer: String(item.writer ?? ""),
+                            country: String(item.country ?? ""),
+                            tagline: String(item.tagline ?? ""),
+                            summary: String(item.summary ?? ""),
                         };
                         const s = loadSettings();
                         const tpl = s.templates.movie || template;
                         list.push(computeMovieProposal(m, tpl));
                     }
                 } else if (library.type === "show") {
-                    // For TV shows, check if a specific show was selected
+                    // For TV shows, check if a specific show was selected or if we have current show state
                     const initialShow = (window as any).__initialShow;
-                    if (initialShow) {
-                        setCurrentShow(initialShow);
+                    const showToLoad = initialShow || currentShow;
+
+                    if (showToLoad) {
+                        if (initialShow) {
+                            setCurrentShow(initialShow);
+                        }
                         // Load episodes for the selected show only
                         const epsResp = await invoke<any>("fetch_show_episodes", {
                             server: server.address,
-                            showRatingKey: initialShow.ratingKey,
+                            showRatingKey: showToLoad.ratingKey,
                             token,
                             start: episodesPaging.start,
                             size: episodesPaging.size,
                         });
                         const md = epsResp?.MediaContainer?.Metadata ?? [];
+                        if (md.length === 0) {
+                            setEpisodesPaging(prev => ({ ...prev, exhausted: true }));
+                        } else if (md.length < episodesPaging.size) {
+                            setEpisodesPaging(prev => ({ ...prev, exhausted: true }));
+                        }
                         for (const item of md) {
                             const file = item?.Media?.[0]?.Part?.[0]?.file;
                             if (!file) continue;
@@ -344,21 +410,27 @@ export default function Preview({server, library, onBack}: Props) {
                             const e: EpisodeItem = {
                                 type: "episode",
                                 ratingKey: String(item.ratingKey ?? item.key ?? file),
-                                showTitle: initialShow.title,
+                                showTitle: showToLoad.title,
                                 title: String(item.title ?? "Episode"),
                                 season: parsed.season,
                                 index: parsed.index,
                                 file: String(file),
+                                year: item.year ? Number(item.year) : undefined,
+                                grandparentTitle: String(item.grandparentTitle ?? showToLoad.title),
+                                parentTitle: String(item.parentTitle ?? ""),
+                                parentIndex: item.parentIndex ? Number(item.parentIndex) : parsed.season,
                             };
                             const s = loadSettings();
                             const tpl = s.templates.episode || template;
                             const proposal = computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders);
                             list.push(proposal);
                         }
-                        // Clear the initial show after loading
-                        delete (window as any).__initialShow;
+                        // Clear the initial show after loading if it was from window
+                        if (initialShow) {
+                            delete (window as any).__initialShow;
+                        }
                     }
-                    // If no initial show selected, show message to go back to show selection
+                    // If no show selected, show message to go back to show selection
                 } else {
                     // For TV shows without a selected show, show a message
                     setRows([]);
@@ -380,8 +452,9 @@ export default function Preview({server, library, onBack}: Props) {
 
     // Live recompute when template changes
     useEffect(() => {
-        if (rows.length === 0) return;
+        console.log("Template changed, triggering reload:", template);
         // Trigger a re-load to recompute proposals with full metadata
+        setReloadTick(t => t + 1);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [template]);
 
@@ -469,6 +542,15 @@ export default function Preview({server, library, onBack}: Props) {
                                 title: String(item.title || "Unknown"),
                                 year: item.year ? Number(item.year) : undefined,
                                 file: filePath || String(item.key || ""),
+                                edition: String(item.edition ?? item.editionTitle ?? ""),
+                                genre: String(item.genre ?? ""),
+                                rating: String(item.contentRating ?? ""),
+                                studio: String(item.studio ?? ""),
+                                director: String(item.director ?? ""),
+                                writer: String(item.writer ?? ""),
+                                country: String(item.country ?? ""),
+                                tagline: String(item.tagline ?? ""),
+                                summary: String(item.summary ?? ""),
                             };
                             const s = loadSettings();
                             const tpl = s.templates.movie || template;
@@ -488,6 +570,10 @@ export default function Preview({server, library, onBack}: Props) {
                                 season: seasonNum,
                                 index: epIndex,
                                 file: filePath || String(item.key || ""),
+                                year: item.year ? Number(item.year) : undefined,
+                                grandparentTitle: String(item.grandparentTitle ?? showTitle),
+                                parentTitle: String(item.parentTitle ?? ""),
+                                parentIndex: item.parentIndex ? Number(item.parentIndex) : seasonNum,
                             };
                             const s = loadSettings();
                             const tpl = s.templates.episode || template;
@@ -663,8 +749,16 @@ export default function Preview({server, library, onBack}: Props) {
                                 saveSettings(updated);
                             }}
                             placeholder={library.type === "movie" ? "Movie template" : "Episode template"}
-                            className="w-[420px] rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-500"
+                            className="w-[380px] rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-500"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowTemplateHelp(true)}
+                          className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
+                          title="Show available template fields"
+                        >
+                          <IconQuestionCircle className="h-4 w-4" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
@@ -712,7 +806,7 @@ export default function Preview({server, library, onBack}: Props) {
                             <div className="flex items-center gap-1">
                                 <button
                                     onClick={async () => {
-                                        setMoviesPaging(prev => ({ ...prev, start: prev.start + prev.size }));
+                                        const nextStart = rows.length;
                                         setLoading(true);
                                         try {
                                             const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
@@ -720,7 +814,7 @@ export default function Preview({server, library, onBack}: Props) {
                                                 server: server.address,
                                                 libraryKey: library.key,
                                                 token,
-                                                start: moviesPaging.start + moviesPaging.size,
+                                                start: nextStart,
                                                 size: moviesPaging.size,
                                             });
                                             const mc = data?.MediaContainer;
@@ -738,6 +832,15 @@ export default function Preview({server, library, onBack}: Props) {
                                                     title: String(item.title ?? "Unknown"),
                                                     year: item.year ? Number(item.year) : undefined,
                                                     file: String(file),
+                                                    edition: String(item.edition ?? item.editionTitle ?? ""),
+                                                    genre: String(item.genre ?? ""),
+                                                    rating: String(item.contentRating ?? ""),
+                                                    studio: String(item.studio ?? ""),
+                                                    director: String(item.director ?? ""),
+                                                    writer: String(item.writer ?? ""),
+                                                    country: String(item.country ?? ""),
+                                                    tagline: String(item.tagline ?? ""),
+                                                    summary: String(item.summary ?? ""),
                                                 };
                                                 const s = loadSettings();
                                                 const tpl = s.templates.movie || template;
@@ -767,7 +870,7 @@ export default function Preview({server, library, onBack}: Props) {
                             <div className="flex items-center gap-1">
                                 <button
                                     onClick={async () => {
-                                        setEpisodesPaging(prev => ({ ...prev, start: prev.start + prev.size }));
+                                        const nextStart = rows.length;
                                         setLoading(true);
                                         try {
                                             const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
@@ -775,7 +878,7 @@ export default function Preview({server, library, onBack}: Props) {
                                                 server: server.address,
                                                 showRatingKey: currentShow.ratingKey,
                                                 token,
-                                                start: episodesPaging.start + episodesPaging.size,
+                                                start: nextStart,
                                                 size: episodesPaging.size,
                                                 });
                                                 const md = epsResp?.MediaContainer?.Metadata ?? [];
@@ -790,16 +893,20 @@ export default function Preview({server, library, onBack}: Props) {
                                                     const e: EpisodeItem = {
                                                         type: "episode",
                                                         ratingKey: String(item.ratingKey ?? item.key ?? file),
-                                                    showTitle: currentShow.title,
+                                                        showTitle: currentShow.title,
                                                         title: String(item.title ?? "Episode"),
                                                         season: parsed.season,
                                                         index: parsed.index,
                                                         file: String(file),
+                                                        year: item.year ? Number(item.year) : undefined,
+                                                        grandparentTitle: String(item.grandparentTitle ?? currentShow.title),
+                                                        parentTitle: String(item.parentTitle ?? ""),
+                                                        parentIndex: item.parentIndex ? Number(item.parentIndex) : parsed.season,
                                                     };
                                                     const s = loadSettings();
                                                     const tpl = s.templates.episode || template;
-                                                more.push(computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders));
-                                            }
+                                                    more.push(computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders));
+                                                }
                                             setRows(prev => [...prev, ...more]);
                                         } catch (e) {
                                             console.warn("Load more episodes failed", e);
@@ -929,6 +1036,12 @@ export default function Preview({server, library, onBack}: Props) {
                     plexRoots={library.roots || []}
                     onClose={() => setShowMapModal(false)}
                     onSaved={refreshPathMappings}
+                />
+            )}
+            {showTemplateHelp && (
+                <TemplateHelpModal
+                    libraryType={library.type as "movie" | "show"}
+                    onClose={() => setShowTemplateHelp(false)}
                 />
             )}
         </main>

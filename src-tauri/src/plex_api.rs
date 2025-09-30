@@ -530,6 +530,20 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
         year: Option<i64>,
         index: Option<i64>, // episode index
         media_files: Vec<String>,
+        // Additional fields for template support
+        edition: Option<String>,
+        edition_title: Option<String>,
+        genre: Option<String>,
+        content_rating: Option<String>,
+        studio: Option<String>,
+        director: Option<String>,
+        writer: Option<String>,
+        country: Option<String>,
+        tagline: Option<String>,
+        summary: Option<String>,
+        grandparent_title: Option<String>,
+        parent_title: Option<String>,
+        parent_index: Option<i64>,
     }
 
     let mut items: Vec<Item> = Vec::new();
@@ -550,6 +564,19 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
                         else if k == b"title" { it.title = Some(v.to_string()); }
                         else if k == b"year" { if let Ok(n) = v.parse::<i64>() { it.year = Some(n); } }
                         else if k == b"index" { if let Ok(n) = v.parse::<i64>() { it.index = Some(n); } }
+                        else if k == b"edition" { it.edition = Some(v.to_string()); }
+                        else if k == b"editionTitle" { it.edition_title = Some(v.to_string()); }
+                        else if k == b"genre" { it.genre = Some(v.to_string()); }
+                        else if k == b"contentRating" { it.content_rating = Some(v.to_string()); }
+                        else if k == b"studio" { it.studio = Some(v.to_string()); }
+                        else if k == b"director" { it.director = Some(v.to_string()); }
+                        else if k == b"writer" { it.writer = Some(v.to_string()); }
+                        else if k == b"country" { it.country = Some(v.to_string()); }
+                        else if k == b"tagline" { it.tagline = Some(v.to_string()); }
+                        else if k == b"summary" { it.summary = Some(v.to_string()); }
+                        else if k == b"grandparentTitle" { it.grandparent_title = Some(v.to_string()); }
+                        else if k == b"parentTitle" { it.parent_title = Some(v.to_string()); }
+                        else if k == b"parentIndex" { if let Ok(n) = v.parse::<i64>() { it.parent_index = Some(n); } }
                     }
                     current = Some(it);
                 } else if in_video && name.as_ref() == b"Part" {
@@ -577,6 +604,19 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
                         else if k == b"title" { it.title = Some(v.to_string()); }
                         else if k == b"year" { if let Ok(n) = v.parse::<i64>() { it.year = Some(n); } }
                         else if k == b"index" { if let Ok(n) = v.parse::<i64>() { it.index = Some(n); } }
+                        else if k == b"edition" { it.edition = Some(v.to_string()); }
+                        else if k == b"editionTitle" { it.edition_title = Some(v.to_string()); }
+                        else if k == b"genre" { it.genre = Some(v.to_string()); }
+                        else if k == b"contentRating" { it.content_rating = Some(v.to_string()); }
+                        else if k == b"studio" { it.studio = Some(v.to_string()); }
+                        else if k == b"director" { it.director = Some(v.to_string()); }
+                        else if k == b"writer" { it.writer = Some(v.to_string()); }
+                        else if k == b"country" { it.country = Some(v.to_string()); }
+                        else if k == b"tagline" { it.tagline = Some(v.to_string()); }
+                        else if k == b"summary" { it.summary = Some(v.to_string()); }
+                        else if k == b"grandparentTitle" { it.grandparent_title = Some(v.to_string()); }
+                        else if k == b"parentTitle" { it.parent_title = Some(v.to_string()); }
+                        else if k == b"parentIndex" { if let Ok(n) = v.parse::<i64>() { it.parent_index = Some(n); } }
                     }
                     items.push(it);
                 } else if name.as_ref() == b"Part" {
@@ -615,6 +655,19 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
         if let Some(rk) = it.rating_key { obj["ratingKey"] = json!(rk); }
         if let Some(y) = it.year { obj["year"] = json!(y); }
         if let Some(idx) = it.index { obj["index"] = json!(idx); }
+        if let Some(edition) = it.edition { obj["edition"] = json!(edition); }
+        if let Some(edition_title) = it.edition_title { obj["editionTitle"] = json!(edition_title); }
+        if let Some(genre) = it.genre { obj["genre"] = json!(genre); }
+        if let Some(content_rating) = it.content_rating { obj["contentRating"] = json!(content_rating); }
+        if let Some(studio) = it.studio { obj["studio"] = json!(studio); }
+        if let Some(director) = it.director { obj["director"] = json!(director); }
+        if let Some(writer) = it.writer { obj["writer"] = json!(writer); }
+        if let Some(country) = it.country { obj["country"] = json!(country); }
+        if let Some(tagline) = it.tagline { obj["tagline"] = json!(tagline); }
+        if let Some(summary) = it.summary { obj["summary"] = json!(summary); }
+        if let Some(grandparent_title) = it.grandparent_title { obj["grandparentTitle"] = json!(grandparent_title); }
+        if let Some(parent_title) = it.parent_title { obj["parentTitle"] = json!(parent_title); }
+        if let Some(parent_index) = it.parent_index { obj["parentIndex"] = json!(parent_index); }
         meta.push(obj);
     }
 
