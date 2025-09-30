@@ -294,12 +294,16 @@ export default function Preview({server, library, onBack}: Props) {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
     const [moviesPaging, setMoviesPaging] = useState({ start: 0, size: settings.general.pagination.defaultMovieLimit, exhausted: false });
+
+    // Update pagination when settings change
+    useEffect(() => {
+        setMoviesPaging(prev => ({ ...prev, size: settings.general.pagination.defaultMovieLimit }));
+    }, [settings.general.pagination.defaultMovieLimit]);
     const [episodesPaging, setEpisodesPaging] = useState({ start: 0, size: 200, exhausted: false });
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [colWidths, setColWidths] = useState<{ current: number; proposed: number; flags: number }>({ current: 480, proposed: 480, flags: 320 });
-    const [template, setTemplate] = useState<string>(() => {
-        return library.type === "movie" ? settings.templates.movie : settings.templates.episode;
-    });
+    // Template is computed from current settings
+    const template = library.type === "movie" ? settings.templates.movie : settings.templates.episode;
     const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
     const [showMapModal, setShowMapModal] = useState(false);
     const [showTemplateHelp, setShowTemplateHelp] = useState(false);
@@ -501,15 +505,19 @@ export default function Preview({server, library, onBack}: Props) {
         }
 
         load();
-    }, [server.address, library.key, library.type, template, reloadTick]);
+    }, [server.address, library.key, library.type, template, reloadTick,
+        settings.movies.collections.enabled,
+        settings.movies.collections.mode,
+        settings.movies.collections.naming,
+        settings.movies.ownFolderPerMovie,
+        settings.tv.seasonFolders,
+        settings.general.encoding.mode,
+        settings.general.encoding.highlightNonLatin,
+        settings.templates.movie,
+        settings.templates.episode
+    ]);
 
-    // Live recompute when template changes
-    useEffect(() => {
-        console.log("Template changed, triggering reload:", template);
-        // Trigger a re-load to recompute proposals with full metadata
-        setReloadTick(t => t + 1);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [template]);
+
 
     // Debounce search query to prevent excessive API calls
     useEffect(() => {
@@ -796,7 +804,6 @@ export default function Preview({server, library, onBack}: Props) {
                             value={template}
                             onChange={(e) => {
                                 const next = e.target.value;
-                                setTemplate(next);
                                 const updated = {
                                     ...settings,
                                     templates: {
@@ -823,7 +830,6 @@ export default function Preview({server, library, onBack}: Props) {
                             const def = library.type === "movie"
                               ? "{title}[ ({year})]{ext}"
                               : "{showTitle} - S{season:02}E{episode:02} - {title}{ext}";
-                            setTemplate(def);
                             const updated = {
                               ...settings,
                               templates: {

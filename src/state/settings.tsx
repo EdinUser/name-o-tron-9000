@@ -136,29 +136,44 @@ const KEY = "nameotron.settings.v1";
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return defaultSettings;
+    if (!raw) {
+      console.log("No saved settings found, using defaults");
+      return defaultSettings;
+    }
     const parsed = JSON.parse(raw);
-    return {
-      ...defaultSettings,
-      ...parsed,
-      general: { ...defaultSettings.general, ...parsed.general },
-      templates: { ...defaultSettings.templates, ...(parsed.templates || {}) },
-    } as Settings;
-  } catch {
+    const merged = deepMerge(defaultSettings, parsed);
+    console.log("Loaded settings from localStorage:", merged);
+    return merged;
+  } catch (error) {
+    console.error("Failed to load settings from localStorage:", error);
     return defaultSettings;
   }
 }
 
 export function saveSettings(s: Settings) {
+  console.log("Saving settings:", s);
   // Keep local cache for synchronous reads in UI flows
-  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+  try {
+    localStorage.setItem(KEY, JSON.stringify(s));
+    console.log("Settings saved to localStorage");
+  } catch (error) {
+    console.error("Failed to save settings to localStorage:", error);
+  }
   // Persist centrally via Tauri settings (deep-merged on Rust side)
   try {
     // Lazy import to avoid hard dependency at build time for web preview
     import("@tauri-apps/api/core").then(({ invoke }) => {
-      invoke("save_settings", { settings: { ui: s } }).catch(() => {});
-    }).catch(() => {});
-  } catch { /* no-op if Tauri not available */ }
+      invoke("save_settings", { settings: { ui: s } }).then(() => {
+        console.log("Settings saved to Tauri backend");
+      }).catch((error) => {
+        console.error("Failed to save settings to Tauri backend:", error);
+      });
+    }).catch(() => {
+      console.log("Tauri not available, skipping backend save");
+    });
+  } catch (error) {
+    console.error("Error saving settings:", error);
+  }
 }
 
 // Settings Context for reactive updates
@@ -175,22 +190,65 @@ export function useSettings() {
   return context;
 }
 
-export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<Settings>(() => loadSettings());
+// Deep merge utility for nested objects
+function deepMerge(target: any, source: any): any {
+  const result = { ...target };
+  for (const key in source) {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      result[key] = deepMerge(result[key] || {}, source[key]);
+    } else {
+      result[key] = source[key];
+    }
+  }
+  return result;
+}
 
-  // Load canonical settings from Tauri on mount
+export function SettingsProvider({ children }: { children: ReactNode }) {
+  const [settings, setSettings] = useState<Settings>(() => {
+    // Load from localStorage first
+    const localSettings = loadSettings();
+
+    // Try to load from Tauri backend synchronously if available
+    try {
+      // Check if we're in a Tauri environment
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        // For synchronous loading, we'll use localStorage as primary source
+        // and merge Tauri settings in useEffect
+        return localSettings;
+      }
+    } catch {
+      // Not in Tauri environment, use localStorage only
+    }
+
+    return localSettings;
+  });
+
+  // Load canonical settings from Tauri on mount and merge properly
   useEffect(() => {
     (async () => {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         const all = await invoke<any>("get_settings");
+        console.log("Loaded settings from Tauri backend:", all);
         if (all && all.ui) {
-          const mergedSettings = { ...settings, ...all.ui };
+          // Properly deep merge Tauri settings with current settings
+          const mergedSettings = deepMerge(settings, all.ui);
+          console.log("Merged settings:", mergedSettings);
           setSettings(mergedSettings);
-          // Also save to localStorage for consistency
-          try { localStorage.setItem(KEY, JSON.stringify(mergedSettings)); } catch {}
+          // Also save merged settings to localStorage for consistency
+          try {
+            localStorage.setItem(KEY, JSON.stringify(mergedSettings));
+            console.log("Merged settings saved back to localStorage");
+          } catch (error) {
+            console.error("Failed to save merged settings to localStorage:", error);
+          }
+        } else {
+          console.log("No UI settings found in Tauri backend");
         }
-      } catch { /* ignore if not available */ }
+      } catch (error) {
+        // Tauri not available or failed to load, use localStorage settings
+        console.log("Using localStorage settings (Tauri not available or failed):", error);
+      }
     })();
   }, []);
 
@@ -198,6 +256,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings(newSettings);
     saveSettings(newSettings);
   };
+
+  // Expose settings functions for debugging
+  useEffect(() => {
+    (window as any).nameotron = (window as any).nameotron || {};
+    (window as any).nameotron.settings = {
+      loadSettings,
+      saveSettings,
+      getCurrentSettings: () => settings,
+      resetToDefaults: () => {
+        console.log("Resetting settings to defaults");
+        updateSettings(defaultSettings);
+      }
+    };
+  }, [settings]);
 
   return (
     <SettingsContext.Provider value={{ settings, updateSettings }}>
