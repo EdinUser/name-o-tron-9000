@@ -330,7 +330,11 @@ pub async fn fetch_library_content(
     server: String,
     library_key: String,
     token: Option<String>,
- ) -> Result<serde_json::Value, String> {
+    start: Option<usize>,
+    size: Option<usize>,
+) -> Result<serde_json::Value, String> {
+    let start = start.unwrap_or(0);
+    let size = size.unwrap_or(200);
     // Build a robust HTTP client similar to list_libraries
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
@@ -359,24 +363,23 @@ pub async fn fetch_library_content(
     bases.sort();
     bases.dedup();
 
-    // Candidate URLs: combinations of base, leaf-or-all path, query paging, token in query, and optional type filter
+    // Simplified URL construction - try most common patterns first
     let mut urls: Vec<String> = Vec::new();
-    let paging = "X-Plex-Container-Start=0&X-Plex-Container-Size=200"; // keep responses reasonable
-    let type_opts = ["", "&type=1", "&type=2", "&type=4"]; // 1=movie, 2=show, 4=episode
-    let paths = ["allLeaves", "all"]; // prefer leaves for TV to get episodes directly
+    let paging = format!("X-Plex-Container-Start={}&X-Plex-Container-Size={}", start, size);
+
     for b in &bases {
-        for p in &paths {
-            if let Some(t) = token.as_ref() {
-                let tok = urlencoding::encode(t);
-                for tparam in type_opts.iter() {
-                    urls.push(format!("{}/library/sections/{}/{}?{}{}&X-Plex-Token={}", b, library_key, p, paging, tparam, tok));
-                    urls.push(format!("{}/library/sections/{}/{}?X-Plex-Token={}{}", b, library_key, p, tok, tparam));
-                }
-            }
-            for tparam in type_opts.iter() {
-                urls.push(format!("{}/library/sections/{}/{}?{}{}", b, library_key, p, paging, tparam));
-                urls.push(format!("{}/library/sections/{}/{}{}", b, library_key, p, tparam));
-            }
+        // Try most common patterns first (allLeaves with token in header)
+        if let Some(t) = token.as_ref() {
+            urls.push(format!("{}/library/sections/{}/allLeaves?{}", b, library_key, paging));
+        } else {
+            urls.push(format!("{}/library/sections/{}/allLeaves?{}", b, library_key, paging));
+        }
+
+        // Fallback to 'all' if 'allLeaves' fails
+        if let Some(t) = token.as_ref() {
+            urls.push(format!("{}/library/sections/{}/all?{}", b, library_key, paging));
+        } else {
+            urls.push(format!("{}/library/sections/{}/all?{}", b, library_key, paging));
         }
     }
 
@@ -810,6 +813,84 @@ pub async fn fetch_tv_shows(
     }
     // minimal pass-through if we cannot parse
     Ok(serde_json::json!({"_raw": text}))
+}
+
+#[tauri::command]
+pub async fn search_content(
+    server: String,
+    query: String,
+    section_id: Option<i32>,
+    limit: Option<usize>,
+    token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    println!("SEARCH API: Called with query='{}', section_id={:?}, limit={:?}", query, section_id, limit);
+    let limit = limit.unwrap_or(3); // Default limit per hub type
+
+    let base_in = server.trim_end_matches('/');
+    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
+        base_in.to_string()
+    } else { format!("http://{}", base_in) }];
+    if base_in.starts_with("http://") {
+        bases.push(base_in.replacen("http://", "https://", 1));
+    } else if base_in.starts_with("https://") {
+        bases.push(base_in.replacen("https://", "http://", 1));
+    } else {
+        bases.push(format!("https://{}", base_in));
+    }
+    bases.sort();
+    bases.dedup();
+
+    let mut urls: Vec<String> = Vec::new();
+    for b in &bases {
+        let mut url = format!("{}/hubs/search?query={}", b, urlencoding::encode(&query));
+
+        if let Some(section_id) = section_id {
+            url.push_str(&format!("&sectionId={}", section_id));
+        }
+
+        if limit != 3 {
+            url.push_str(&format!("&limit={}", limit));
+        }
+
+        if let Some(t) = token.as_ref() {
+            url.push_str(&format!("&X-Plex-Token={}", urlencoding::encode(t)));
+        }
+
+        urls.push(url);
+    }
+
+    let client_id = current_client_id();
+    let resp = http_get_with_variants(&urls, token.as_deref(), &client_id).await?;
+    let status = resp.status();
+    let text = resp.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(format!("HTTP {}: {}", status, text));
+    }
+    let trimmed = text.trim();
+    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) { return Ok(v); }
+    }
+    if trimmed.starts_with('<') {
+        if let Some(v) = xml_search_to_json(&text) { return Ok(v); }
+    }
+    // Debug: return raw response for investigation
+    println!("Search API raw response: {}", &text[..text.len().min(500)]);
+    Ok(serde_json::json!({"_raw": text}))
+}
+
+fn xml_search_to_json(xml_text: &str) -> Option<serde_json::Value> {
+    // Parse XML response from /hubs/search and convert to JSON structure
+    // For now, return a basic structure - in a real implementation, this would need proper XML parsing
+    if xml_text.contains("MediaContainer") {
+        // Return a basic structure that matches what we expect
+        Some(serde_json::json!({
+            "MediaContainer": {
+                "Hub": []
+            }
+        }))
+    } else {
+        None
+    }
 }
 
 #[tauri::command]

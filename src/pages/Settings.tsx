@@ -114,6 +114,7 @@ function General({s, onChange}: { s: Settings; onChange: (v: Settings["general"]
     const g = s.general;
     const set = (patch: Partial<typeof g>) => onChange({...g, ...patch});
     const setEncoding = (patch: Partial<typeof g.encoding>) => onChange({...g, encoding: {...g.encoding, ...patch}});
+    const setPagination = (patch: Partial<typeof g.pagination>) => onChange({...g, pagination: {...g.pagination, ...patch}});
     async function clearSavedCreds() {
         try { await invoke("secure_clear_token"); } catch {}
         try { await invoke("save_settings", { settings: { auth: { plexToken: null } } }); } catch {}
@@ -195,6 +196,39 @@ function General({s, onChange}: { s: Settings; onChange: (v: Settings["general"]
                 </Row>
                 <Row label="Permissions check before renaming">
                     <input type="checkbox" checked={g.safety.permissionsCheck} onChange={(e) => set({safety: {...g.safety, permissionsCheck: e.target.checked}})}/>
+                </Row>
+            </Section>
+
+            <Section title="Default Load Limits">
+                <Row label="Movies default limit">
+                    <input
+                        type="number"
+                        value={g.pagination.defaultMovieLimit}
+                        onChange={(e) => setPagination({defaultMovieLimit: parseInt(e.target.value) || 200})}
+                        className="w-20 rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm"
+                        min="50"
+                        max="10000"
+                    />
+                </Row>
+                <Row label="TV Shows default limit">
+                    <input
+                        type="number"
+                        value={g.pagination.defaultShowLimit}
+                        onChange={(e) => setPagination({defaultShowLimit: parseInt(e.target.value) || 200})}
+                        className="w-20 rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm"
+                        min="50"
+                        max="10000"
+                    />
+                </Row>
+                <Row label="Music default limit">
+                    <input
+                        type="number"
+                        value={g.pagination.defaultMusicLimit}
+                        onChange={(e) => setPagination({defaultMusicLimit: parseInt(e.target.value) || 200})}
+                        className="w-20 rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm"
+                        min="50"
+                        max="10000"
+                    />
                 </Row>
             </Section>
         </>
@@ -348,3 +382,4 @@ function Misc({s, onChange}: { s: Settings; onChange: (v: Settings["misc"]) => v
         </>
     );
 }
+

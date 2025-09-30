@@ -10,6 +10,7 @@ mod secure;
 pub use plex_api::fetch_library_content;
 pub use plex_api::fetch_tv_shows;
 pub use plex_api::fetch_show_episodes;
+pub use plex_api::search_content;
 
 #[derive(Serialize)]
 pub struct PlexServerDto {
@@ -190,6 +191,7 @@ pub fn run() {
             plex_api::fetch_library_content,
             plex_api::fetch_tv_shows,
             plex_api::fetch_show_episodes,
+            plex_api::search_content,
             path_map::test_mapping,
             settings::get_settings,
             settings::save_settings,

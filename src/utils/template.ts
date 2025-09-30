@@ -14,9 +14,9 @@ export function renderTemplate(template: string, context: TemplateContext): stri
   if (!template) return "";
 
   // First, process bracketed optional groups.
-  const withGroups = template.replace(/\[(.+?)\]/g, (match, group) => {
+  const withGroups = template.replace(/\[(.+?)\]/g, (_match, group) => {
     // Resolve placeholders within the group to check if any have values
-    const resolved = group.replace(/\{([a-zA-Z0-9_]+)(?::(\d+))?\}/g, (_m, key, fmt) => {
+    const resolved = group.replace(/\{([a-zA-Z0-9_]+)(?::(\d+))?\}/g, (_m: string, key: string, fmt: string) => {
       const raw = context[key];
       if (raw == null || raw === "") return "";
       if (typeof raw === "number" && fmt) return padNumber(raw, parseInt(fmt, 10));
@@ -28,7 +28,7 @@ export function renderTemplate(template: string, context: TemplateContext): stri
   });
 
   // Then, replace simple placeholders.
-  const replaced = withGroups.replace(/\{([a-zA-Z0-9_]+)(?::(\d+))?\}/g, (m, key, fmt) => {
+  const replaced = withGroups.replace(/\{([a-zA-Z0-9_]+)(?::(\d+))?\}/g, (_m: string, key: string, fmt: string) => {
     const raw = context[key];
     if (raw == null || raw === "") return "";
     if (typeof raw === "number" && fmt) return padNumber(raw, parseInt(fmt, 10));

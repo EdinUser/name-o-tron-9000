@@ -12,6 +12,11 @@ export type GeneralSettings = {
   };
   conflictHandling: "skip" | "overwrite" | "suffix2";
   safety: { pathLengthCheck: boolean; reservedNamesCheck: boolean; permissionsCheck: boolean };
+  pagination: {
+    defaultMovieLimit: number;
+    defaultShowLimit: number;
+    defaultMusicLimit: number;
+  };
 };
 
 export type MovieSettings = {
@@ -60,6 +65,12 @@ export type TemplateSettings = {
   episode: string;
 };
 
+export type PaginationSettings = {
+  defaultMovieLimit: number;
+  defaultShowLimit: number;
+  defaultMusicLimit: number;
+};
+
 export type Settings = {
   general: GeneralSettings;
   movies: MovieSettings;
@@ -78,6 +89,11 @@ const defaultSettings: Settings = {
     encoding: { mode: "unicode", highlightNonLatin: true },
     conflictHandling: "skip",
     safety: { pathLengthCheck: true, reservedNamesCheck: true, permissionsCheck: true },
+    pagination: {
+      defaultMovieLimit: 200,
+      defaultShowLimit: 200,
+      defaultMusicLimit: 200,
+    },
   },
   movies: {
     collections: { enabled: true, mode: "always", naming: "original" },
@@ -137,8 +153,8 @@ export function saveSettings(s: Settings) {
   // Persist centrally via Tauri settings (deep-merged on Rust side)
   try {
     // Lazy import to avoid hard dependency at build time for web preview
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { invoke } = require("@tauri-apps/api/core");
-    invoke("save_settings", { settings: { ui: s } }).catch(() => {});
+    import("@tauri-apps/api/core").then(({ invoke }) => {
+      invoke("save_settings", { settings: { ui: s } }).catch(() => {});
+    }).catch(() => {});
   } catch { /* no-op if Tauri not available */ }
 }

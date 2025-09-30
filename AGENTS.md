@@ -9,6 +9,29 @@ Relevant specs are in:
 - `docs/plex-renamer-settings.md:1`
 - `docs/plex-renamer-developer-guide.md:1`
 
+## Current Implementation Status
+
+**As of the current codebase scan, Name-o-Tron 9000 is substantially more complete than initially planned:**
+
+### ✅ FULLY IMPLEMENTED (Frontend + Backend)
+- **Complete UI Framework**: All 5 pages implemented (Home, Library Selection, Show Selection, Preview, Settings)
+- **Plex Integration**: Full API integration with server discovery (SSDP multicast), PIN authentication, and metadata fetching
+- **Safety Systems**: Traffic-light status system (🟩/🟨/🟥/❌) with comprehensive validation and batch guards
+- **Settings Management**: All 5 tabs fully implemented with every setting option from specifications
+- **Path Mapping**: Cross-platform path resolution with validation and UI for managing mappings
+- **Template Engine**: Live template editing with placeholder support and validation
+- **Security**: System keyring integration for secure token storage
+
+### 🔄 PARTIALLY IMPLEMENTED
+- **Preview System**: Complete proposal generation and status checking, but uses mock filesystem operations
+
+### ❌ MISSING (Critical Next Steps)
+- **Rename Engine**: The actual filesystem operations (`preview_renames`, `apply_renames`, `undo_last_rename`)
+- **Rollback Logging**: JSON log writing for undo functionality
+- **Filesystem Safety**: Permission checks and atomic file operations
+
+**The app can currently discover servers, authenticate, browse libraries, generate rename proposals with safety checks, and manage all settings - but cannot actually perform filesystem operations yet.**
+
 ## Scope
 - This file applies to the entire repository tree.
 - Prioritize safety-first behavior and minimal, focused changes.
@@ -23,18 +46,35 @@ Key goals:
 - Balanced defaults for “normies”; deep settings for power users
 
 ## Architecture
-- Frontend (React/TypeScript) in `src/`
-  - Pages: Home, Preview, Settings, Logs
-  - Components: `PreviewTable`, `SettingsTabs`, `LogsViewer`
-- Backend (Rust via Tauri) in `src-tauri/`
-  - Plex API connector: discovery + auth + library fetch
-  - Renaming engine: template application + safety checks + dry‑run
-  - Logging/rollback: JSON logs to user dir
+- **Frontend (React/TypeScript) in `src/`**
+  - **Pages**: Home (discovery/auth), LibrarySelection, ShowSelection, Preview, Settings (5 tabs)
+  - **Components**: Custom SVG icons, PathMappingModal, LibraryMappingPanel
+  - **State Management**: Settings persistence (localStorage + Tauri backend)
+  - **Utils**: Template rendering engine with placeholder support
+  - **Search Behavior (Movies/TV in Preview)**
+    - Debounced input (500ms) filters the already loaded rows immediately
+    - If the debounced query yields zero local matches and initial load is idle, the app invokes a backend search using Plex `/hubs/search`
+    - Remote results are kept in a separate state to avoid UI flicker and are flagged with `remote-search`
+    - For movies, search results are mapped to the same proposal pipeline as normal items (template + safety checks), using `{title}`, `{year}`, `{ext}` etc.
+    - For TV, results are mapped using `grandparentTitle/parentTitle`, `parentIndex` (season) and `index` (episode) where available and run through the episode template pipeline
+    - Current path for search results uses `Media[0].Part[0].file` when present; otherwise it is left empty (future enhancement: fetch item details to fill paths consistently)
+
+- **Backend (Rust via Tauri) in `src-tauri/`**
+  - **plex_api.rs** (1200+ lines): Complete Plex API integration (discovery, auth, metadata)
+  - `search_content(server, query, section_id?, limit?, token?)`: queries Plex `/hubs/search` across HTTP/HTTPS variants
+    - Accepts `X-Plex-Token` and includes it in both header and query string for robustness
+    - Returns JSON when available and logs a trimmed raw response head when Plex replies in XML
+    - Used by the Preview page when there are no local matches for a search query
+  - **settings.rs**: Settings persistence with deep merge functionality
+  - **path_map.rs**: Cross-platform path mapping and resolution
+  - **secure.rs**: System keyring integration for token storage
+  - **lib.rs**: Tauri command bindings and SSDP discovery implementation
 
 IPC contract (suggested Tauri commands):
 - `plex_discover({ hints? })` → [{ name, address, machineIdentifier?, owned? }]
 - `plex_login()` / `plex_login_status()` / `plex_logout()`
 - `list_libraries({ server, token? })` → libraries
+- `search_content({ server, query, section_id?, limit?, token? })` → hubs-style search results
 - `preview_renames({libraryId, scope, settings})` → [{old, new, status, flags}]
 - `apply_renames({plan, settings})` → {summary, logPath}
 - `undo_last_rename()` → summary
@@ -73,15 +113,32 @@ Default stance:
 - Safe‑first, Unicode kept, non‑destructive by default. Destructive options require explicit confirmation.
 
 ## File/Folder Conventions
-- Rust: modules under `src-tauri/src/` (e.g., `plex_api.rs`, `rename_engine.rs`, `logs.rs`)
-- React: `src/components/`, `src/pages/`, `src/hooks/`
-- Logs: use OS‑appropriate app data dir; don’t hardcode home paths in code
-- Keep code style consistent with existing files; TypeScript strict; avoid one‑letter names
+- **Rust Backend**: modules under `src-tauri/src/`
+  - `plex_api.rs` - Complete Plex API integration (discovery, auth, metadata fetching)
+  - `settings.rs` - Settings persistence with deep merge functionality
+  - `path_map.rs` - Cross-platform path mapping and resolution
+  - `secure.rs` - System keyring integration for secure token storage
+  - `lib.rs` - Tauri command bindings and main application logic
+
+- **React Frontend**: organized in `src/`
+  - `pages/` - All 5 screen implementations (Home, LibrarySelection, ShowSelection, Preview, Settings)
+  - `components/` - Reusable UI components (icons, modals, panels)
+  - `state/` - Settings state management with TypeScript types
+  - `types/` - TypeScript type definitions for Plex data structures
+  - `utils/` - Utility functions (template rendering, validation)
+
+- **Logs and Data**: Use OS‑appropriate app data directories (implemented in settings.rs)
+- **Code Style**: TypeScript strict mode; comprehensive error handling; avoid one‑letter names
+- **Build System**: Tailwind CSS v4 with PostCSS plugin required for styling
 
 ## Development Workflow
 Commands:
-- Dev: `npm run tauri dev`
-- Build: `npm install && cargo build`
+- **Dev with mock server**: `npm run mock:plex` (terminal A) then `npm run tauri dev` (terminal B)
+- **Dev**: `npm run tauri dev`
+- **Build**: `npm install && cargo build`
+- **Install Tailwind**: `npm i -D @tailwindcss/postcss` (required for styling)
+
+**Testing**: Mock Plex server available at `http://localhost:32400` with comprehensive test fixtures in `tests/` directory.
 
 Agent practices:
 - Read and respect this file and `docs/` specs before changes
@@ -96,20 +153,35 @@ Planning & messaging (for agent UIs):
 - Group related shell actions under one brief preamble
 - Provide concise progress updates; avoid verbosity
 
-## MVP Checklist
-From `docs/name-o-tron-9000-first-commits.md:1`:
-- Plex discovery/auth + list libraries
-- Renaming engine with dry‑run and safety checks
-- Preview table with statuses and actions (Skip/Auto‑Fix)
-- Apply rename + write rollback log
-- Basic Settings page (General tab only)
-- Rescan library via Plex API
+## MVP Checklist - Implementation Status
+
+**From `docs/name-o-tron-9000-first-commits.md:1`:**
+
+### ✅ COMPLETED
+- **Plex discovery/auth + list libraries** - Fully implemented with SSDP multicast and PIN authentication
+- **Preview table with statuses and actions (Skip/Auto‑Fix)** - Complete with traffic-light system and batch guards
+- **Basic Settings page (General tab only)** - All 5 tabs fully implemented, far exceeding original scope
+- **Rescan library via Plex API** - Implemented via reload functionality in Preview page
+
+### 🔄 PARTIALLY COMPLETED
+- **Renaming engine with dry‑run and safety checks** - Template application and safety validation complete, but actual filesystem operations pending
+
+### ❌ PENDING
+- **Apply rename + write rollback log** - Core filesystem operations and logging system needed
 
 ## Next Phases (high‑level)
-- Full Movies/TV/Music/Misc settings
-- Auto‑Fix Reds heuristics (replace invalids, truncate, conflict folder)
-- Retry Skipped flow and Unmatched workflows
-- Webhook listener (future), “Geek Slang” UI mode
+
+**Immediate Priority (Complete MVP):**
+1. **🔴 Rename Engine Implementation** - Core filesystem operations
+   - Implement `preview_renames`, `apply_renames`, `undo_last_rename` commands
+   - Add robust filesystem safety checks and atomic operations
+   - Create rollback logging system (JSON logs to `~/.nameotron/logs/`)
+
+**Enhancement Priorities (Post-MVP):**
+2. **🟡 Auto‑Fix Reds heuristics** - Smart conflict resolution and path sanitization
+3. **🟡 Retry Skipped flow** - Workflow for handling previously skipped items
+4. **🟡 Unmatched workflows** - Better handling of files not in Plex database
+5. **🟢 Advanced Features** - Webhook listener, enhanced UI modes, batch processing optimizations
 
 ## Definition of Done
 - Behavior aligns with `docs/` specs

@@ -1,6 +1,7 @@
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import type {PlexLibrary, PlexServer} from "../types/plex";
-import {IconArrowBack, IconBolt, IconHome, IconRefresh, IconSelectOff, IconSettings} from "../components/icons";
+import {IconArrowBack, IconBolt, IconHome, IconInfo, IconRefresh, IconSelectOff, IconSettings, IconSearch} from "../components/icons";
+import PathMappingModal from "../components/PathMappingModal";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import {loadSettings, saveSettings} from "../state/settings";
@@ -83,6 +84,32 @@ function safeFolderName(name: string) { return name.replace(/[\\/:*?"<>|]/g, "_"
 
 function normalizeShowTitle(raw: string) {
     return raw.replace(/[._]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function shortenFilePath(filePath: string, libraryRoots: string[]): string {
+    if (!libraryRoots.length) return filePath;
+
+    // Normalize paths for comparison (handle both forward and backward slashes)
+    const normalizedFilePath = filePath.replace(/\\/g, '/');
+
+    // Find the longest matching library root
+    let bestMatch = '';
+    let bestMatchLength = 0;
+
+    for (const root of libraryRoots) {
+        const normalizedRoot = root.replace(/\\/g, '/').replace(/\/$/, '');
+        if (normalizedFilePath.startsWith(normalizedRoot + '/') && normalizedRoot.length > bestMatchLength) {
+            bestMatch = normalizedRoot;
+            bestMatchLength = normalizedRoot.length;
+        }
+    }
+
+    // If we found a match, remove the root part
+    if (bestMatch) {
+        return normalizedFilePath.substring(bestMatch.length + 1);
+    }
+
+    return filePath;
 }
 
 function parseEpisodeInfo(filePath: string, fallbackTitle: string): { showTitle: string; season?: number; index?: number } {
@@ -192,30 +219,75 @@ export default function Preview({server, library, onBack}: Props) {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
+    const [moviesPaging, setMoviesPaging] = useState({ start: 0, size: loadSettings().general.pagination.defaultMovieLimit, exhausted: false });
+    const [episodesPaging, setEpisodesPaging] = useState({ start: 0, size: 200, exhausted: false });
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [colWidths, setColWidths] = useState<{ current: number; proposed: number; flags: number }>({ current: 480, proposed: 480, flags: 320 });
     const [template, setTemplate] = useState<string>(() => {
         const s = loadSettings();
         return library.type === "movie" ? s.templates.movie : s.templates.episode;
     });
-    const [shows, setShows] = useState<TvShow[]>([]);
-    const [selectedShow, setSelectedShow] = useState<string | null>(() => {
-        const preset = (window as any).__initialShow as (TvShow | undefined);
-        return preset?.ratingKey ?? null;
-    });
-    const showsPaging = useRef({ start: 0, size: 200, exhausted: false });
-    const episodesPaging = useRef({ start: 0, size: 200, exhausted: false });
-    const folderMapKey = useMemo(() => `${server.address}::${library.key}`, [server.address, library.key]);
-    const [libraryFolder, setLibraryFolder] = useState<string | null>(() => {
-        try {
-            const raw = localStorage.getItem("nameotron.libraryFolders.v1");
-            const map = raw ? JSON.parse(raw) as Record<string, string> : {};
-            return map[folderMapKey] || null;
-        } catch { return null; }
-    });
-    const [folderInput, setFolderInput] = useState<string>(libraryFolder ?? "");
+    const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
+    const [showMapModal, setShowMapModal] = useState(false);
+    const [searchQuery, setSearchQuery] = useState<string>("");
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
+    const [currentShow, setCurrentShow] = useState<{ ratingKey: string; title: string } | null>(null);
+    const [remoteResults, setRemoteResults] = useState<PreviewRow[]>([]);
+    const [remoteQuery, setRemoteQuery] = useState<string>("");
+    const [searching, setSearching] = useState(false);
 
     const [reloadTick, setReloadTick] = useState(0);
+
+    // Load path mappings and determine the library folder for shortening paths
+    useEffect(() => {
+        async function loadPathMappings() {
+            try {
+                const settings = await invoke<{ pathMappings?: { server_id: string; plex_root: string; local_root: string }[] }>("get_settings");
+                const mappings = settings.pathMappings || [];
+
+                // Find the mapped folder for this library
+                const serverId = server.machineIdentifier || server.address;
+                const libraryRoots = library.roots || [];
+
+                for (const root of libraryRoots) {
+                    const mapping = mappings.find(m => m.server_id === serverId && m.plex_root === root);
+                    if (mapping) {
+                        setLibraryFolder(mapping.local_root);
+                        break;
+                    }
+                }
+            } catch (error) {
+                console.warn("Failed to load path mappings:", error);
+                setLibraryFolder(null);
+            }
+        }
+
+        loadPathMappings();
+    }, [server.address, server.machineIdentifier, library.key, library.roots]);
+
+    // Refresh path mappings when modal is saved
+    const refreshPathMappings = useCallback(async () => {
+        try {
+            const settings = await invoke<{ pathMappings?: { server_id: string; plex_root: string; local_root: string }[] }>("get_settings");
+            const mappings = settings.pathMappings || [];
+
+            // Find the mapped folder for this library
+            const serverId = server.machineIdentifier || server.address;
+            const libraryRoots = library.roots || [];
+
+            for (const root of libraryRoots) {
+                const mapping = mappings.find(m => m.server_id === serverId && m.plex_root === root);
+                if (mapping) {
+                    setLibraryFolder(mapping.local_root);
+                    break;
+                }
+            }
+        } catch (error) {
+            console.warn("Failed to refresh path mappings:", error);
+            setLibraryFolder(null);
+        }
+    }, [server.address, server.machineIdentifier, library.roots]);
+
     useEffect(() => {
         async function load() {
             setLoading(true);
@@ -232,6 +304,8 @@ export default function Preview({server, library, onBack}: Props) {
                         server: server.address,
                         libraryKey: library.key,
                         token: token ?? null,
+                        start: moviesPaging.start,
+                        size: moviesPaging.size,
                     });
                     const mc = data?.MediaContainer;
                     const md = mc?.Metadata ?? [];
@@ -250,37 +324,17 @@ export default function Preview({server, library, onBack}: Props) {
                         list.push(computeMovieProposal(m, tpl));
                     }
                 } else if (library.type === "show") {
-                    // If no show selected, load shows list first; if there is a preset, seed it
-                    if (!selectedShow) {
-                        const preset = (window as any).__initialShow as (TvShow | undefined);
-                        if (preset && preset.ratingKey) {
-                            setShows([preset]);
-                            setSelectedShow(preset.ratingKey);
-                            (window as any).__initialShow = undefined;
-                        }
-                    }
-                    if (!selectedShow) {
-                        const showsResp = await invoke<any>("fetch_tv_shows", {
-                            server: server.address,
-                            libraryKey: library.key,
-                            token: token ?? null,
-                            start: showsPaging.current.start,
-                            size: showsPaging.current.size,
-                            query: null,
-                        });
-                        const dir = showsResp?.MediaContainer?.Directory ?? [];
-                        const nextShows: TvShow[] = dir.map((d: any) => ({ ratingKey: String(d.ratingKey ?? d.key ?? ""), title: String(d.title ?? "") })).filter((s: TvShow) => s.ratingKey);
-                        if (showsPaging.current.start === 0) setShows(nextShows);
-                        if (nextShows.length > 0 && !selectedShow) setSelectedShow(nextShows[0]?.ratingKey ?? null);
-                        // Nothing more to do until a show is selected
-                    }
-                    if (selectedShow) {
+                    // For TV shows, check if a specific show was selected
+                    const initialShow = (window as any).__initialShow;
+                    if (initialShow) {
+                        setCurrentShow(initialShow);
+                        // Load episodes for the selected show only
                         const epsResp = await invoke<any>("fetch_show_episodes", {
                             server: server.address,
-                            showRatingKey: selectedShow,
-                            token: token ?? null,
-                            start: episodesPaging.current.start,
-                            size: episodesPaging.current.size,
+                            showRatingKey: initialShow.ratingKey,
+                            token,
+                            start: episodesPaging.start,
+                            size: episodesPaging.size,
                         });
                         const md = epsResp?.MediaContainer?.Metadata ?? [];
                         for (const item of md) {
@@ -290,7 +344,7 @@ export default function Preview({server, library, onBack}: Props) {
                             const e: EpisodeItem = {
                                 type: "episode",
                                 ratingKey: String(item.ratingKey ?? item.key ?? file),
-                                showTitle: parsed.showTitle,
+                                showTitle: initialShow.title,
                                 title: String(item.title ?? "Episode"),
                                 season: parsed.season,
                                 index: parsed.index,
@@ -298,9 +352,18 @@ export default function Preview({server, library, onBack}: Props) {
                             };
                             const s = loadSettings();
                             const tpl = s.templates.episode || template;
-                            list.push(computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders));
+                            const proposal = computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders);
+                            list.push(proposal);
                         }
+                        // Clear the initial show after loading
+                        delete (window as any).__initialShow;
                     }
+                    // If no initial show selected, show message to go back to show selection
+                } else {
+                    // For TV shows without a selected show, show a message
+                    setRows([]);
+                    setError("Please select a TV show first from the show selection page.");
+                    return; // Exit early to avoid setting selected IDs on empty list
                 }
 
                 setRows(list);
@@ -313,7 +376,7 @@ export default function Preview({server, library, onBack}: Props) {
         }
 
         load();
-    }, [server.address, library.key, library.type, template, reloadTick, selectedShow]);
+    }, [server.address, library.key, library.type, template, reloadTick]);
 
     // Live recompute when template changes
     useEffect(() => {
@@ -322,9 +385,143 @@ export default function Preview({server, library, onBack}: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [template]);
 
-    const anyRedSelected = useMemo(() => rows.some(r => r.status === "red" && selectedIds.has(r.id)), [rows, selectedIds]);
-    const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-    const pageRows = useMemo(() => rows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize), [rows, page, pageSize]);
+    // Debounce search query to prevent excessive API calls
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Clear search results when debounced query becomes empty
+    useEffect(() => {
+        if (!debouncedSearchQuery.trim()) {
+            // When search is cleared, ensure we only show originally loaded items
+            // The filteredRows useMemo will handle showing all rows when debouncedSearchQuery is empty
+        }
+    }, [debouncedSearchQuery]);
+
+    const filteredRows = useMemo(() => {
+        if (!debouncedSearchQuery.trim()) return rows;
+
+        const query = debouncedSearchQuery.toLowerCase();
+        const libraryRoots = library.roots || [];
+        const results = rows.filter(r => {
+            const currentPath = shortenFilePath(r.filePath, libraryRoots).toLowerCase();
+            const proposedName = r.proposed.toLowerCase();
+            const fullPath = r.filePath.toLowerCase();
+            return currentPath.includes(query) || proposedName.includes(query) || fullPath.includes(query);
+        });
+
+        return results;
+    }, [rows, debouncedSearchQuery, library.roots]);
+
+    // Trigger remote (API) search when no local matches
+    useEffect(() => {
+        const q = debouncedSearchQuery.trim();
+        if (!q) {
+            setRemoteResults([]);
+            setRemoteQuery("");
+            setSearching(false);
+            return;
+        }
+        if (filteredRows.length > 0) {
+            // We have local matches; clear remote results to avoid mixing
+            setRemoteResults([]);
+            setRemoteQuery("");
+            setSearching(false);
+            return;
+        }
+        // If local results are empty and we're not currently loading, trigger remote search
+        if (loading) {
+            // Wait until loading completes; effect will re-run because of dependency on `loading`
+            return;
+        }
+        let isCancelled = false;
+        console.log("SEARCH EFFECT: triggering remote search", { q, filteredCount: filteredRows.length });
+        setSearching(true);
+        (async () => {
+            try {
+                const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
+                const sectionNum = (() => { const n = Number(library.key); return Number.isFinite(n) ? n : null; })();
+                const searchResults = await invoke<any>("search_content", {
+                    server: server.address,
+                    query: q,
+                    sectionId: sectionNum,
+                    limit: 50,
+                    token,
+                });
+                if (isCancelled) return;
+                const hubs = searchResults?.MediaContainer?.Hub || [];
+                const newRows: PreviewRow[] = [];
+                for (const hub of hubs) {
+                    const items = hub.Directory || hub.Metadata || [];
+                    if (!Array.isArray(items)) continue;
+                    for (const item of items) {
+                        let filePath = "";
+                        try { filePath = String(item?.Media?.[0]?.Part?.[0]?.file || ""); } catch {}
+
+                        if (library.type === "movie") {
+                            const m: MovieItem = {
+                                type: "movie",
+                                ratingKey: String(item.ratingKey || item.key || filePath || Math.random()),
+                                title: String(item.title || "Unknown"),
+                                year: item.year ? Number(item.year) : undefined,
+                                file: filePath || String(item.key || ""),
+                            };
+                            const s = loadSettings();
+                            const tpl = s.templates.movie || template;
+                            const row = computeMovieProposal(m, tpl);
+                            row.flags.push("remote-search");
+                            newRows.push(row);
+                        } else {
+                            // TV episode
+                            const showTitle = String(item.grandparentTitle || item.parentTitle || item.title || "Unknown Show");
+                            const seasonNum = typeof item.parentIndex === "number" ? item.parentIndex : (item.parentIndex ? Number(item.parentIndex) : undefined);
+                            const epIndex = typeof item.index === "number" ? item.index : (item.index ? Number(item.index) : undefined);
+                            const e: EpisodeItem = {
+                                type: "episode",
+                                ratingKey: String(item.ratingKey || item.key || filePath || Math.random()),
+                                showTitle,
+                                title: String(item.title || "Episode"),
+                                season: seasonNum,
+                                index: epIndex,
+                                file: filePath || String(item.key || ""),
+                            };
+                            const s = loadSettings();
+                            const tpl = s.templates.episode || template;
+                            const row = computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders);
+                            row.flags.push("remote-search");
+                            newRows.push(row);
+                        }
+                    }
+                }
+                setRemoteResults(newRows);
+                setRemoteQuery(q);
+            } catch (e) {
+                console.warn("Remote search failed:", e);
+                setRemoteResults([]);
+                setRemoteQuery(q);
+            } finally {
+                if (!isCancelled) setSearching(false);
+            }
+        })();
+        return () => { isCancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedSearchQuery, filteredRows.length, library.key, server.address, loading]);
+
+    // Final rows to display
+    const displayRows = useMemo(() => {
+        if (!debouncedSearchQuery.trim()) return rows;
+        if (filteredRows.length > 0) return filteredRows;
+        if (remoteQuery === debouncedSearchQuery) return remoteResults;
+        return [];
+    }, [rows, filteredRows, remoteResults, debouncedSearchQuery, remoteQuery]);
+
+    const anyRedSelected = useMemo(() => displayRows.some(r => r.status === "red" && selectedIds.has(r.id)), [displayRows, selectedIds]);
+    const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
+    const pageRows = useMemo(() => displayRows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize), [displayRows, page, pageSize]);
     useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
 
     function toggle(id: string) {
@@ -436,10 +633,6 @@ export default function Preview({server, library, onBack}: Props) {
                             <IconHome className="h-5 w-5"/>
                             Home
                         </button>
-                        <button type="button" onClick={() => (window as any).__goto_settings?.()} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
-                            <IconSettings className="h-5 w-5"/>
-                            Settings
-                        </button>
                     </div>
                     <div className="flex items-center gap-2">
                         <button onClick={skipReds} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
@@ -498,100 +691,165 @@ export default function Preview({server, library, onBack}: Props) {
                             Settings
                         </button>
                     </div>
+
                 </div>
             </header>
 
             <section className="mx-auto px-6 py-6">
-                <div className="mb-2 text-sm text-neutral-400">Library: <span className="text-neutral-200">{library.title}</span> — Server: <span className="text-neutral-200">{server.name}</span></div>
-                {library.type === "show" && (
-                  <div className="mb-3 flex items-center gap-2 text-sm">
-                    <label className="text-neutral-300">Show</label>
-                    <select
-                      value={selectedShow ?? ""}
-                      onChange={(e) => {
-                        setRows([]);
-                        episodesPaging.current = { start: 0, size: 200, exhausted: false };
-                        setSelectedShow(e.target.value || null);
-                      }}
-                      className="min-w-[320px] rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-200"
-                    >
-                      {shows.length === 0 && <option value="">Loading shows…</option>}
-                      {shows.map(s => <option key={s.ratingKey} value={s.ratingKey}>{s.title}</option>)}
-                    </select>
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 hover:bg-neutral-700"
-                      onClick={async () => {
-                        // Fetch next page of shows
-                        showsPaging.current.start += showsPaging.current.size;
-                        setLoading(true);
-                        try {
-                          const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
-                          const showsResp = await invoke<any>("fetch_tv_shows", {
-                            server: server.address,
-                            libraryKey: library.key,
-                            token,
-                            start: showsPaging.current.start,
-                            size: showsPaging.current.size,
-                          });
-                          const dir = showsResp?.MediaContainer?.Directory ?? [];
-                          const next = dir.map((d: any) => ({ ratingKey: String(d.ratingKey ?? d.key ?? ""), title: String(d.title ?? "") })).filter((s: any) => s.ratingKey);
-                          if (next.length === 0) showsPaging.current.exhausted = true;
-                          setShows(prev => [...prev, ...next]);
-                        } catch (e) {
-                          console.warn("Load more shows failed", e);
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
-                    >Load more shows</button>
-                    {selectedShow && (
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 hover:bg-neutral-700"
-                        onClick={async () => {
-                          // Load next page of episodes for current show
-                          episodesPaging.current.start += episodesPaging.current.size;
-                          setLoading(true);
-                          try {
-                            const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
-                            const epsResp = await invoke<any>("fetch_show_episodes", {
-                              server: server.address,
-                              showRatingKey: selectedShow,
-                              token,
-                              start: episodesPaging.current.start,
-                              size: episodesPaging.current.size,
-                            });
-                            const md = epsResp?.MediaContainer?.Metadata ?? [];
-                            const more: PreviewRow[] = [];
-                            for (const item of md) {
-                              const file = item?.Media?.[0]?.Part?.[0]?.file; if (!file) continue;
-                              const parsed = parseEpisodeInfo(String(file), String(item.title ?? "Episode"));
-                              const eItem: EpisodeItem = {
-                                type: "episode",
-                                ratingKey: String(item.ratingKey ?? item.key ?? file),
-                                showTitle: parsed.showTitle,
-                                title: String(item.title ?? "Episode"),
-                                season: parsed.season,
-                                index: parsed.index,
-                                file: String(file),
-                              };
-                              const s = loadSettings();
-                              const tpl = s.templates.episode || template;
-                              more.push(computeEpisodeProposal(eItem, tpl, !!s.tv.seasonFolders));
-                            }
-                            setRows(prev => [...prev, ...more]);
-                          } catch (e) {
-                            console.warn("Load more episodes failed", e);
-                          } finally {
-                            setLoading(false);
-                          }
-                        }}
-                      >Load more episodes</button>
-                    )}
-                  </div>
+                {/* Library info, search, and load more buttons on the same line */}
+                <div className="mb-4 flex items-center justify-between gap-4">
+                    <div className="text-sm text-neutral-400">
+                        Server: <span className="text-neutral-200">{server.name}</span> — Library: <span className="text-neutral-200">{library.title}</span>
+                        {currentShow && (
+                            <>
+                                {" "}— Show: <span className="text-neutral-200">{currentShow.title}</span>
+                            </>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {/* Load more buttons */}
+                        {library.type === "movie" && !moviesPaging.exhausted && (
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={async () => {
+                                        setMoviesPaging(prev => ({ ...prev, start: prev.start + prev.size }));
+                                        setLoading(true);
+                                        try {
+                                            const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
+                                            const data = await invoke<SectionResponse>("fetch_library_content", {
+                                                server: server.address,
+                                                libraryKey: library.key,
+                                                token,
+                                                start: moviesPaging.start + moviesPaging.size,
+                                                size: moviesPaging.size,
+                                            });
+                                            const mc = data?.MediaContainer;
+                                            const md = mc?.Metadata ?? [];
+                                            if (md.length === 0) {
+                                                setMoviesPaging(prev => ({ ...prev, exhausted: true }));
+                                            }
+                                            const more: PreviewRow[] = [];
+                                            for (const item of md) {
+                                                const file = item?.Media?.[0]?.Part?.[0]?.file;
+                                                if (!file) continue;
+                                                const m: MovieItem = {
+                                                    type: "movie",
+                                                    ratingKey: String(item.ratingKey ?? item.key ?? file),
+                                                    title: String(item.title ?? "Unknown"),
+                                                    year: item.year ? Number(item.year) : undefined,
+                                                    file: String(file),
+                                                };
+                                                const s = loadSettings();
+                                                const tpl = s.templates.movie || template;
+                                                more.push(computeMovieProposal(m, tpl));
+                                            }
+                                            setRows(prev => [...prev, ...more]);
+                                        } catch (e) {
+                                            console.warn("Load more movies failed", e);
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
+                                >
+                                    Load more movies
+                                </button>
+                                <div className="group relative">
+                                    <IconInfo className="h-4 w-4 text-neutral-400 hover:text-neutral-200 cursor-help" />
+                                    <div className="invisible group-hover:visible absolute right-0 mt-2 w-48 rounded-md bg-neutral-800 p-2 text-xs text-neutral-200 shadow-lg z-20">
+                                        {rows.length} movies loaded
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {library.type === "show" && currentShow && !episodesPaging.exhausted && (
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={async () => {
+                                        setEpisodesPaging(prev => ({ ...prev, start: prev.start + prev.size }));
+                                        setLoading(true);
+                                        try {
+                                            const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
+                                            const epsResp = await invoke<any>("fetch_show_episodes", {
+                                                server: server.address,
+                                                showRatingKey: currentShow.ratingKey,
+                                                token,
+                                                start: episodesPaging.start + episodesPaging.size,
+                                                size: episodesPaging.size,
+                                                });
+                                                const md = epsResp?.MediaContainer?.Metadata ?? [];
+                                            if (md.length === 0) {
+                                                setEpisodesPaging(prev => ({ ...prev, exhausted: true }));
+                                            }
+                                            const more: PreviewRow[] = [];
+                                                for (const item of md) {
+                                                    const file = item?.Media?.[0]?.Part?.[0]?.file;
+                                                    if (!file) continue;
+                                                    const parsed = parseEpisodeInfo(String(file), String(item.title ?? "Episode"));
+                                                    const e: EpisodeItem = {
+                                                        type: "episode",
+                                                        ratingKey: String(item.ratingKey ?? item.key ?? file),
+                                                    showTitle: currentShow.title,
+                                                        title: String(item.title ?? "Episode"),
+                                                        season: parsed.season,
+                                                        index: parsed.index,
+                                                        file: String(file),
+                                                    };
+                                                    const s = loadSettings();
+                                                    const tpl = s.templates.episode || template;
+                                                more.push(computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders));
+                                            }
+                                            setRows(prev => [...prev, ...more]);
+                                        } catch (e) {
+                                            console.warn("Load more episodes failed", e);
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
+                                >
+                                    Load more episodes
+                                </button>
+                                <div className="group relative">
+                                    <IconInfo className="h-4 w-4 text-neutral-400 hover:text-neutral-200 cursor-help" />
+                                    <div className="invisible group-hover:visible absolute right-0 mt-2 w-48 rounded-md bg-neutral-800 p-2 text-xs text-neutral-200 shadow-lg z-20">
+                                        {rows.length} episodes loaded
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="relative">
+                            <IconSearch className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+                            <input
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search files..."
+                                className="w-[300px] rounded-md border border-neutral-700 bg-neutral-900 pl-8 pr-3 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-500"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery("")}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-200"
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+                        <button title="Reload library" onClick={() => setReloadTick(t => t + 1)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+                            <IconRefresh className="h-5 w-5" />
+                            Reload
+                        </button>
+                    </div>
+                </div>
+
+
+                {(loading || searching) && (
+                    <p className="text-center text-neutral-400">
+                        {debouncedSearchQuery.trim() || searching ? 'Searching…' : 'Loading preview…'}
+                    </p>
                 )}
-                {loading && <p className="text-center text-neutral-400">Loading preview…</p>}
                 {error && <p className="text-center text-red-300">Error: {error}</p>}
 
                 {!loading && !error && (
@@ -612,7 +870,7 @@ export default function Preview({server, library, onBack}: Props) {
                         {pageRows.map((r) => (
                             <div key={r.id} className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40" style={{gridTemplateColumns: gridTemplate}}>
                                 <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggle(r.id)} className="h-4 w-4 accent-cyan-500"/>
-                                <div className="truncate" title={r.filePath}>{r.filePath}</div>
+                                <div className="truncate" title={r.filePath}>{shortenFilePath(r.filePath, library.roots || [])}</div>
                                 <div className="truncate" title={r.proposed}>{r.proposed}</div>
                                 <div>
                                     {r.status === "green" && <span className="text-emerald-400">🟩 Green</span>}
@@ -623,53 +881,24 @@ export default function Preview({server, library, onBack}: Props) {
                                 <div className="truncate text-neutral-400" title={r.flags.join(", ")}>{r.flags.join(", ")}</div>
                             </div>
                         ))}
-                        {rows.length === 0 && <p className="px-3 py-2 text-neutral-400">No items to preview.</p>}
+                        {displayRows.length === 0 && <p className="px-3 py-2 text-neutral-400">No items to preview.</p>}
                     </div>
                 )}
 
-                {/* Library folder mapping helper (text input to avoid extra plugin dependency) */}
+                {/* Library folder mapping helper - show the actual mapped local folder */}
                 <div className="mt-3 flex items-center justify-between text-sm text-neutral-300">
                     <div>
-                        <span className="text-neutral-400">Mapped folder:</span>{" "}
-                        <span className="text-neutral-200">{libraryFolder ?? "Not set"}</span>
+                        <span className="text-neutral-400">Local folder:</span>{" "}
+                        <span className="text-neutral-200">{libraryFolder ?? "Not mapped"}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={folderInput}
-                          onChange={(e) => setFolderInput(e.target.value)}
-                          placeholder="/path/to/your/library/root"
-                          className="w-[380px] rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-500"
-                        />
-                        <button type="button" onClick={() => {
-                          const trimmed = folderInput.trim();
-                          if (!trimmed) return;
-                          setLibraryFolder(trimmed);
-                          try {
-                            const raw = localStorage.getItem("nameotron.libraryFolders.v1");
-                            const map = raw ? JSON.parse(raw) as Record<string, string> : {};
-                            map[folderMapKey] = trimmed;
-                            localStorage.setItem("nameotron.libraryFolders.v1", JSON.stringify(map));
-                          } catch { /* ignore */ }
-                        }} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">Set</button>
-                        {libraryFolder && (
-                          <button
+                        <button
                             type="button"
-                            onClick={() => {
-                              setLibraryFolder(null);
-                              setFolderInput("");
-                              try {
-                                const raw = localStorage.getItem("nameotron.libraryFolders.v1");
-                                const map = raw ? JSON.parse(raw) as Record<string, string> : {};
-                                delete map[folderMapKey];
-                                localStorage.setItem("nameotron.libraryFolders.v1", JSON.stringify(map));
-                              } catch { /* ignore */ }
-                            }}
+                            onClick={() => setShowMapModal(true)}
                             className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
-                          >
-                            Clear
-                          </button>
-                        )}
+                        >
+                            Map Paths
+                        </button>
                     </div>
                 </div>
 
@@ -683,7 +912,7 @@ export default function Preview({server, library, onBack}: Props) {
                             </select>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span>Page {page} / {totalPages}</span>
+                            <span>{filteredRows.length} results • Page {page} / {totalPages}</span>
                             <button className="rounded-md border border-neutral-700 px-2 py-1 disabled:opacity-50" disabled={page <= 1}
                                     onClick={() => setPage(p => Math.max(1, p - 1))}>Prev
                             </button>
@@ -694,6 +923,14 @@ export default function Preview({server, library, onBack}: Props) {
                     </div>
                 )}
             </section>
+            {showMapModal && (
+                <PathMappingModal
+                    serverId={server.machineIdentifier || server.address}
+                    plexRoots={library.roots || []}
+                    onClose={() => setShowMapModal(false)}
+                    onSaved={refreshPathMappings}
+                />
+            )}
         </main>
     );
 }
