@@ -1,3 +1,5 @@
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+
 export type EncodingMode = "unicode" | "transliterate" | "ascii";
 
 export type GeneralSettings = {
@@ -157,4 +159,49 @@ export function saveSettings(s: Settings) {
       invoke("save_settings", { settings: { ui: s } }).catch(() => {});
     }).catch(() => {});
   } catch { /* no-op if Tauri not available */ }
+}
+
+// Settings Context for reactive updates
+const SettingsContext = createContext<{
+  settings: Settings;
+  updateSettings: (newSettings: Settings) => void;
+} | null>(null);
+
+export function useSettings() {
+  const context = useContext(SettingsContext);
+  if (!context) {
+    throw new Error("useSettings must be used within a SettingsProvider");
+  }
+  return context;
+}
+
+export function SettingsProvider({ children }: { children: ReactNode }) {
+  const [settings, setSettings] = useState<Settings>(() => loadSettings());
+
+  // Load canonical settings from Tauri on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const all = await invoke<any>("get_settings");
+        if (all && all.ui) {
+          const mergedSettings = { ...settings, ...all.ui };
+          setSettings(mergedSettings);
+          // Also save to localStorage for consistency
+          try { localStorage.setItem(KEY, JSON.stringify(mergedSettings)); } catch {}
+        }
+      } catch { /* ignore if not available */ }
+    })();
+  }, []);
+
+  const updateSettings = (newSettings: Settings) => {
+    setSettings(newSettings);
+    saveSettings(newSettings);
+  };
+
+  return (
+    <SettingsContext.Provider value={{ settings, updateSettings }}>
+      {children}
+    </SettingsContext.Provider>
+  );
 }

@@ -5,7 +5,7 @@ import PathMappingModal from "../components/PathMappingModal";
 import TemplateHelpModal from "../components/TemplateHelpModal";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
-import {loadSettings, saveSettings} from "../state/settings";
+import {useSettings} from "../state/settings";
 import {renderTemplate} from "../utils/template";
 
 type Props = {
@@ -96,9 +96,8 @@ function hasNonLatin(name: string) {
 function safeFolderName(name: string) { return name.replace(/[\\/:*?"<>|]/g, "_"); }
 
 // Apply collection naming style from settings
-function formatCollectionFolderName(rawName: string): string {
-    const s = loadSettings();
-    const style = s.movies?.collections?.naming || "original";
+function formatCollectionFolderName(rawName: string, settings: any): string {
+    const style = settings.movies?.collections?.naming || "original";
     let label = String(rawName || "").trim();
     switch (style) {
         case "prefix_":
@@ -168,7 +167,7 @@ function parseEpisodeInfo(filePath: string, fallbackTitle: string): { showTitle:
     return { showTitle, season, index };
 }
 
-function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie: boolean, collectionsEnabled: boolean, collectionName: string): PreviewRow {
+function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie: boolean, collectionsEnabled: boolean, collectionName: string, settings: any): PreviewRow {
     const ext = extname(m.file) || ".mkv";
     // Expanded context for movies
     const ctx = {
@@ -194,7 +193,7 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
 
     // Handle collection-based folders if collections are enabled and movie has a collection
     if (collectionsEnabled && collectionName && collectionName.trim()) {
-        const collectionFolderName = formatCollectionFolderName(collectionName);
+        const collectionFolderName = formatCollectionFolderName(collectionName, settings);
         // When collections are enabled, always use collection as the top-level folder
         // This overrides any template folder structure
         if (!proposed.includes('/')) {
@@ -224,7 +223,7 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
         status = "red";
         if (reason) flags.push(reason);
     }
-    const highlight = loadSettings().general.encoding.highlightNonLatin;
+    const highlight = settings.general.encoding.highlightNonLatin;
     if (highlight && hasNonLatin(proposed) && status !== "red") {
         status = status === "green" ? "yellow" : status;
         flags.push("non-latin");
@@ -239,7 +238,7 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
     return {id: m.ratingKey, kind: "movie", filePath: m.file, proposed, status, flags};
 }
 
-function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolders: boolean): PreviewRow {
+function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolders: boolean, settings: any): PreviewRow {
     const ext = extname(e.file) || ".mkv";
     const ctx = {
         showTitle: e.showTitle,
@@ -271,7 +270,7 @@ function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolde
         status = "red";
         if (reason) flags.push(reason);
     }
-    const highlight2 = loadSettings().general.encoding.highlightNonLatin;
+    const highlight2 = settings.general.encoding.highlightNonLatin;
     if (highlight2 && hasNonLatin(proposed) && status !== "red") {
         status = status === "green" ? "yellow" : status;
         flags.push("non-latin");
@@ -287,19 +286,19 @@ function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolde
 }
 
 export default function Preview({server, library, onBack}: Props) {
+    const { settings, updateSettings } = useSettings();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [rows, setRows] = useState<PreviewRow[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
-    const [moviesPaging, setMoviesPaging] = useState({ start: 0, size: loadSettings().general.pagination.defaultMovieLimit, exhausted: false });
+    const [moviesPaging, setMoviesPaging] = useState({ start: 0, size: settings.general.pagination.defaultMovieLimit, exhausted: false });
     const [episodesPaging, setEpisodesPaging] = useState({ start: 0, size: 200, exhausted: false });
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [colWidths, setColWidths] = useState<{ current: number; proposed: number; flags: number }>({ current: 480, proposed: 480, flags: 320 });
     const [template, setTemplate] = useState<string>(() => {
-        const s = loadSettings();
-        return library.type === "movie" ? s.templates.movie : s.templates.episode;
+        return library.type === "movie" ? settings.templates.movie : settings.templates.episode;
     });
     const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
     const [showMapModal, setShowMapModal] = useState(false);
@@ -432,9 +431,8 @@ export default function Preview({server, library, onBack}: Props) {
                             tagline: String(item.tagline ?? ""),
                             summary: String(item.summary ?? ""),
                         };
-                        const s = loadSettings();
-                        const tpl = s.templates.movie || template;
-                        list.push(computeMovieProposal(m, tpl, s.movies.ownFolderPerMovie, s.movies.collections.enabled, collectionName));
+                        const tpl = settings.templates.movie || template;
+                        list.push(computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings));
                     }
                 } else if (library.type === "show") {
                     // For TV shows, check if a specific show was selected or if we have current show state
@@ -476,9 +474,8 @@ export default function Preview({server, library, onBack}: Props) {
                                 parentTitle: String(item.parentTitle ?? ""),
                                 parentIndex: item.parentIndex ? Number(item.parentIndex) : parsed.season,
                             };
-                            const s = loadSettings();
-                            const tpl = s.templates.episode || template;
-                            const proposal = computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders);
+                            const tpl = settings.templates.episode || template;
+                            const proposal = computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
                             list.push(proposal);
                         }
                         // Clear the initial show after loading if it was from window
@@ -616,9 +613,8 @@ export default function Preview({server, library, onBack}: Props) {
                                 tagline: String(item.tagline ?? ""),
                                 summary: String(item.summary ?? ""),
                             };
-                            const s = loadSettings();
-                            const tpl = s.templates.movie || template;
-                            const row = computeMovieProposal(m, tpl, s.movies.ownFolderPerMovie, s.movies.collections.enabled, collectionName);
+                            const tpl = settings.templates.movie || template;
+                            const row = computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
                             row.flags.push("remote-search");
                             newRows.push(row);
                         } else {
@@ -639,9 +635,8 @@ export default function Preview({server, library, onBack}: Props) {
                                 parentTitle: String(item.parentTitle ?? ""),
                                 parentIndex: item.parentIndex ? Number(item.parentIndex) : seasonNum,
                             };
-                            const s = loadSettings();
-                            const tpl = s.templates.episode || template;
-                            const row = computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders);
+                            const tpl = settings.templates.episode || template;
+                            const row = computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
                             row.flags.push("remote-search");
                             newRows.push(row);
                         }
@@ -802,15 +797,14 @@ export default function Preview({server, library, onBack}: Props) {
                             onChange={(e) => {
                                 const next = e.target.value;
                                 setTemplate(next);
-                                const s = loadSettings();
                                 const updated = {
-                                    ...s,
+                                    ...settings,
                                     templates: {
-                                        ...s.templates,
+                                        ...settings.templates,
                                         [library.type === "movie" ? "movie" : "episode"]: next,
                                     }
                                 } as any;
-                                saveSettings(updated);
+                                updateSettings(updated);
                             }}
                             placeholder={library.type === "movie" ? "Movie template" : "Episode template"}
                             className="w-[380px] rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-500"
@@ -830,15 +824,14 @@ export default function Preview({server, library, onBack}: Props) {
                               ? "{title}[ ({year})]{ext}"
                               : "{showTitle} - S{season:02}E{episode:02} - {title}{ext}";
                             setTemplate(def);
-                            const s = loadSettings();
                             const updated = {
-                              ...s,
+                              ...settings,
                               templates: {
-                                ...s.templates,
+                                ...settings.templates,
                                 [library.type === "movie" ? "movie" : "episode"]: def,
                               }
                             } as any;
-                            saveSettings(updated);
+                            updateSettings(updated);
                           }}
                           className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
                         >
@@ -914,9 +907,8 @@ export default function Preview({server, library, onBack}: Props) {
                                                     tagline: String(item.tagline ?? ""),
                                                     summary: String(item.summary ?? ""),
                                                 };
-                                                const s = loadSettings();
-                                                const tpl = s.templates.movie || template;
-                                                more.push(computeMovieProposal(m, tpl, s.movies.ownFolderPerMovie, s.movies.collections.enabled, collectionName));
+                                                const tpl = settings.templates.movie || template;
+                                                more.push(computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings));
                                             }
                                             setRows(prev => [...prev, ...more]);
                                         } catch (e) {
@@ -975,9 +967,8 @@ export default function Preview({server, library, onBack}: Props) {
                                                         parentTitle: String(item.parentTitle ?? ""),
                                                         parentIndex: item.parentIndex ? Number(item.parentIndex) : parsed.season,
                                                     };
-                                                    const s = loadSettings();
-                                                    const tpl = s.templates.episode || template;
-                                                    more.push(computeEpisodeProposal(e, tpl, !!s.tv.seasonFolders));
+                                                    const tpl = settings.templates.episode || template;
+                                                    more.push(computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings));
                                                 }
                                             setRows(prev => [...prev, ...more]);
                                         } catch (e) {

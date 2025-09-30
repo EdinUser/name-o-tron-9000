@@ -4,6 +4,7 @@ import LibrarySelection from "./pages/LibrarySelection";
 import ShowSelection from "./pages/ShowSelection";
 import Preview from "./pages/Preview";
 import SettingsModal from "./pages/Settings";
+import { SettingsProvider } from "./state/settings";
 import type { PlexLibrary, PlexServer } from "./types/plex";
 
 type Screen = "home" | "libraries" | "shows" | "preview";
@@ -90,10 +91,10 @@ function App() {
   };
 
   return (
-    <>
+    <SettingsProvider>
       {renderCurrentScreen()}
       {settingsModalOpen && <SettingsModal onClose={() => setSettingsModalOpen(false)} />}
-    </>
+    </SettingsProvider>
   );
 }
 

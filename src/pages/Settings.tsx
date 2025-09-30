@@ -1,42 +1,62 @@
 import React, {useEffect, useState} from "react";
 import { invoke } from "@tauri-apps/api/core";
-import {type EncodingMode, loadSettings, saveSettings, type Settings} from "../state/settings";
+import {useSettings, type Settings, type EncodingMode} from "../state/settings";
 
 type Props = { onClose: () => void };
 
 type TabKey = "general" | "movies" | "tv" | "music" | "misc";
 
 export default function SettingsModal({onClose}: Props) {
+    const { settings, updateSettings } = useSettings();
     const [tab, setTab] = useState<TabKey>(() => {
         try { return (localStorage.getItem("nameotron.settings.lastTab") as TabKey) || "general"; } catch { return "general"; }
     });
-    const [s, setS] = useState<Settings>(() => loadSettings());
+    const [localSettings, setLocalSettings] = useState<Settings>(settings);
+    const [hasChanges, setHasChanges] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Update local settings when global settings change
+    useEffect(() => {
+        setLocalSettings(settings);
+    }, [settings]);
 
     // Persist last opened tab
     useEffect(() => {
         try { localStorage.setItem("nameotron.settings.lastTab", tab); } catch {}
     }, [tab]);
 
-    // Load canonical settings from Tauri, if available, and hydrate local state
-    useEffect(() => {
-        (async () => {
-            try {
-                const all = await invoke<any>("get_settings");
-                if (all && all.ui) {
-                    setS((prev) => ({...prev, ...all.ui}));
-                }
-            } catch { /* ignore if not available */ }
-        })();
-    }, []);
-
     function update<K extends keyof Settings>(k: K, v: Settings[K]) {
-        const next = {...s, [k]: v} as Settings;
-        setS(next);
-        saveSettings(next);
+        const next = {...localSettings, [k]: v} as Settings;
+        setLocalSettings(next);
+        setHasChanges(true);
+    }
+
+    async function saveSettingsAndClose() {
+        if (!hasChanges) {
+            onClose();
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            updateSettings(localSettings);
+            setHasChanges(false);
+            onClose();
+        } catch (error) {
+            console.error("Failed to save settings:", error);
+        } finally {
+            setIsSaving(false);
+        }
     }
 
     const handleClose = () => {
-        onClose();
+        if (hasChanges) {
+            if (confirm("You have unsaved changes. Are you sure you want to close without saving?")) {
+                onClose();
+            }
+        } else {
+            onClose();
+        }
     };
 
     return (
@@ -44,24 +64,52 @@ export default function SettingsModal({onClose}: Props) {
             <div className="bg-neutral-900 border border-neutral-700 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between p-6 border-b border-neutral-800">
                     <h1 className="text-xl font-semibold text-neutral-100">Settings</h1>
-                    <button onClick={handleClose} className="text-neutral-400 hover:text-neutral-200 transition-colors">
+                    <button onClick={handleClose} className="text-neutral-400 hover:text-neutral-200 transition-colors" title="Close (unsaved changes will be lost)">
                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-6 w-6">
                             <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                     </button>
                 </div>
 
-                <div className="flex flex-col max-h-[calc(90vh-80px)]">
+                <div className="flex flex-col max-h-[calc(90vh-140px)]">
                     <div className="px-6 pt-4">
                         <Tabs tab={tab} setTab={setTab}/>
                     </div>
 
                     <div className="flex-1 overflow-y-auto px-6 pb-6">
-                        {tab === "general" && <General s={s} onChange={(v) => update("general", v)}/>}
-                        {tab === "movies" && <Movies s={s} onChange={(v) => update("movies", v)}/>}
-                        {tab === "tv" && <TV s={s} onChange={(v) => update("tv", v)}/>}
-                        {tab === "music" && <Music s={s} onChange={(v) => update("music", v)}/>}
-                        {tab === "misc" && <Misc s={s} onChange={(v) => update("misc", v)}/>}
+                        {tab === "general" && <General s={localSettings} onChange={(v) => update("general", v)}/>}
+                        {tab === "movies" && <Movies s={localSettings} onChange={(v) => update("movies", v)}/>}
+                        {tab === "tv" && <TV s={localSettings} onChange={(v) => update("tv", v)}/>}
+                        {tab === "music" && <Music s={localSettings} onChange={(v) => update("music", v)}/>}
+                        {tab === "misc" && <Misc s={localSettings} onChange={(v) => update("misc", v)}/>}
+                    </div>
+
+                    <div className="px-6 pb-6 border-t border-neutral-800">
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm text-neutral-400">
+                                {hasChanges ? "You have unsaved changes" : "Settings are up to date"}
+                            </div>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleClose}
+                                    className="px-4 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
+                                    disabled={isSaving}
+                                >
+                                    {hasChanges ? "Cancel" : "Close"}
+                                </button>
+                                <button
+                                    onClick={saveSettingsAndClose}
+                                    disabled={!hasChanges || isSaving}
+                                    className={`px-4 py-2 text-sm font-medium rounded ${
+                                        hasChanges && !isSaving
+                                            ? "bg-cyan-500 text-neutral-900 hover:bg-cyan-400"
+                                            : "bg-neutral-700 text-neutral-500 cursor-not-allowed"
+                                    }`}
+                                >
+                                    {isSaving ? "Saving..." : "Save & Close"}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

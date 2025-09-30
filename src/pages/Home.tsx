@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {invoke} from "@tauri-apps/api/core";
-import { loadSettings } from "../state/settings";
+import { useSettings } from "../state/settings";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type {PlexServer} from "../types/plex";
 import {IconArrowForward, IconBolt, IconLogin, IconLogout, IconRefresh, IconServer, IconSettings, IconCheck} from "../components/icons";
@@ -10,6 +10,7 @@ type Props = {
 };
 
 export default function Home({onSelectServer}: Props) {
+    const { settings } = useSettings();
     const [discovering, setDiscovering] = useState(false);
     const [servers, setServers] = useState<PlexServer[]>([]);
     const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
@@ -154,7 +155,7 @@ export default function Home({onSelectServer}: Props) {
                         setLoginStatus("authorized");
                         setLoginToken(tok);
                         if (tok) {
-                            const pref = (() => { try { return loadSettings().general.authPersistence || "none"; } catch { return "none" as const; } })();
+                            const pref = settings.general.authPersistence || "none";
                             if (pref === "file") {
                                 try { localStorage.setItem("plexToken", tok); } catch { /* ignore */ }
                                 try { await invoke("save_settings", { settings: { auth: { plexToken: tok } } }); } catch { /* ignore */ }
@@ -212,7 +213,7 @@ export default function Home({onSelectServer}: Props) {
     useEffect(() => {
         try { getCurrentWindow().setTitle("Name-o-Tron 9000 — Home"); } catch {}
         try {
-            const pref = (() => { try { return loadSettings().general.authPersistence || "none"; } catch { return "none" as const; } })();
+            const pref = settings.general.authPersistence || "none";
             if (pref === "file") {
                 const tok = localStorage.getItem("plexToken");
                 if (tok) {
@@ -224,7 +225,7 @@ export default function Home({onSelectServer}: Props) {
         (async () => {
             try {
                 const s: any = await invoke("get_settings");
-                const pref = (() => { try { return loadSettings().general.authPersistence || "none"; } catch { return "none" as const; } })();
+                const pref = settings.general.authPersistence || "none";
                 if (pref === "file") {
                     const tok2: string | undefined = s?.auth?.plexToken;
                     if (tok2 && !loginToken) {
