@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {type EncodingMode, loadSettings, saveSettings, type Settings} from "../state/settings";
 import {IconArrowBack, IconHome} from "../components/icons";
@@ -11,6 +12,18 @@ export default function SettingsPage({onBack}: Props) {
     const [tab, setTab] = useState<TabKey>("general");
     const [s, setS] = useState<Settings>(() => loadSettings());
     useEffect(() => { try { getCurrentWindow().setTitle("Name-o-Tron 9000 — Settings"); } catch {} }, []);
+
+    // Load canonical settings from Tauri, if available, and hydrate local state
+    useEffect(() => {
+        (async () => {
+            try {
+                const all = await invoke<any>("get_settings");
+                if (all && all.ui) {
+                    setS((prev) => ({...prev, ...all.ui}));
+                }
+            } catch { /* ignore if not available */ }
+        })();
+    }, []);
 
     function update<K extends keyof Settings>(k: K, v: Settings[K]) {
         const next = {...s, [k]: v} as Settings;
@@ -101,9 +114,35 @@ function General({s, onChange}: { s: Settings; onChange: (v: Settings["general"]
     const g = s.general;
     const set = (patch: Partial<typeof g>) => onChange({...g, ...patch});
     const setEncoding = (patch: Partial<typeof g.encoding>) => onChange({...g, encoding: {...g.encoding, ...patch}});
+    async function clearSavedCreds() {
+        try { await invoke("secure_clear_token"); } catch {}
+        try { await invoke("save_settings", { settings: { auth: { plexToken: null } } }); } catch {}
+        try { localStorage.removeItem("plexToken"); } catch {}
+        // no toast system here; silent success
+    }
 
     return (
         <>
+            <Section title="Plex Login Persistence">
+                <Radio
+                    value={(g.authPersistence || "none") as any}
+                    setValue={(v) => set({authPersistence: v as any})}
+                    opts={[
+                        { value: "none" as any, label: "Don’t remember (most secure)" },
+                        { value: "secure" as any, label: "Remember in OS Keychain (recommended)" },
+                        { value: "file" as any, label: "Remember in app config (less secure)" },
+                    ]}
+                />
+                <div className="mt-2 text-right">
+                    <button
+                        type="button"
+                        onClick={clearSavedCreds}
+                        className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
+                    >
+                        Clear saved Plex credentials
+                    </button>
+                </div>
+            </Section>
             <Section title="General Behavior">
                 <Row label="Preview before renaming">
                     <input type="checkbox" checked={g.previewBeforeRename} onChange={(e) => set({previewBeforeRename: e.target.checked})}/>

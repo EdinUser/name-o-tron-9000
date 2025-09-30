@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::path::BaseDirectory;
@@ -16,10 +17,15 @@ pub struct PathMappingDto {
     pub platform: Option<String>,
 }
 
+// Settings file is a JSON object. Known sections are optional.
+// Keep a DTO for path mappings for documentation and future validation.
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Settings {
-    #[serde(default, rename = "pathMappings")]
-    pub path_mappings: Vec<PathMappingDto>,
+pub struct AuthSection {
+    #[serde(rename = "plexToken")]
+    pub plex_token: Option<String>,
+    #[serde(rename = "lastServer")]
+    pub last_server: Option<String>,
 }
 
 fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -35,22 +41,51 @@ fn ensure_parent(path: &Path) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn get_settings(app: tauri::AppHandle) -> Result<Settings, String> {
+pub fn get_settings(app: tauri::AppHandle) -> Result<Value, String> {
     let path = settings_path(&app)?;
     if !path.exists() {
-        return Ok(Settings::default());
+        return Ok(serde_json::json!({}));
     }
     let txt = fs::read_to_string(&path).map_err(|e| e.to_string())?;
     if txt.trim().is_empty() {
-        return Ok(Settings::default());
+        return Ok(serde_json::json!({}));
     }
-    serde_json::from_str::<Settings>(&txt).map_err(|e| e.to_string())
+    serde_json::from_str::<Value>(&txt).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), String> {
+pub fn save_settings(app: tauri::AppHandle, settings: Value) -> Result<(), String> {
     let path = settings_path(&app)?;
     ensure_parent(&path)?;
-    let txt = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+
+    // Read existing settings (object) or start with empty object
+    let mut current = if path.exists() {
+        let txt = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        serde_json::from_str::<Value>(&txt).unwrap_or_else(|_| serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    // Deep-merge: incoming keys override existing; nested objects merged recursively
+    fn deep_merge(dest: &mut Value, src: &Value) {
+        match (dest, src) {
+            (Value::Object(d), Value::Object(s)) => {
+                for (k, v) in s.iter() {
+                    if let Some(existing) = d.get_mut(k) {
+                        deep_merge(existing, v);
+                    } else {
+                        d.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+            (d, s) => {
+                *d = s.clone();
+            }
+        }
+    }
+
+    deep_merge(&mut current, &settings);
+
+    let txt = serde_json::to_string_pretty(&current).map_err(|e| e.to_string())?;
     fs::write(&path, txt).map_err(|e| e.to_string())
 }

@@ -1,5 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {invoke} from "@tauri-apps/api/core";
+import { loadSettings } from "../state/settings";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type {PlexServer} from "../types/plex";
 import {IconArrowForward, IconBolt, IconLogin, IconLogout, IconRefresh, IconServer, IconSettings, IconCheck} from "../components/icons";
@@ -58,6 +59,7 @@ export default function Home({onSelectServer}: Props) {
             if (discoverRun.current !== runId) return; // cancelled or superseded
             setServers(unique);
             try { sessionStorage.setItem("discoveredServers", JSON.stringify(unique)); } catch {}
+            try { await invoke("save_settings", { settings: { discovery: { servers: unique } } }); } catch { /* ignore */ }
             if (unique.length && selectedIdx == null) setSelectedIdx(0);
         } catch (e: any) {
             console.error("Discover: unexpected error", e);
@@ -98,6 +100,7 @@ export default function Home({onSelectServer}: Props) {
             });
             setServers(unique);
             try { sessionStorage.setItem("discoveredServers", JSON.stringify(unique)); } catch {}
+            try { await invoke("save_settings", { settings: { discovery: { servers: unique } } }); } catch { /* ignore */ }
             if (unique.length) setSelectedIdx(unique.findIndex(s => s.address.toLowerCase().includes(input.replace(/^https?:\/\//, '').split(':')[0].toLowerCase())) || 0);
         } catch (e: any) {
             console.error("Manual add: error", e);
@@ -151,7 +154,13 @@ export default function Home({onSelectServer}: Props) {
                         setLoginStatus("authorized");
                         setLoginToken(tok);
                         if (tok) {
-                            try { localStorage.setItem("plexToken", tok); } catch { /* ignore */ }
+                            const pref = (() => { try { return loadSettings().general.authPersistence || "none"; } catch { return "none" as const; } })();
+                            if (pref === "file") {
+                                try { localStorage.setItem("plexToken", tok); } catch { /* ignore */ }
+                                try { await invoke("save_settings", { settings: { auth: { plexToken: tok } } }); } catch { /* ignore */ }
+                            } else if (pref === "secure") {
+                                try { await invoke("secure_save_token", { token: tok }); } catch { /* ignore */ }
+                            }
                         }
                         resolve(tok ?? null);
                         return;
@@ -183,6 +192,8 @@ export default function Home({onSelectServer}: Props) {
 
     async function logoutPlex() {
         try { localStorage.removeItem("plexToken"); } catch {}
+        try { await invoke("save_settings", { settings: { auth: { plexToken: null } } }); } catch { /* ignore */ }
+        try { await invoke("secure_clear_token"); } catch { /* ignore */ }
         setLoginToken(null);
         setLoginStatus("idle");
         try { await invoke("plex_logout"); } catch {}
@@ -197,16 +208,46 @@ export default function Home({onSelectServer}: Props) {
 
     const autoScheduled = useRef(false);
 
-    // Detect existing token on load
+    // Detect existing token on load; hydrate from Tauri settings if present
     useEffect(() => {
         try { getCurrentWindow().setTitle("Name-o-Tron 9000 — Home"); } catch {}
         try {
-            const tok = localStorage.getItem("plexToken");
-            if (tok) {
-                setLoginToken(tok);
-                setLoginStatus("authorized");
+            const pref = (() => { try { return loadSettings().general.authPersistence || "none"; } catch { return "none" as const; } })();
+            if (pref === "file") {
+                const tok = localStorage.getItem("plexToken");
+                if (tok) {
+                    setLoginToken(tok);
+                    setLoginStatus("authorized");
+                }
             }
         } catch { /* ignore */ }
+        (async () => {
+            try {
+                const s: any = await invoke("get_settings");
+                const pref = (() => { try { return loadSettings().general.authPersistence || "none"; } catch { return "none" as const; } })();
+                if (pref === "file") {
+                    const tok2: string | undefined = s?.auth?.plexToken;
+                    if (tok2 && !loginToken) {
+                        try { localStorage.setItem("plexToken", tok2); } catch {}
+                        setLoginToken(tok2);
+                        setLoginStatus("authorized");
+                    }
+                } else if (pref === "secure") {
+                    // Migrate from file if present
+                    const fileTok: string | undefined = s?.auth?.plexToken;
+                    if (fileTok) {
+                        try { await invoke("secure_save_token", { token: fileTok }); } catch {}
+                        try { await invoke("save_settings", { settings: { auth: { plexToken: null } } }); } catch {}
+                        try { localStorage.removeItem("plexToken"); } catch {}
+                    }
+                    const tok3 = await invoke<string | null>("secure_get_token");
+                    if (tok3) {
+                        setLoginToken(tok3);
+                        setLoginStatus("authorized");
+                    }
+                }
+            } catch { /* ignore */ }
+        })();
     }, []);
     // Persist selected server across session
     useEffect(() => {
@@ -214,6 +255,7 @@ export default function Home({onSelectServer}: Props) {
         const addr = servers[selectedIdx]?.address;
         if (!addr) return;
         try { sessionStorage.setItem("selectedServerAddress", addr); } catch {}
+        (async () => { try { await invoke("save_settings", { settings: { discovery: { lastSelectedAddress: addr } } }); } catch {} })();
     }, [selectedIdx, servers]);
 
     // Restore discovered servers from session once
@@ -234,6 +276,23 @@ export default function Home({onSelectServer}: Props) {
                 }
             }
         } catch { /* ignore */ }
+        (async () => {
+            try {
+                if (servers.length > 0) return;
+                const all: any = await invoke("get_settings");
+                const saved = Array.isArray(all?.discovery?.servers) ? all.discovery.servers as PlexServer[] : [];
+                if (saved.length) {
+                    setServers(saved);
+                    const sel = all?.discovery?.lastSelectedAddress as string | undefined;
+                    if (sel) {
+                        const idx = saved.findIndex(s => (s.address || "").toLowerCase() === sel.toLowerCase());
+                        setSelectedIdx(idx >= 0 ? idx : 0);
+                    } else {
+                        setSelectedIdx(0);
+                    }
+                }
+            } catch { /* ignore */ }
+        })();
     }, []);
     useEffect(() => {
         if (autoScheduled.current) return;

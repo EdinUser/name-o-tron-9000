@@ -4,6 +4,8 @@ export type GeneralSettings = {
   previewBeforeRename: boolean;
   saveRenameLog: { txt: boolean; csv: boolean; json: boolean };
   autoRollbackLog: boolean;
+  /** Where to persist Plex auth token */
+  authPersistence?: "none" | "secure" | "file";
   encoding: {
     mode: EncodingMode; // unicode | transliterate | ascii
     highlightNonLatin: boolean;
@@ -72,6 +74,7 @@ const defaultSettings: Settings = {
     previewBeforeRename: true,
     saveRenameLog: { txt: false, csv: false, json: true },
     autoRollbackLog: true,
+    authPersistence: "secure",
     encoding: { mode: "unicode", highlightNonLatin: true },
     conflictHandling: "skip",
     safety: { pathLengthCheck: true, reservedNamesCheck: true, permissionsCheck: true },
@@ -129,6 +132,13 @@ export function loadSettings(): Settings {
 }
 
 export function saveSettings(s: Settings) {
-  localStorage.setItem(KEY, JSON.stringify(s));
+  // Keep local cache for synchronous reads in UI flows
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+  // Persist centrally via Tauri settings (deep-merged on Rust side)
+  try {
+    // Lazy import to avoid hard dependency at build time for web preview
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { invoke } = require("@tauri-apps/api/core");
+    invoke("save_settings", { settings: { ui: s } }).catch(() => {});
+  } catch { /* no-op if Tauri not available */ }
 }
-

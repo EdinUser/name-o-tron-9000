@@ -396,7 +396,18 @@ pub async fn fetch_library_content(
         }
         println!("fetch_library_content: attempt {} → {}", i + 1, url);
         match req.send().await {
-            Ok(resp) => { response_opt = Some(resp); break; }
+            Ok(resp) => {
+                let status = resp.status();
+                if status.is_success() {
+                    response_opt = Some(resp);
+                    break;
+                } else {
+                    let body_len = resp.text().await.unwrap_or_default().len();
+                    println!("fetch_library_content: non-success {} (len {}) on {} — trying next candidate", status, body_len, url);
+                    last_reqwest_err = Some(format!("HTTP {} @ {}", status, url));
+                    continue;
+                }
+            }
             Err(e) => {
                 let mut kind = "send error".to_string();
                 if e.is_timeout() { kind = "timeout".into(); }
@@ -436,15 +447,22 @@ pub async fn fetch_library_content(
                 println!("fetch_library_content/ureq: attempt {} → {}", i + 1, url);
                 match r.call() {
                     Ok(resp) => {
-                        let ct = resp.header("content-type").unwrap_or("").to_ascii_lowercase();
-                        if ct.contains("application/json") {
-                            let v: serde_json::Value = resp
-                                .into_json()
-                                .map_err(|e| format!("read json error: {e}"))?;
-                            return Ok(v);
+                        let status = resp.status();
+                        if (200..=299).contains(&status) {
+                            let ct = resp.header("content-type").unwrap_or("").to_ascii_lowercase();
+                            if ct.contains("application/json") {
+                                let v: serde_json::Value = resp
+                                    .into_json()
+                                    .map_err(|e| format!("read json error: {e}"))?;
+                                return Ok(v);
+                            } else {
+                                let body = resp.into_string().map_err(|e| format!("read body error: {e}"))?;
+                                return Ok(serde_json::Value::String(body));
+                            }
                         } else {
-                            let body = resp.into_string().map_err(|e| format!("read body error: {e}"))?;
-                            return Ok(serde_json::Value::String(body));
+                            let len = resp.into_string().unwrap_or_default().len();
+                            println!("fetch_library_content/ureq: non-success {} (len {}) on {} — trying next", status, len, url);
+                            continue;
                         }
                     }
                     Err(e) => {

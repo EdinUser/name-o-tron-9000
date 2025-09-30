@@ -4,6 +4,7 @@ use plex_api::{list_libraries, plex_login, plex_login_status, plex_logout};
 mod path_map;
 mod settings;
 mod plex_api;
+mod secure;
 
 // Re-export functions used by frontend
 pub use plex_api::fetch_library_content;
@@ -192,6 +193,9 @@ pub fn run() {
             path_map::test_mapping,
             settings::get_settings,
             settings::save_settings,
+            secure::secure_save_token,
+            secure::secure_get_token,
+            secure::secure_clear_token,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
