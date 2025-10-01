@@ -3,6 +3,7 @@ import type {PlexLibrary, PlexServer} from "../types/plex";
 import {IconArrowBack, IconBolt, IconHome, IconInfo, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch} from "../components/icons";
 import PathMappingModal from "../components/PathMappingModal";
 import TemplateHelpModal from "../components/TemplateHelpModal";
+import PlexPopoverCard from "../components/PlexPopoverCard";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import {useSettings} from "../state/settings";
@@ -33,6 +34,7 @@ type MovieItem = {
     guid?: string;
     imdbId?: string;
     thetvdbId?: string;
+    thumb?: string;
 };
 
 type EpisodeItem = {
@@ -50,6 +52,7 @@ type EpisodeItem = {
     guid?: string;
     imdbId?: string;
     thetvdbId?: string;
+    thumb?: string;
 };
 
 type PreviewRow = {
@@ -59,6 +62,8 @@ type PreviewRow = {
     proposed: string;
     status: "green" | "yellow" | "red" | "unmatched";
     flags: string[];
+    // Original Plex metadata for popover display
+    metadata?: MovieItem | EpisodeItem;
 };
 
 type SectionResponse = any; // shape varies by library type (mock fixtures)
@@ -602,6 +607,35 @@ export default function Preview({server, library, onBack}: Props) {
 
     const [reloadTick, setReloadTick] = useState(0);
 
+    // Popover state for showing Plex metadata on hover
+    const [popoverData, setPopoverData] = useState<{ metadata: MovieItem | EpisodeItem | null; position: { x: number; y: number } }>({
+        metadata: null,
+        position: { x: 0, y: 0 }
+    });
+
+    // Popover hover handlers
+    const handleMouseEnter = useCallback((event: React.MouseEvent<HTMLDivElement>, row: PreviewRow) => {
+        if (!row.metadata) return;
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        const position = {
+            x: rect.left + rect.width / 2,
+            y: rect.top - 10 // Position above the element
+        };
+
+        console.log("Hover Debug - Row metadata:", {
+            title: row.metadata.type === "movie" ? row.metadata.title : row.metadata.showTitle,
+            thumb: row.metadata.thumb,
+            filePath: row.filePath
+        });
+
+        setPopoverData({ metadata: row.metadata, position });
+    }, []);
+
+    const handleMouseLeave = useCallback(() => {
+        setPopoverData({ metadata: null, position: { x: 0, y: 0 } });
+    }, []);
+
     // Load path mappings and determine the library folder for shortening paths
     useEffect(() => {
         async function loadPathMappings() {
@@ -695,6 +729,8 @@ export default function Preview({server, library, onBack}: Props) {
                             country: item.country,
                             tagline: item.tagline,
                             summary: item.summary,
+                            thumb: item.thumb,
+                            art: item.art,
                         });
                         console.log("Full item object:", item);
                         // Extract collection information directly from movie metadata
@@ -720,9 +756,12 @@ export default function Preview({server, library, onBack}: Props) {
                             country: String(item.country ?? ""),
                             tagline: String(item.tagline ?? ""),
                             summary: String(item.summary ?? ""),
+                            thumb: String(item.thumb ?? ""),
                         };
                         const tpl = settings.templates.movie || template;
-                        list.push(computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings));
+                        const row = computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
+                        row.metadata = m; // Store original metadata for popover
+                        list.push(row);
                     }
                 } else if (library.type === "show") {
                     // For TV shows, check if a specific show was selected or if we have current show state
@@ -763,9 +802,11 @@ export default function Preview({server, library, onBack}: Props) {
                                 grandparentTitle: String(item.grandparentTitle ?? showToLoad.title),
                                 parentTitle: String(item.parentTitle ?? ""),
                                 parentIndex: item.parentIndex ? Number(item.parentIndex) : parsed.season,
+                                thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.episode || template;
                             const proposal = computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
+                            proposal.metadata = e; // Store original metadata for popover
                             list.push(proposal);
                         }
                         // Clear the initial show after loading if it was from window
@@ -979,9 +1020,11 @@ export default function Preview({server, library, onBack}: Props) {
                                 country: String(item.country ?? ""),
                                 tagline: String(item.tagline ?? ""),
                                 summary: String(item.summary ?? ""),
+                                thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.movie || template;
                             const row = computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
+                            row.metadata = m; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
                         } else {
@@ -1007,9 +1050,11 @@ export default function Preview({server, library, onBack}: Props) {
                                 grandparentTitle: String(item.grandparentTitle ?? showTitle),
                                 parentTitle: String(item.parentTitle ?? ""),
                                 parentIndex: item.parentIndex ? Number(item.parentIndex) : seasonNum,
+                                thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.episode || template;
                             const row = computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
+                            row.metadata = e; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
                         }
@@ -1289,9 +1334,12 @@ export default function Preview({server, library, onBack}: Props) {
                                                     country: String(item.country ?? ""),
                                                     tagline: String(item.tagline ?? ""),
                                                     summary: String(item.summary ?? ""),
+                                                    thumb: String(item.thumb ?? ""),
                                                 };
                                                 const tpl = settings.templates.movie || template;
-                                                more.push(computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings));
+                                                const row = computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
+                                                row.metadata = m; // Store original metadata for popover
+                                                more.push(row);
                                             }
                                             setRows(prev => [...prev, ...more]);
                                         } catch (e) {
@@ -1349,9 +1397,12 @@ export default function Preview({server, library, onBack}: Props) {
                                                         grandparentTitle: String(item.grandparentTitle ?? currentShow.title),
                                                         parentTitle: String(item.parentTitle ?? ""),
                                                         parentIndex: item.parentIndex ? Number(item.parentIndex) : parsed.season,
+                                                        thumb: String(item.thumb ?? ""),
                                                     };
                                                     const tpl = settings.templates.episode || template;
-                                                    more.push(computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings));
+                                                    const row = computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
+                                                    row.metadata = e; // Store original metadata for popover
+                                                    more.push(row);
                                                 }
                                             setRows(prev => [...prev, ...more]);
                                         } catch (e) {
@@ -1423,7 +1474,14 @@ export default function Preview({server, library, onBack}: Props) {
                         {pageRows.map((r) => (
                             <div key={r.id} className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40" style={{gridTemplateColumns: gridTemplate}}>
                                 <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggle(r.id)} className="h-4 w-4 accent-cyan-500"/>
-                                <div className="truncate" title={r.filePath}>{shortenFilePath(r.filePath, library.roots || [])}</div>
+                                <div
+                                    className="truncate cursor-pointer hover:bg-neutral-700/50 rounded px-1 py-0.5 transition-colors"
+                                    title={r.filePath}
+                                    onMouseEnter={(e) => handleMouseEnter(e, r)}
+                                    onMouseLeave={handleMouseLeave}
+                                >
+                                    {shortenFilePath(r.filePath, library.roots || [])}
+                                </div>
                                 <div className="truncate" title={r.proposed}>{r.proposed}</div>
                                 <div>
                                     {r.status === "green" && <span className="text-emerald-400">🟩 Green</span>}
@@ -1490,6 +1548,14 @@ export default function Preview({server, library, onBack}: Props) {
                     onClose={() => setShowTemplateHelp(false)}
                 />
             )}
+
+            {/* Plex metadata popover */}
+            <PlexPopoverCard
+                metadata={popoverData.metadata}
+                isVisible={!!popoverData.metadata}
+                position={popoverData.position}
+                plexServerUrl={server.address}
+            />
         </main>
     );
 }

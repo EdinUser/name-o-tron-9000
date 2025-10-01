@@ -1,6 +1,9 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::Serialize;
 use plex_api::{list_libraries, plex_login, plex_login_status, plex_logout};
+use base64::{Engine as _, engine::general_purpose};
+use std::fs;
+use dirs;
 mod path_map;
 mod settings;
 mod plex_api;
@@ -177,6 +180,137 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
     servers
 }
 
+#[tauri::command]
+async fn fetch_plex_image(server_url: String, image_path: String, token: Option<String>) -> Result<String, String> {
+    // Create a cache key from the server URL and image path
+    let cache_key = format!("{}_{}", server_url.replace(['/', ':', '.'], "_"), image_path.replace(['/', '.'], "_"));
+    let cache_dir = dirs::cache_dir()
+        .map(|dir| dir.join("name-o-tron-9000").join("thumbnails"));
+
+    // Check if we have a cached version first (if cache dir exists)
+    if let Some(ref cache_dir) = cache_dir {
+        let cache_file = cache_dir.join(format!("{}.jpg", cache_key));
+        if cache_file.exists() {
+            match fs::read(&cache_file) {
+                Ok(cached_data) => {
+                    return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&cached_data)));
+                }
+                Err(e) => {
+                    eprintln!("Failed to read cached image: {}", e);
+                }
+            }
+        }
+    }
+
+    // Try to fetch from Plex server (accept self-signed certs as Plex local certs may be custom)
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    // For Plex metadata thumb URLs, try multiple approaches
+    let mut attempts = Vec::new();
+
+    if image_path.starts_with("/library/metadata/") && image_path.contains("/thumb/") {
+        // This is a Plex metadata thumb URL - try multiple approaches and protocol variants
+        let mut bases: Vec<String> = vec![server_url.clone()];
+        if server_url.starts_with("http://") {
+            bases.push(server_url.replacen("http://", "https://", 1));
+        } else if server_url.starts_with("https://") {
+            bases.push(server_url.replacen("https://", "http://", 1));
+        }
+
+        for base in bases.clone() {
+            // Direct URL access (token will be appended later)
+            attempts.push(format!("{}/{}", base.trim_end_matches('/'), image_path.trim_start_matches('/')));
+
+            // Transcoder URL - include token inside nested url param per OpenAPI docs
+            if let Some(rating_key) = image_path.strip_prefix("/library/metadata/").and_then(|s| s.split('/').next()) {
+                // Build nested URL with token (e.g., /library/metadata/1234/thumb/0?X-Plex-Token=...)
+                let nested = if let Some(ref token) = token { format!("/library/metadata/{}/thumb/0?X-Plex-Token={}", rating_key, token) } else { format!("/library/metadata/{}/thumb/0", rating_key) };
+                let nested_enc = urlencoding::encode(&nested);
+                attempts.push(format!("{}/photo/:/transcode?width=300&height=450&url={}", base.trim_end_matches('/'), nested_enc));
+            }
+        }
+    } else {
+        // For other image paths, use direct approach
+        let mut bases: Vec<String> = vec![server_url.clone()];
+        if server_url.starts_with("http://") {
+            bases.push(server_url.replacen("http://", "https://", 1));
+        } else if server_url.starts_with("https://") {
+            bases.push(server_url.replacen("https://", "http://", 1));
+        }
+        for base in bases {
+            attempts.push(format!("{}/{}", base.trim_end_matches('/'), image_path.trim_start_matches('/')));
+        }
+    }
+
+    // Clone the token so we can use it multiple times
+    let auth_token = token.as_ref().map(|t| t.as_str());
+
+    let mut last_error = None;
+
+    for (i, base_url) in attempts.iter().enumerate() {
+        // Append token as query param as some PMS builds require it even if header is present
+        let url_with_token = if let Some(token_str) = auth_token {
+            if base_url.contains('?') {
+                format!("{}&X-Plex-Token={}", base_url, token_str)
+            } else {
+                format!("{}?X-Plex-Token={}", base_url, token_str)
+            }
+        } else {
+            base_url.clone()
+        };
+
+        println!("Trying image URL {}: {}", i + 1, url_with_token);
+
+        let mut request = client.get(&url_with_token);
+
+        // Add Plex-specific headers
+        request = request
+            .header("X-Plex-Client-Identifier", "Name-o-tron-9000")
+            .header("X-Plex-Product", "Name-o-tron 9000")
+            .header("X-Plex-Version", "1.0.0")
+            .header("X-Plex-Device-Name", "Name-o-tron 9000")
+            .header("X-Plex-Device", "Name-o-tron 9000")
+            .header("X-Plex-Platform", std::env::consts::OS)
+            .header("X-Plex-Platform-Version", "1.0.0")
+            .header("Accept", "image/*");
+
+        if let Some(token_str) = auth_token {
+            request = request.header("X-Plex-Token", token_str);
+        }
+
+        match request.send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    let image_data = response.bytes().await.map_err(|e| format!("Failed to read image data: {}", e))?;
+
+                    // Cache the image for future use (if cache dir exists)
+                    if let Some(ref cache_dir) = cache_dir {
+                        let cache_file = cache_dir.join(format!("{}.jpg", cache_key));
+                        if let Err(e) = fs::write(&cache_file, &image_data) {
+                            eprintln!("Failed to cache image: {}", e);
+                        }
+                    }
+
+                    return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&image_data)));
+                } else {
+                    last_error = Some(format!("Image request failed with status: {}", response.status()));
+                    println!("Attempt {} failed: {}", i + 1, response.status());
+                }
+            }
+            Err(e) => {
+                last_error = Some(format!("Failed to fetch image: {}", e));
+                println!("Attempt {} error: {}", i + 1, e);
+            }
+        }
+    }
+
+    // If all attempts failed, return the last error
+    Err(last_error.unwrap_or_else(|| "All image fetch attempts failed".to_string()))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -194,6 +328,7 @@ pub fn run() {
             plex_api::fetch_collections,
             plex_api::fetch_collection_items,
             plex_api::search_content,
+            fetch_plex_image,
             path_map::test_mapping,
             settings::get_settings,
             settings::save_settings,

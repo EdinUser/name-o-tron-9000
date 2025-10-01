@@ -32,3 +32,5 @@ urlencoding = "2"
 quick-xml = { version = "0.31", features = ["serialize"] }
 whoami = "1.5"
 ureq = { version = "2.9", default-features = false, features = ["tls", "json"] }
+base64 = "0.22"
+dirs = "5.0"
