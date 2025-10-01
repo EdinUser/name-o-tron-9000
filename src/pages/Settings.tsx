@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {useSettings, type Settings, type EncodingMode} from "../state/settings";
+import EditionParsersModal from "../components/EditionParsersModal";
 
 type Props = { onClose: () => void };
 
@@ -14,6 +15,7 @@ export default function SettingsModal({onClose}: Props) {
     const [localSettings, setLocalSettings] = useState<Settings>(settings);
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isEditionParsersModalOpen, setIsEditionParsersModalOpen] = useState(false);
 
     // Update local settings when global settings change
     useEffect(() => {
@@ -60,60 +62,69 @@ export default function SettingsModal({onClose}: Props) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleClose} style={{ zIndex: 9999 }}>
-            <div className="bg-neutral-900 border border-neutral-700 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between p-6 border-b border-neutral-800">
-                    <h1 className="text-xl font-semibold text-neutral-100">Settings</h1>
-                    <button onClick={handleClose} className="text-neutral-400 hover:text-neutral-200 transition-colors" title="Close (unsaved changes will be lost)">
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-6 w-6">
-                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                    </button>
-                </div>
-
-                <div className="flex flex-col max-h-[calc(90vh-140px)]">
-                    <div className="px-6 pt-4">
-                        <Tabs tab={tab} setTab={setTab}/>
+        <>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleClose} style={{ zIndex: 9999 }}>
+                <div className="bg-neutral-900 border border-neutral-700 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-between p-6 border-b border-neutral-800">
+                        <h1 className="text-xl font-semibold text-neutral-100">Settings</h1>
+                        <button onClick={handleClose} className="text-neutral-400 hover:text-neutral-200 transition-colors" title="Close (unsaved changes will be lost)">
+                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-6 w-6">
+                                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto px-6 pb-6">
-                        {tab === "general" && <General s={localSettings} onChange={(v) => update("general", v)}/>}
-                        {tab === "movies" && <Movies s={localSettings} onChange={(v) => update("movies", v)}/>}
-                        {tab === "tv" && <TV s={localSettings} onChange={(v) => update("tv", v)}/>}
-                        {tab === "music" && <Music s={localSettings} onChange={(v) => update("music", v)}/>}
-                        {tab === "misc" && <Misc s={localSettings} onChange={(v) => update("misc", v)}/>}
-                    </div>
+                    <div className="flex flex-col max-h-[calc(90vh-140px)]">
+                        <div className="px-6 pt-4">
+                            <Tabs tab={tab} setTab={setTab}/>
+                        </div>
 
-                    <div className="px-6 pb-6 border-t border-neutral-800">
-                        <div className="flex items-center justify-between">
-                            <div className="text-sm text-neutral-400">
-                                {hasChanges ? "You have unsaved changes" : "Settings are up to date"}
-                            </div>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleClose}
-                                    className="px-4 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
-                                    disabled={isSaving}
-                                >
-                                    {hasChanges ? "Cancel" : "Close"}
-                                </button>
-                                <button
-                                    onClick={saveSettingsAndClose}
-                                    disabled={!hasChanges || isSaving}
-                                    className={`px-4 py-2 text-sm font-medium rounded ${
-                                        hasChanges && !isSaving
-                                            ? "bg-cyan-500 text-neutral-900 hover:bg-cyan-400"
-                                            : "bg-neutral-700 text-neutral-500 cursor-not-allowed"
-                                    }`}
-                                >
-                                    {isSaving ? "Saving..." : "Save & Close"}
-                                </button>
+                        <div className="flex-1 overflow-y-auto px-6 pb-6">
+                            {tab === "general" && <General s={localSettings} onChange={(v) => update("general", v)}/>}
+                            {tab === "movies" && <Movies s={localSettings} onChange={(v) => update("movies", v)} onConfigureParsers={() => setIsEditionParsersModalOpen(true)}/>}
+                            {tab === "tv" && <TV s={localSettings} onChange={(v) => update("tv", v)}/>}
+                            {tab === "music" && <Music s={localSettings} onChange={(v) => update("music", v)}/>}
+                            {tab === "misc" && <Misc s={localSettings} onChange={(v) => update("misc", v)}/>}
+                        </div>
+
+                        <div className="px-6 pb-6 border-t border-neutral-800">
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm text-neutral-400">
+                                    {hasChanges ? "You have unsaved changes" : "Settings are up to date"}
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={handleClose}
+                                        className="px-4 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
+                                        disabled={isSaving}
+                                    >
+                                        {hasChanges ? "Cancel" : "Close"}
+                                    </button>
+                                    <button
+                                        onClick={saveSettingsAndClose}
+                                        disabled={!hasChanges || isSaving}
+                                        className={`px-4 py-2 text-sm font-medium rounded ${
+                                            hasChanges && !isSaving
+                                                ? "bg-cyan-500 text-neutral-900 hover:bg-cyan-400"
+                                                : "bg-neutral-700 text-neutral-500 cursor-not-allowed"
+                                        }`}
+                                    >
+                                        {isSaving ? "Saving..." : "Save & Close"}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            <EditionParsersModal
+                isOpen={isEditionParsersModalOpen}
+                onClose={() => setIsEditionParsersModalOpen(false)}
+                parsers={localSettings.movies.editions.parsers}
+                onChange={(parsers) => update("movies", {...localSettings.movies, editions: {...localSettings.movies.editions, parsers}})}
+            />
+        </>
     );
 }
 
@@ -290,7 +301,7 @@ function General({s, onChange}: { s: Settings; onChange: (v: Settings["general"]
     );
 }
 
-function Movies({s, onChange}: { s: Settings; onChange: (v: Settings["movies"]) => void }) {
+function Movies({s, onChange, onConfigureParsers}: { s: Settings; onChange: (v: Settings["movies"]) => void; onConfigureParsers?: () => void }) {
     const m = s.movies;
     const set = (patch: Partial<typeof m>) => onChange({...m, ...patch});
     return (
@@ -333,11 +344,24 @@ function Movies({s, onChange}: { s: Settings; onChange: (v: Settings["movies"]) 
                         {value: "none", label: "None"},
                     ]}/>
                 </Row>
-                <Row label="Detect editions from filenames">
-                    <input type="checkbox" checked={m.editions.detectFromFilenames} onChange={(e) => set({editions: {...m.editions, detectFromFilenames: e.target.checked}})}/>
+                <Row label="Create editions from file names">
+                    <input type="checkbox" checked={m.editions.createFromFilenames} onChange={(e) => set({editions: {...m.editions, createFromFilenames: e.target.checked}})}/>
                 </Row>
-                <Row label="Append version name if multiple exist">
-                    <input type="checkbox" checked={m.versions.appendVersionIfMultiple} onChange={(e) => set({versions: {appendVersionIfMultiple: e.target.checked}})}/>
+                <Row label="Create multiple edition tags (if applicable)">
+                    <input
+                        type="checkbox"
+                        checked={m.editions.createMultipleTags}
+                        disabled={!m.editions.createFromFilenames}
+                        onChange={(e) => set({editions: {...m.editions, createMultipleTags: e.target.checked}})}
+                    />
+                </Row>
+                <Row label="Configure edition parsers">
+                    <button
+                        onClick={onConfigureParsers}
+                        className="px-3 py-1 text-sm bg-neutral-700 hover:bg-neutral-600 text-neutral-200 rounded"
+                    >
+                        Configure
+                    </button>
                 </Row>
                 <Row label="IDs">
                     <Radio value={m.ids} setValue={(v) => set({ids: v as any})} opts={[{value: "none", label: "Do not include"}, {value: "preserve", label: "Preserve existing"}, {value: "auto_append_all", label: "Auto-append all"}]}/>

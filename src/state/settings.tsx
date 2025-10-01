@@ -21,13 +21,24 @@ export type GeneralSettings = {
   };
 };
 
+export type EditionParser = {
+  id: string;
+  name: string;
+  category: "content" | "technical";
+  enabled: boolean;
+};
+
 export type MovieSettings = {
   collections: { enabled: boolean; mode: "always" | "if2plus"; naming: "original" | "prefix_" | "prefix_collection" | "suffix_collection" };
   chronologicalPrefix: "none" | "year" | "collection_order";
   folderStructure: "none" | "alpha" | "alpha_ranges" | "genre" | "year_decade";
   ownFolderPerMovie: boolean;
-  editions: { mode: "preserve" | "expand" | "both" | "none"; detectFromFilenames: boolean };
-  versions: { appendVersionIfMultiple: boolean };
+  editions: {
+    mode: "preserve" | "expand" | "both" | "none";
+    createFromFilenames: boolean;
+    createMultipleTags: boolean;
+    parsers: EditionParser[];
+  };
   ids: "none" | "preserve" | "auto_append_all";
   specials: { moveExtras: boolean; markISO: boolean };
 };
@@ -103,8 +114,39 @@ const defaultSettings: Settings = {
     chronologicalPrefix: "none",
     folderStructure: "none",
     ownFolderPerMovie: true,
-    editions: { mode: "preserve", detectFromFilenames: true },
-    versions: { appendVersionIfMultiple: true },
+    editions: {
+      mode: "preserve",
+      createFromFilenames: true,
+      createMultipleTags: true,
+      parsers: [
+        // Content editions
+        { id: "directors-cut", name: "Director's Cut", category: "content", enabled: true },
+        { id: "extended", name: "Extended Edition", category: "content", enabled: true },
+        { id: "unrated", name: "Unrated", category: "content", enabled: true },
+        { id: "theatrical", name: "Theatrical Cut", category: "content", enabled: true },
+        { id: "remastered", name: "Remastered", category: "content", enabled: true },
+        { id: "special", name: "Special Edition", category: "content", enabled: true },
+        { id: "collectors", name: "Collector's Edition", category: "content", enabled: true },
+        { id: "deluxe", name: "Deluxe Edition", category: "content", enabled: true },
+        { id: "anniversary", name: "Anniversary Edition", category: "content", enabled: true },
+        { id: "ultimate", name: "Ultimate Edition", category: "content", enabled: true },
+        { id: "diamond", name: "Diamond Edition", category: "content", enabled: true },
+        { id: "platinum", name: "Platinum Edition", category: "content", enabled: true },
+        { id: "gold", name: "Gold Edition", category: "content", enabled: true },
+        { id: "silver", name: "Silver Edition", category: "content", enabled: true },
+        { id: "steelbook", name: "Steelbook Edition", category: "content", enabled: true },
+        { id: "criterion", name: "Criterion Collection", category: "content", enabled: true },
+        // Technical editions
+        { id: "imax", name: "IMAX Edition", category: "technical", enabled: false },
+        { id: "4k", name: "4K Edition", category: "technical", enabled: false },
+        { id: "hdr", name: "HDR Edition", category: "technical", enabled: false },
+        { id: "atmos", name: "Dolby Atmos Edition", category: "technical", enabled: false },
+        { id: "bluray", name: "Blu-ray Edition", category: "technical", enabled: false },
+        { id: "dvd", name: "DVD Edition", category: "technical", enabled: false },
+        { id: "web", name: "Web Edition", category: "technical", enabled: false },
+        { id: "hdtv", name: "HDTV Edition", category: "technical", enabled: false },
+      ]
+    },
     ids: "preserve",
     specials: { moveExtras: true, markISO: true },
   },
@@ -182,6 +224,7 @@ export function saveSettings(s: Settings) {
 const SettingsContext = createContext<{
   settings: Settings;
   updateSettings: (newSettings: Settings) => void;
+  settingsVersion: number;
 } | null>(null);
 
 export function useSettings() {
@@ -225,6 +268,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return localSettings;
   });
 
+  const [settingsVersion, setSettingsVersion] = useState(0);
+
   // Load canonical settings from Tauri on mount and merge properly
   useEffect(() => {
     (async () => {
@@ -256,6 +301,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const updateSettings = (newSettings: Settings) => {
     setSettings(newSettings);
+    setSettingsVersion(prev => prev + 1);
     saveSettings(newSettings);
   };
 
@@ -274,7 +320,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [settings]);
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSettings }}>
+    <SettingsContext.Provider value={{ settings, updateSettings, settingsVersion }}>
       {children}
     </SettingsContext.Provider>
   );

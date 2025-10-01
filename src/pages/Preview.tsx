@@ -6,7 +6,7 @@ import TemplateHelpModal from "../components/TemplateHelpModal";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import {useSettings} from "../state/settings";
-import {renderTemplate, detectEditionFromPath, type DetectedEdition, extractImdbId, extractTvdbId, extractTmdbId} from "../utils/template";
+import {renderTemplate, detectEditionFromPathWithPriority, type DetectedEdition, extractImdbId, extractTvdbId, extractTmdbId, mapEditionTokenToTitle} from "../utils/template";
 
 type Props = {
     server: PlexServer;
@@ -79,6 +79,84 @@ function basename(p: string) {
     const m = p.match(/[^\\/]+$/);
     return m ? m[0] : p;
 }
+
+// Priority order for edition types (higher number = higher priority)
+const EDITION_PRIORITY: Record<string, number> = {
+    // Common content editions (highest priority)
+    "directors": 100,
+    "dc": 100,
+    "extended": 95,
+    "uncut": 95,
+    "unrated": 95,
+    "theatrical": 90,
+    "remastered": 85,
+    "restored": 85,
+    "special": 80,
+    "se": 80,
+    "collectors": 75,
+    "ce": 75,
+    "deluxe": 70,
+    "de": 70,
+    "anniversary": 65,
+    "ae": 65,
+    "ultimate": 60,
+    "ue": 60,
+    "diamond": 55,
+    "platinum": 50,
+    "gold": 45,
+    "silver": 40,
+    "steelbook": 35,
+    "criterion": 30,
+    "cc": 30,
+
+    // Technical editions (lower priority)
+    "imax": 25,
+    "4k": 20,
+    "uhd": 20,
+    "hdr": 15,
+    "hdr10": 15,
+    "dolby": 15,
+    "atmos": 15,
+    "bluray": 10,
+    "blu": 10,
+    "bd": 10,
+    "dvd": 5,
+    "web": 1,
+    "hdtv": 1,
+};
+
+function getHighestPriorityEdition(editionToken: string): string {
+    if (!editionToken.startsWith('{edition-')) return editionToken;
+
+    const editions = editionToken.replace(/\{edition-/, '').replace('}', '').split(',');
+    if (editions.length <= 1) return editionToken;
+
+    // Sort by priority (highest first)
+    const sortedEditions = editions.sort((a, b) => {
+        const priorityA = EDITION_PRIORITY[a.toLowerCase()] || 0;
+        const priorityB = EDITION_PRIORITY[b.toLowerCase()] || 0;
+        return priorityB - priorityA;
+    });
+
+    return `{edition-${sortedEditions[0]}}`;
+}
+
+function sortEditionsByPriority(editionToken: string): string {
+    if (!editionToken.startsWith('{edition-')) return editionToken;
+
+    const editions = editionToken.replace(/\{edition-/, '').replace('}', '').split(',');
+    if (editions.length <= 1) return editionToken;
+
+    // Sort by priority (highest first)
+    const sortedEditions = editions.sort((a, b) => {
+        const priorityA = EDITION_PRIORITY[a.toLowerCase()] || 0;
+        const priorityB = EDITION_PRIORITY[b.toLowerCase()] || 0;
+        return priorityB - priorityA;
+    });
+
+    return `{edition-${sortedEditions.join(',')}}`;
+}
+
 
 function sanitizeProposal(name: string): { ok: boolean; reason?: string } {
     if (/[\\/:*?"<>|]/.test(name)) return {ok: false, reason: "invalid-chars"};
@@ -181,12 +259,17 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
     let editionToken: string | undefined = m.edition || undefined;
     let editionTitle: string | undefined = m.editionTitle || undefined;
 
-    // Detect from path (folders/filename) when enabled or when edition handling is active
-    if (settings.movies.editions.detectFromFilenames || settings.movies.editions.mode !== "none") {
-        const detected: DetectedEdition | null = detectEditionFromPath(m.file);
+    // Detect from path (folders/filename) when enabled
+    if (settings.movies.editions.createFromFilenames) {
+        const detected: DetectedEdition | null = detectEditionFromPathWithPriority(m.file, settings.movies.editions.parsers);
         if (detected) {
             editionToken = detected.token || editionToken;
             editionTitle = detected.title || editionTitle;
+
+            // Only log for the specific file the user is asking about
+            if (m.file.toLowerCase().includes('40-year-old virgin') || m.file.toLowerCase().includes('unrated')) {
+                console.log(`🎯 DEBUG: File ${m.file} - Detected edition:`, detected);
+            }
         }
     }
 
@@ -211,7 +294,42 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
 
     // Process edition based on user settings
     let editionDisplay = "";
-    if (editionToken || editionTitle) {
+
+    // Determine whether to include edition information
+    let shouldIncludeEdition = settings.movies.editions.mode !== "none" && (editionToken || editionTitle);
+
+    if (shouldIncludeEdition) {
+        if (!settings.movies.editions.createMultipleTags) {
+            // When "Create multiple tags" is OFF: only include the highest priority edition
+            if (editionToken) {
+                editionToken = getHighestPriorityEdition(editionToken);
+                const tokenPart = editionToken.replace(/\{edition-/, '').replace('}', '');
+                editionDisplay = mapEditionTokenToTitle(tokenPart) || editionToken;
+            } else if (editionTitle) {
+                // For titles, we need to apply priority logic too
+                // Split by common separators and find the highest priority
+                const titleParts = editionTitle.split(/[-\s]+/);
+                let highestPriorityPart = titleParts[0]; // default to first
+                let highestPriority = EDITION_PRIORITY[highestPriorityPart.toLowerCase()] || 0;
+
+                for (const part of titleParts) {
+                    const priority = EDITION_PRIORITY[part.toLowerCase()] || 0;
+                    if (priority > highestPriority) {
+                        highestPriority = priority;
+                        highestPriorityPart = part;
+                    }
+                }
+                editionDisplay = mapEditionTokenToTitle(highestPriorityPart) || highestPriorityPart;
+            }
+        } else {
+            // When "Create multiple tags" is ON: use all detected editions, but sort by priority
+            if (editionToken) {
+                editionToken = sortEditionsByPriority(editionToken);
+            }
+            editionDisplay = editionToken || editionTitle || "";
+        }
+
+        // Apply edition mode formatting
         if (settings.movies.editions.mode === "preserve") {
             // Use the Plex edition token as-is
             editionDisplay = editionToken || "";
@@ -223,7 +341,15 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
             const humanReadable = editionTitle ? ` - ${editionTitle}` : "";
             editionDisplay = `${humanReadable} ${editionToken || ""}`.trim();
         }
-        // For "none" mode, don't include edition information
+    }
+
+    // Log debug info for files with editions to understand the behavior
+    if (editionToken || editionTitle) {
+        console.log(`🎯 DEBUG: ${m.file}`);
+        console.log(`  Settings: createFromFilenames=${settings.movies.editions.createFromFilenames}, createMultipleTags=${settings.movies.editions.createMultipleTags}`);
+        console.log(`  Plex data: token=${m.edition}, title=${m.editionTitle}`);
+        console.log(`  Detected: token=${editionToken}, title=${editionTitle}`);
+        console.log(`  Final: display=${editionDisplay}`);
     }
 
     // Expanded context for movies
@@ -253,29 +379,19 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
     if (!proposed.endsWith(ext)) proposed += ext; // safety net if template omitted {ext}
 
     // If user selected an edition mode and the template did not include any edition
-    // placeholders, enforce insertion before the extension.
-    if ((editionToken || editionTitle) && settings.movies.editions.mode !== "none") {
-    const lower = proposed.toLowerCase();
+    // placeholders, enforce insertion before the extension (only if edition should be included).
+    if (editionDisplay && settings.movies.editions.mode !== "none") {
+        const lower = proposed.toLowerCase();
         const hasEditionAlready = lower.includes("{edition-") ||
-            (editionTitle ? lower.includes(editionTitle.toLowerCase()) : false);
+            (editionTitle ? lower.includes(editionTitle.toLowerCase()) : false) ||
+            lower.includes(editionToken?.toLowerCase() || "");
         if (!hasEditionAlready) {
-            let injection = "";
-            if (settings.movies.editions.mode === "preserve") {
-                injection = editionToken ? ` ${editionToken}` : "";
-            } else if (settings.movies.editions.mode === "expand") {
-                injection = editionTitle ? ` - ${editionTitle}` : (editionToken ? ` ${editionToken}` : "");
-            } else if (settings.movies.editions.mode === "both") {
-                if (editionTitle && editionToken) injection = ` - ${editionTitle} ${editionToken}`;
-                else if (editionTitle) injection = ` - ${editionTitle}`;
-                else if (editionToken) injection = ` ${editionToken}`;
-            }
-            if (injection) {
-                const dot = proposed.lastIndexOf(ext);
-                if (dot > 0) {
-                    proposed = proposed.slice(0, dot) + injection + proposed.slice(dot);
-                } else {
-                    proposed += injection;
-                }
+            let injection = editionDisplay.startsWith(" - ") ? editionDisplay : ` ${editionDisplay}`;
+            const dot = proposed.lastIndexOf(ext);
+            if (dot > 0) {
+                proposed = proposed.slice(0, dot) + injection + proposed.slice(dot);
+            } else {
+                proposed += injection;
             }
         }
     }
@@ -456,7 +572,7 @@ function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolde
 }
 
 export default function Preview({server, library, onBack}: Props) {
-    const { settings, updateSettings } = useSettings();
+    const { settings, updateSettings, settingsVersion } = useSettings();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [rows, setRows] = useState<PreviewRow[]>([]);
@@ -675,7 +791,7 @@ export default function Preview({server, library, onBack}: Props) {
         }
 
         load();
-    }, [server.address, library.key, library.type, template, reloadTick,
+    }, [server.address, library.key, library.type, template, reloadTick, settingsVersion,
         settings.movies.collections.enabled,
         settings.movies.collections.mode,
         settings.movies.collections.naming,
@@ -684,7 +800,22 @@ export default function Preview({server, library, onBack}: Props) {
         settings.general.encoding.mode,
         settings.general.encoding.highlightNonLatin,
         settings.templates.movie,
-        settings.templates.episode
+        settings.templates.episode,
+        settings.movies.editions.mode,
+        settings.movies.editions.createFromFilenames,
+        settings.movies.editions.createMultipleTags,
+        settings.movies.ids,
+        settings.movies.specials.moveExtras,
+        settings.movies.specials.markISO,
+        settings.tv.ids,
+        settings.tv.detectCuts,
+        settings.tv.detectOVAsSeason00,
+        settings.tv.normalizeMultiEpisode,
+        settings.tv.warnEpisodeCountMismatch,
+        settings.general.conflictHandling,
+        settings.general.safety.pathLengthCheck,
+        settings.general.safety.reservedNamesCheck,
+        settings.general.safety.permissionsCheck
     ]);
 
 
