@@ -32,6 +32,8 @@ export type MovieSettings = {
   collections: { enabled: boolean; mode: "always" | "if2plus"; naming: "original" | "prefix_" | "prefix_collection" | "suffix_collection" };
   chronologicalPrefix: "none" | "year" | "collection_order";
   folderStructure: "none" | "alpha" | "alpha_ranges" | "genre" | "year_decade";
+  alphaArticleHandling: "ignore" | "include";
+  folderStructureBehavior: "preserve_existing" | "reorganize_all" | "intelligent";
   ownFolderPerMovie: boolean;
   editions: {
     mode: "preserve" | "expand" | "both" | "none";
@@ -51,6 +53,7 @@ export type TvSettings = {
   normalizeMultiEpisode: boolean;
   warnEpisodeCountMismatch: boolean;
   ids: "none" | "preserve" | "auto_append_all";
+  specials: { moveExtras: boolean; markISO: boolean };
 };
 
 export type MusicSettings = {
@@ -113,6 +116,8 @@ const defaultSettings: Settings = {
     collections: { enabled: true, mode: "always", naming: "original" },
     chronologicalPrefix: "none",
     folderStructure: "none",
+    alphaArticleHandling: "ignore",
+    folderStructureBehavior: "intelligent",
     ownFolderPerMovie: true,
     editions: {
       mode: "preserve",
@@ -158,6 +163,7 @@ const defaultSettings: Settings = {
     normalizeMultiEpisode: true,
     warnEpisodeCountMismatch: true,
     ids: "preserve",
+    specials: { moveExtras: true, markISO: true },
   },
   music: {
     formatAAT: true,
@@ -278,8 +284,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const all = await invoke<any>("get_settings");
         console.log("Loaded settings from Tauri backend:", all);
         if (all && all.ui) {
-          // Properly deep merge Tauri settings with current settings
-          const mergedSettings = deepMerge(settings, all.ui);
+          // Properly deep merge current settings with Tauri settings (current takes precedence)
+          const mergedSettings = deepMerge(all.ui, settings);
           console.log("Merged settings:", mergedSettings);
           setSettings(mergedSettings);
           // Also save merged settings to localStorage for consistency

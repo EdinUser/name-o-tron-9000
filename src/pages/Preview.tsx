@@ -401,6 +401,159 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
         }
     }
 
+    // Analyze current file path to understand existing folder structure
+    const currentPath = m.file;
+    const currentDir = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+    const currentFolders = currentDir.split('/').filter(Boolean);
+
+    // Apply folder structure logic based on settings
+    const folderStructure = settings.movies.folderStructure;
+    const chronologicalPrefix = settings.movies.chronologicalPrefix;
+    const folderStructureBehavior = settings.movies.folderStructureBehavior;
+
+    // Helper function to get folder organization path
+    // Helper function to get the sorting title (ignoring articles if configured)
+function getSortingTitle(title: string, alphaArticleHandling: string): string {
+    if (alphaArticleHandling === "ignore") {
+        // Remove common articles from the beginning for sorting purposes
+        const articles = /^(the|a|an)\s+/i;
+        return title.replace(articles, "");
+    }
+    return title;
+}
+
+// Helper function to detect existing folder structure patterns
+function detectExistingFolderStructure(folders: string[]): {
+    type: 'none' | 'alpha' | 'alpha_ranges' | 'year_decade' | 'genre' | 'custom';
+    pattern?: string;
+    confidence: number;
+} {
+    if (folders.length === 0) return { type: 'none', confidence: 1.0 };
+
+    const topFolder = folders[0].toLowerCase();
+
+    // Check for alphabetical patterns
+    if (/^[a-z]$/.test(topFolder)) {
+        return { type: 'alpha', pattern: topFolder, confidence: 0.9 };
+    }
+
+    // Check for alphabet ranges
+    if (/^[a-z]-[a-z]$/.test(topFolder) || /^(a-d|e-h|i-l|m-p|q-t|u-z)$/.test(topFolder)) {
+        return { type: 'alpha_ranges', pattern: topFolder, confidence: 0.9 };
+    }
+
+    // Check for year/decade patterns
+    if (/^\d{4}s$/.test(topFolder)) {
+        return { type: 'year_decade', pattern: topFolder, confidence: 0.8 };
+    }
+
+    // Check for common genre patterns (heuristic)
+    const genrePatterns = ['action', 'adventure', 'comedy', 'drama', 'horror', 'sci-fi', 'thriller', 'documentary'];
+    if (genrePatterns.some(g => topFolder.includes(g) || topFolder === g)) {
+        return { type: 'genre', pattern: topFolder, confidence: 0.7 };
+    }
+
+    // Check for chronological prefixes in folder names
+    if (/^\d{4}\s*-\s*.+/.test(folders[folders.length - 1] || '')) {
+        return { type: 'custom', pattern: 'chronological', confidence: 0.6 };
+    }
+
+    return { type: 'custom', confidence: 0.3 };
+}
+
+function getOrganizedPath(title: string, year?: number, genre?: string, collectionName?: string): string {
+        const baseFolderName = safeFolderName(title);
+        let organizedPath = "";
+
+        switch (folderStructure) {
+            case "none":
+                // No additional folder structure - just use individual folders if enabled
+                break;
+
+            case "alpha":
+                // Alphabetical organization - use first letter
+                const sortingTitle = getSortingTitle(title, settings.movies.alphaArticleHandling);
+                const firstLetter = sortingTitle.charAt(0).toUpperCase();
+                if (firstLetter >= 'A' && firstLetter <= 'Z') {
+                    organizedPath = `${firstLetter}/${baseFolderName}`;
+                } else {
+                    organizedPath = `Other/${baseFolderName}`;
+                }
+                break;
+
+            case "alpha_ranges":
+                // Alphabet ranges (A-D, E-H, etc.)
+                const sortingTitleRanges = getSortingTitle(title, settings.movies.alphaArticleHandling);
+                const letterRanges = sortingTitleRanges.charAt(0).toUpperCase();
+                if (letterRanges >= 'A' && letterRanges <= 'D') {
+                    organizedPath = `A-D/${baseFolderName}`;
+                } else if (letterRanges >= 'E' && letterRanges <= 'H') {
+                    organizedPath = `E-H/${baseFolderName}`;
+                } else if (letterRanges >= 'I' && letterRanges <= 'L') {
+                    organizedPath = `I-L/${baseFolderName}`;
+                } else if (letterRanges >= 'M' && letterRanges <= 'P') {
+                    organizedPath = `M-P/${baseFolderName}`;
+                } else if (letterRanges >= 'Q' && letterRanges <= 'T') {
+                    organizedPath = `Q-T/${baseFolderName}`;
+                } else if (letterRanges >= 'U' && letterRanges <= 'Z') {
+                    organizedPath = `U-Z/${baseFolderName}`;
+                } else {
+                    organizedPath = `Other/${baseFolderName}`;
+                }
+                break;
+
+            case "genre":
+                // Organize by genre
+                if (genre && genre.trim()) {
+                    const genreFolder = safeFolderName(genre);
+                    organizedPath = `${genreFolder}/${baseFolderName}`;
+                } else {
+                    organizedPath = `Unknown Genre/${baseFolderName}`;
+                }
+                break;
+
+            case "year_decade":
+                // Organize by decade (1980s, 1990s, etc.)
+                if (year) {
+                    const decade = Math.floor(year / 10) * 10;
+                    organizedPath = `${decade}s/${baseFolderName}`;
+                } else {
+                    organizedPath = `Unknown Year/${baseFolderName}`;
+                }
+                break;
+        }
+
+        return organizedPath;
+    }
+
+    // Helper function to apply chronological prefix
+    function applyChronologicalPrefix(path: string, year?: number): string {
+        if (chronologicalPrefix === "none" || !year) return path;
+
+        let prefix = "";
+        if (chronologicalPrefix === "year") {
+            prefix = `${year} - `;
+        } else if (chronologicalPrefix === "collection_order") {
+            // For collection order, we'd need collection metadata - for now just use year
+            prefix = `${year} - `;
+        }
+
+        if (prefix) {
+            // Insert prefix at the beginning of the path
+            if (path.includes('/')) {
+                const lastSlash = path.lastIndexOf('/');
+                return path.substring(0, lastSlash + 1) + prefix + path.substring(lastSlash + 1);
+            } else {
+                return prefix + path;
+            }
+        }
+
+        return path;
+    }
+
+    // Detect existing folder structure
+    const existingStructure = detectExistingFolderStructure(currentFolders);
+
     // Handle collection-based folders if collections are enabled and movie has a collection
     if (collectionsEnabled && collectionName && collectionName.trim()) {
         const collectionFolderName = formatCollectionFolderName(collectionName, settings);
@@ -415,13 +568,80 @@ function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie:
             proposed = `${collectionFolderName}/${fileName}`;
         }
     }
-    // If collections are disabled or movie has no collection, use individual movie folder if enabled
-    else if (ownFolderPerMovie && !proposed.includes('/')) {
-        const folderName = safeFolderName(m.title);
-        proposed = `${folderName}/${proposed}`;
+    // If collections are disabled or movie has no collection, apply intelligent folder structure logic
+    else {
+        // Get desired organized path based on folder structure settings
+        const desiredPath = getOrganizedPath(m.title, m.year, m.genre, collectionName);
+
+        // Make decisions based on folder structure behavior setting
+        if (folderStructureBehavior === "preserve_existing") {
+            // Always preserve existing folder structure
+            if (proposed.includes('/')) {
+                const existingBasePath = currentFolders.slice(0, -1).join('/');
+                const fileName = proposed.substring(proposed.lastIndexOf('/') + 1);
+                proposed = `${existingBasePath}/${fileName}`;
+            }
+        } else if (folderStructureBehavior === "reorganize_all") {
+            // Always apply new folder structure regardless of existing structure
+            if (desiredPath) {
+                const prefixedPath = applyChronologicalPrefix(desiredPath, m.year);
+                proposed = `${prefixedPath}/${proposed}`;
+            } else if (ownFolderPerMovie && !proposed.includes('/')) {
+                const folderName = safeFolderName(m.title);
+                proposed = `${folderName}/${proposed}`;
+            }
+        } else { // intelligent (default)
+            // Make intelligent decisions based on existing vs desired structure
+            if (existingStructure.confidence > 0.7 && existingStructure.type === folderStructure) {
+                // High confidence that existing structure matches desired structure
+                // Preserve existing structure and just fix the filename
+                if (proposed.includes('/')) {
+                    const existingBasePath = currentFolders.slice(0, -1).join('/');
+                    const fileName = proposed.substring(proposed.lastIndexOf('/') + 1);
+                    proposed = `${existingBasePath}/${fileName}`;
+                }
+            } else if (desiredPath && !proposed.includes('/')) {
+                // No existing structure or doesn't match desired - apply new structure
+                const prefixedPath = applyChronologicalPrefix(desiredPath, m.year);
+                proposed = `${prefixedPath}/${proposed}`;
+            } else if (ownFolderPerMovie && !proposed.includes('/')) {
+                // Fallback to individual movie folder if no other structure applies
+                const folderName = safeFolderName(m.title);
+                proposed = `${folderName}/${proposed}`;
+            }
+        }
+
+        // If using intelligent mode and movie already has good structure but needs chronological prefix, add it
+        if (folderStructureBehavior === "intelligent" && existingStructure.confidence > 0.7 && chronologicalPrefix !== "none" && m.year) {
+            const needsPrefix = !currentFolders.some(folder => /^\d{4}\s*-/.test(folder));
+            if (needsPrefix && proposed.includes('/')) {
+                const lastSlash = proposed.lastIndexOf('/');
+                const prefix = m.year + " - ";
+                proposed = proposed.substring(0, lastSlash + 1) + prefix + proposed.substring(lastSlash + 1);
+            }
+        }
+    }
+
+    // Final chronological prefix application (if not already applied above)
+    if (m.year && chronologicalPrefix !== "none" && folderStructureBehavior !== "preserve_existing") {
+        const hasChronologicalPrefix = proposed.split('/').some(folder => /^\d{4}\s*-/.test(folder));
+        if (!hasChronologicalPrefix) {
+            proposed = applyChronologicalPrefix(proposed, m.year);
+        }
     }
 
     proposed = normalizeUnicode(proposed);
+
+    // Debug logging for folder structure decisions
+    if (m.title.toLowerCase().includes('ace ventura') || m.title.toLowerCase().includes('addams family')) {
+        console.log(`🎯 DEBUG: ${m.title} folder structure decision:`);
+        console.log(`  Current path: ${currentPath}`);
+        console.log(`  Current folders: [${currentFolders.join(', ')}]`);
+        console.log(`  Existing structure: ${JSON.stringify(existingStructure)}`);
+        console.log(`  Desired structure: ${folderStructure}`);
+        console.log(`  Template proposed: ${proposed}`);
+        console.log(`  Final proposed: ${proposed}`);
+    }
     const flags: string[] = [];
 
     // Handle special cases for extras and ISO files
@@ -484,48 +704,202 @@ function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolde
     const thetvdbId = e.guid ? extractTvdbId(e.guid) : null;
     const tmdbId = e.guid ? extractTmdbId(e.guid) : null;
 
+    // Apply TV detection settings
+    let detectedSeason = e.season;
+    let detectedIndex = e.index;
+    let detectedTitle = e.title;
+    const flags: string[] = [];
+
+    // Detect OVA/Specials and suggest Season 00
+    if (settings.tv.detectOVAsSeason00) {
+        const fileName = basename(e.file).toLowerCase();
+        const ovaPatterns = [
+            /\bova\b/, /\bovas\b/, /\bspecial\b/, /\bspecials\b/,
+            /\bextra\b/, /\bextras\b/, /\bprologue\b/, /\bepilogue\b/
+        ];
+
+        if (ovaPatterns.some(pattern => pattern.test(fileName))) {
+            detectedSeason = 0; // Season 00
+            flags.push("ova-detected");
+        }
+    }
+
+    // Detect multi-episode files and normalize
+    if (settings.tv.normalizeMultiEpisode) {
+        const fileName = basename(e.file);
+        const multiEpisodePattern = /S(\d{1,2})E(\d{1,2})-E?(\d{1,2})/i;
+        const match = fileName.match(multiEpisodePattern);
+        if (match) {
+            const season = parseInt(match[1], 10);
+            const startEp = parseInt(match[2], 10);
+            const endEp = parseInt(match[3], 10);
+
+            if (season === e.season && startEp === e.index) {
+                // Normalize to SXXEXX format for consecutive episodes
+                detectedIndex = startEp;
+                detectedTitle = `${detectedTitle} (Episodes ${startEp}-${endEp})`;
+                flags.push("multi-episode-normalized");
+            }
+        }
+    }
+
+    // Detect cuts/editions in filename
+    if (settings.tv.detectCuts) {
+        const fileName = basename(e.file).toLowerCase();
+        const cutPatterns = [
+            /\bextended\b/, /\buncut\b/, /\bdirectors?\s*cut\b/,
+            /\btheatrical\b/, /\bunrated\b/, /\bremastered\b/
+        ];
+
+        if (cutPatterns.some(pattern => pattern.test(fileName))) {
+            flags.push("cut-detected");
+        }
+    }
+
+    // Warn if episode count doesn't match Plex DB (basic implementation)
+    // This would need full show metadata to properly implement
+    if (settings.tv.warnEpisodeCountMismatch) {
+        // For now, just flag if episode number seems unusually high
+        if (detectedIndex && detectedIndex > 50) {
+            flags.push("high-episode-number");
+        }
+    }
+
+    // Build dynamic template based on settings
+    let dynamicTemplate = template;
+
+    // Apply ID settings to template
+    if (settings.tv.ids === "none") {
+        // Remove ID placeholders from template when IDs are disabled
+        dynamicTemplate = dynamicTemplate.replace(/\{imdb[^}]*\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{thetvdb[^}]*\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{tmdb[^}]*\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{ids\}/g, '');
+    }
+
     // Process IDs based on user settings
     let processedIds = "";
     if (settings.tv.ids === "preserve") {
-        // Preserve existing IDs in the filename
-        if (imdbId) processedIds += ` {imdb}`;
-        if (thetvdbId) processedIds += ` {thetvdb}`;
-        if (tmdbId) processedIds += ` {tmdb}`;
+        // For "Keep unchanged": check if current filename already contains IDs and preserve them
+        const currentFileName = basename(e.file);
+        const idPatterns = [
+            /\{imdb-tt\d+\}/g,
+            /\{tvdb-\d+\}/g,
+            /\{tmdb-\d+\}/g,
+            /imdb-tt\d+/g,
+            /tvdb-\d+/g,
+            /tmdb-\d+/g
+        ];
+
+        for (const pattern of idPatterns) {
+            const matches = currentFileName.match(pattern);
+            if (matches) {
+                processedIds += ` ${matches[0]}`;
+            }
+        }
     } else if (settings.tv.ids === "auto_append_all") {
-        // Auto-append all available IDs
+        // Auto-append all available IDs from Plex metadata
         if (imdbId) processedIds += ` {imdb}`;
         if (thetvdbId) processedIds += ` {thetvdb}`;
         if (tmdbId) processedIds += ` {tmdb}`;
     }
 
+    // Apply folder structure settings BEFORE template rendering
+    let folderPrefix = "";
+
+    // For "Keep unchanged" ID setting, preserve existing show folder structure
+    if (settings.tv.ids === "preserve") {
+        // Extract the show folder from current path (should contain the IDs)
+        const allParts = e.file.split('/').filter(Boolean);
+        const dirParts = allParts.slice(0, -1); // exclude filename
+        console.log(`🎯 DEBUG Episode: e.file="${e.file}", showTitle="${e.showTitle}", dirParts=${JSON.stringify(dirParts)}`);
+
+        if (dirParts.length >= 1) {
+            // Prefer the actual show folder segment, not NAS roots like "share"
+            const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const normShow = normalize(e.showTitle);
+            let showFolder: string | null = null;
+
+            // 1) Try to find a segment that matches or contains the normalized show title
+            for (let i = 0; i < dirParts.length; i++) {
+                const partNorm = normalize(dirParts[i]);
+                if (partNorm.includes(normShow) || normShow.includes(partNorm)) {
+                    showFolder = dirParts[i];
+                    break;
+                }
+            }
+
+            // 2) If not found, look for a season folder and take the previous segment as the show folder
+            if (!showFolder) {
+                const seasonIdx = dirParts.findIndex(p => /^(season[\s._-]*\d{1,2}|s\d{1,2})$/i.test(p));
+                if (seasonIdx > 0) {
+                    showFolder = dirParts[seasonIdx - 1];
+                }
+            }
+
+            // 3) Final fallback: use sanitized show title as the folder (never use top-level like "share")
+            if (!showFolder) {
+                showFolder = safeFolderName(e.showTitle);
+            }
+
+            console.log(`🎯 DEBUG: chosen showFolder="${showFolder}", settings.tv.ids="${settings.tv.ids}"`);
+            // Preserve ID tags if present in parentheses in the picked folder
+            showFolder = showFolder.replace(/\(([^)]+)\)/g, '{$1}');
+
+            if (useSeasonFolders) {
+                // Create Series/Season XX/ structure
+                const seasonLabel = typeof detectedSeason === "number" ? `Season ${String(detectedSeason).padStart(2, "0")}` : "Season 00";
+                folderPrefix = `${showFolder}/${seasonLabel}/`;
+            } else {
+                // Create Series/Episode structure (no season folders)
+                folderPrefix = `${showFolder}/`;
+            }
+        }
+    } else {
+        // For other ID settings, ALWAYS create Series folder
+        if (useSeasonFolders) {
+            // Create Series/Season XX/ structure
+            const seasonLabel = typeof detectedSeason === "number" ? `Season ${String(detectedSeason).padStart(2, "0")}` : "Season 00";
+            folderPrefix = `${safeFolderName(e.showTitle)}/${seasonLabel}/`;
+        } else {
+            // Create Series/Episode structure (no season folders)
+            folderPrefix = `${safeFolderName(e.showTitle)}/`;
+        }
+    }
+
     const ctx = {
         showTitle: e.showTitle,
-        title: e.title,
-        season: typeof e.season === "number" ? e.season : 0,
-        episode: typeof e.index === "number" ? e.index : 0,
+        title: detectedTitle,
+        season: typeof detectedSeason === "number" ? detectedSeason : 0,
+        episode: typeof detectedIndex === "number" ? detectedIndex : 0,
         ext,
         year: e.year ?? "",
         grandparentTitle: e.grandparentTitle ?? e.showTitle,
         parentTitle: e.parentTitle ?? "",
-        parentIndex: e.parentIndex ?? e.season ?? 0,
+        parentIndex: e.parentIndex ?? detectedSeason ?? 0,
         // ID fields
         imdb: imdbId ?? "",
         thetvdb: thetvdbId ?? "",
         tmdb: tmdbId ?? "",
         ids: processedIds,
     } as any;
-    let proposed = renderTemplate(template, ctx);
+
+    let templateResult = renderTemplate(dynamicTemplate, ctx);
+    let proposed = templateResult;
     if (!proposed.endsWith(ext)) proposed += ext;
-    // Optional season folders can be expressed via template, but keep legacy support
-    if (useSeasonFolders && !/\{.*season.*\}/i.test(template)) {
-        const seasonLabel = typeof e.season === "number" ? `Season ${String(e.season).padStart(2, "0")}` : "Season 00";
-        proposed = `${safeFolderName(e.showTitle)}/${seasonLabel}/` + proposed;
+
+    // TV Series folder structure MUST always be enforced
+    // The template cannot override the series folder requirement
+    if (folderPrefix) {
+        proposed = folderPrefix + proposed;
     }
     proposed = normalizeUnicode(proposed);
-    const flags: string[] = [];
+
+    // Debug logging to understand what's happening
+    console.log(`🎯 DEBUG: Template result: "${templateResult}", folderPrefix: "${folderPrefix}", final: "${proposed}"`);
 
     // Handle special cases for extras and ISO files (TV episodes)
-    if (settings.movies.specials.moveExtras) {
+    if (settings.tv.specials.moveExtras) {
         // Check if this looks like an extras file (common patterns)
         const filename = basename(e.file).toLowerCase();
         const extrasPatterns = [
@@ -544,7 +918,7 @@ function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolde
     }
 
     // Mark ISO files
-    if (settings.movies.specials.markISO && ext.toLowerCase() === ".iso") {
+    if (settings.tv.specials.markISO && ext.toLowerCase() === ".iso") {
         const fileName = basename(proposed);
         const nameWithoutExt = fileName.replace(/\.iso$/i, "");
         proposed = proposed.replace(fileName, `${nameWithoutExt} [ISO].iso`);
@@ -805,7 +1179,8 @@ export default function Preview({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.episode || template;
-                            const proposal = computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
+                            const useSeasonFolders = !!settings.tv.seasonFolders;
+                            const proposal = computeEpisodeProposal(e, tpl, useSeasonFolders, settings);
                             proposal.metadata = e; // Store original metadata for popover
                             list.push(proposal);
                         }
@@ -837,6 +1212,10 @@ export default function Preview({server, library, onBack}: Props) {
         settings.movies.collections.mode,
         settings.movies.collections.naming,
         settings.movies.ownFolderPerMovie,
+        settings.movies.folderStructure,
+        settings.movies.chronologicalPrefix,
+        settings.movies.alphaArticleHandling,
+        settings.movies.folderStructureBehavior,
         settings.tv.seasonFolders,
         settings.general.encoding.mode,
         settings.general.encoding.highlightNonLatin,
