@@ -455,6 +455,51 @@ function General({s, onChange}: { s: Settings; onChange: (v: Settings["general"]
                 </Row>
             </Section>
 
+            <Section title="Subtitles">
+                <Row label="Rename subtitles with video">
+                    <Toggle checked={g.subtitles.renameWithVideo} onChange={(checked) => set({subtitles: {...g.subtitles, renameWithVideo: checked}})}/>
+                </Row>
+                <Row label="Preserve language codes & suffixes">
+                    <Toggle checked={g.subtitles.preserveLanguageCodes} onChange={(checked) => set({subtitles: {...g.subtitles, preserveLanguageCodes: checked}})}/>
+                </Row>
+                <Row label="Language code handling">
+                    <Radio
+                        value={g.subtitles.languageCodeHandling}
+                        onChange={(v) => set({subtitles: {...g.subtitles, languageCodeHandling: v}})}
+                        options={[
+                            {value: "preserve", label: "Preserve"},
+                            {value: "normalize", label: "Normalize (ISO-639-2)"},
+                            {value: "strip", label: "Strip"},
+                        ]}
+                        segmented
+                    />
+                </Row>
+                <Row label="Skip subtitles">
+                    <Toggle checked={g.subtitles.skipSubtitles} onChange={(checked) => set({subtitles: {...g.subtitles, skipSubtitles: checked}})}/>
+                </Row>
+                <Row label="Convert to UTF-8">
+                    <Toggle checked={g.subtitles.convertToUtf8} onChange={(checked) => set({subtitles: {...g.subtitles, convertToUtf8: checked}})}/>
+                </Row>
+                {g.subtitles.convertToUtf8 && (
+                    <div className="ml-3 mt-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-md">
+                        <div className="flex items-start gap-2">
+                            <svg className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                            <div className="text-sm text-amber-200">
+                                <strong>Warning:</strong> Automatic conversion may mis-detect encodings and corrupt characters. Enable only if you see garbled text.
+                            </div>
+                        </div>
+                    </div>
+                )}
+                <Row label="Backup before conversion">
+                    <Toggle checked={g.subtitles.backupBeforeConversion} onChange={(checked) => set({subtitles: {...g.subtitles, backupBeforeConversion: checked}})}/>
+                </Row>
+                <Row label="Skip uncertain encoding detection">
+                    <Toggle checked={g.subtitles.skipUncertainEncoding} onChange={(checked) => set({subtitles: {...g.subtitles, skipUncertainEncoding: checked}})}/>
+                </Row>
+            </Section>
+
             <Section title="Safety & Processing Preview">
                 <div className="space-y-2 text-sm">
                     <div className="text-neutral-300 font-medium mb-3">How safety settings affect processing:</div>
@@ -985,6 +1030,32 @@ function Movies({s, onChange, onConfigureParsers}: { s: Settings; onChange: (v: 
                     </div>
                 </div>
             </Section>
+
+            <Section title="Subtitles">
+                <Row label="Forced/SDH handling">
+                    <Radio
+                        value={m.subtitles.forcedSdhHandling}
+                        onChange={(v) => set({subtitles: {...m.subtitles, forcedSdhHandling: v}})}
+                        options={[
+                            {value: "preserve", label: "Preserve"},
+                            {value: "normalize", label: "Normalize to .forced"},
+                            {value: "strip", label: "Strip .sdh"},
+                        ]}
+                        segmented
+                    />
+                </Row>
+                <Row label="Unknown subtitle handling">
+                    <Radio
+                        value={m.subtitles.unknownSubtitleHandling}
+                        onChange={(v) => set({subtitles: {...m.subtitles, unknownSubtitleHandling: v}})}
+                        options={[
+                            {value: "preserve", label: "Preserve"},
+                            {value: "append_unk", label: "Append .unk"},
+                        ]}
+                        segmented
+                    />
+                </Row>
+            </Section>
         </>
     );
 }
@@ -1238,6 +1309,27 @@ function TV({s, onChange}: { s: Settings; onChange: (v: Settings["tv"]) => void 
                         </div>
                     </div>
                 </div>
+            </Section>
+
+            <Section title="Subtitles">
+                <Row label="Flatten per-episode subfolders">
+                    <Toggle checked={t.subtitles.flattenPerEpisodeSubfolders} onChange={(checked) => set({subtitles: {...t.subtitles, flattenPerEpisodeSubfolders: checked}})}/>
+                </Row>
+                <Row label="Handle non-matching names">
+                    <Toggle checked={t.subtitles.handleNonMatchingNames} onChange={(checked) => set({subtitles: {...t.subtitles, handleNonMatchingNames: checked}})}/>
+                </Row>
+                <Row label="Multi-sub handling">
+                    <Radio
+                        value={t.subtitles.multiSubHandling}
+                        onChange={(v) => set({subtitles: {...t.subtitles, multiSubHandling: v}})}
+                        options={[
+                            {value: "preserve", label: "Preserve"},
+                            {value: "number", label: "Number (.eng.1.srt, .eng.2.srt)"},
+                            {value: "first_only", label: "First Only"},
+                        ]}
+                        segmented
+                    />
+                </Row>
             </Section>
         </>
     );

@@ -41,6 +41,36 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
     const [posterDataUrl, setPosterDataUrl] = useState<string | null>(null);
     const [imageLoading, setImageLoading] = useState(false);
 
+    // Smart positioning that calculates once when popover becomes visible or metadata changes
+    const smartPosition = React.useMemo(() => {
+        if (!isVisible || !metadata || typeof window === 'undefined') {
+            return { x: position.x, y: position.y, transform: 'translate(-50%, 0%)' };
+        }
+
+        const viewportHeight = window.innerHeight;
+        const cardHeight = metadata.type === "movie" ? 280 : 240; // Approximate card heights
+        const margin = 20; // Margin from viewport edges
+
+        // Check if there's enough space below
+        const spaceBelow = viewportHeight - position.y - margin;
+
+        if (spaceBelow >= cardHeight) {
+            // Position below mouse pointer
+            return {
+                x: position.x,
+                y: position.y,
+                transform: 'translate(-50%, 0%)'
+            };
+        } else {
+            // Position above mouse pointer
+            return {
+                x: position.x,
+                y: position.y,
+                transform: 'translate(-50%, -100%)'
+            };
+        }
+    }, [isVisible, metadata?.type]); // Only recalculate when visibility or metadata type changes, not position
+
     // Fetch poster image using backend command when component mounts or metadata changes
     useEffect(() => {
         if (!isVisible || !metadata || !plexServerUrl) {
@@ -118,9 +148,9 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
             <div
                 className="fixed z-50 w-96 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
                 style={{
-                    left: position.x,
-                    top: position.y,
-                    transform: 'translate(-50%, -100%)',
+                    left: smartPosition.x,
+                    top: smartPosition.y,
+                    transform: smartPosition.transform,
                 }}
             >
                 <div className="p-4">
@@ -219,9 +249,9 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
         <div
             className="fixed z-50 w-80 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
             style={{
-                left: position.x,
-                top: position.y,
-                transform: 'translate(-50%, -100%)',
+                left: smartPosition.x,
+                top: smartPosition.y,
+                transform: smartPosition.transform,
             }}
         >
             <div className="p-4">

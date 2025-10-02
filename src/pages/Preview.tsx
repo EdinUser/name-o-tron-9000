@@ -80,6 +80,13 @@ type PreviewRow = {
     flags: string[];
     // Original Plex metadata for popover display
     metadata?: MovieItem | EpisodeItem | MusicItem;
+    // Subtitle operations for this file
+    subtitleOperations?: Array<{
+        originalPath: string;
+        proposedPath: string;
+        operationType: string;
+        warningFlags: string[];
+    }>;
 };
 
 type SectionResponse = any; // shape varies by library type (mock fixtures)
@@ -1401,6 +1408,47 @@ export default function Preview({server, library, onBack}: Props) {
                     return;
                 }
 
+                // Process subtitle operations for all files
+                try {
+                    const filePaths = list.map(row => row.filePath);
+                    if (filePaths.length > 0) {
+                        const previewResult = await invoke<any>("preview_renames", {
+                            libraryId: library.key,
+                            scope: filePaths,
+                            settings: settings,
+                        });
+
+                        // Add subtitle operations to the corresponding preview rows
+                        if (previewResult.subtitle_operations && previewResult.subtitle_operations.length > 0) {
+                            const subtitleOpsByFile = new Map<string, any[]>();
+                            for (const op of previewResult.subtitle_operations) {
+                                const videoPath = op.original_path.substring(0, op.original_path.lastIndexOf('/'));
+                                if (!subtitleOpsByFile.has(videoPath)) {
+                                    subtitleOpsByFile.set(videoPath, []);
+                                }
+                                subtitleOpsByFile.get(videoPath)!.push(op);
+                            }
+
+                            // Update rows with subtitle operations
+                            list.forEach(row => {
+                                const videoDir = row.filePath.substring(0, row.filePath.lastIndexOf('/'));
+                                const subtitleOps = subtitleOpsByFile.get(videoDir) || [];
+                                if (subtitleOps.length > 0) {
+                                    row.subtitleOperations = subtitleOps.map(op => ({
+                                        originalPath: op.original_path,
+                                        proposedPath: op.new_path,
+                                        operationType: op.operation_type,
+                                        warningFlags: op.warning_flags || [],
+                                    }));
+                                }
+                            });
+                        }
+                    }
+                } catch (subtitleError) {
+                    console.warn("Failed to process subtitle operations:", subtitleError);
+                    // Continue without subtitle operations
+                }
+
                 setRows(list);
                 setSelectedIds(new Set(list.filter(r => r.status !== "error").map(r => r.id)));
             } catch (e: any) {
@@ -1694,11 +1742,82 @@ export default function Preview({server, library, onBack}: Props) {
         setSelectedIds(new Set(rows.filter(r => r.status !== "error").map(r => r.id)));
     }
 
-    function applyRename() {
+    async function applyRename() {
         if (anyRedSelected) return;
-        const plan = rows.filter(r => selectedIds.has(r.id)).map(r => ({old: r.filePath, proposed: r.proposed, status: r.status, flags: r.flags}));
-        alert(`Would apply ${plan.length} renames.\n(Stub) See console for plan.`);
-        console.log("Rename plan", plan);
+
+        setLoading(true);
+        try {
+            // Collect all operations (video + subtitle)
+            const operations = [];
+
+            for (const row of rows) {
+                if (selectedIds.has(row.id)) {
+                    // Add video operation
+                    operations.push({
+                        operation_type: "rename",
+                        original_path: row.filePath,
+                        new_path: row.proposed,
+                        backup_path: null,
+                        operation_id: `video_${row.id}`,
+                    });
+
+                    // Add subtitle operations
+                    if (row.subtitleOperations) {
+                        for (const subOp of row.subtitleOperations) {
+                            operations.push({
+                                operation_type: subOp.operationType,
+                                original_path: subOp.originalPath,
+                                new_path: subOp.proposedPath,
+                                backup_path: subOp.operationType === "convert" ? `${subOp.originalPath}.backup` : null,
+                                operation_id: `subtitle_${row.id}_${operations.length}`,
+                            });
+                        }
+                    }
+                }
+            }
+
+            if (operations.length === 0) return;
+
+            const result = await invoke<any>("apply_renames", {
+                operations,
+                settings,
+            });
+
+            if (result.success) {
+                alert(`Successfully applied ${result.operations_applied} operations.\nRollback log saved to: ${result.rollback_log_path}`);
+            } else {
+                alert(`Applied ${result.operations_applied} operations, but ${result.operations_failed} failed.\nCheck console for details.`);
+                console.error("Apply errors:", result.errors);
+            }
+        } catch (error) {
+            console.error("Failed to apply renames:", error);
+            alert(`Failed to apply renames: ${error}`);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function undoLastRename() {
+        if (!confirm("This will undo the last rename operation. Continue?")) return;
+
+        setLoading(true);
+        try {
+            const result = await invoke<any>("undo_last_rename");
+
+            if (result.success) {
+                alert(`Successfully undid ${result.operations_applied} operations.`);
+                // Reload the page to reflect changes
+                setReloadTick(t => t + 1);
+            } else {
+                alert(`Undid ${result.operations_applied} operations, but ${result.operations_failed} failed.\nCheck console for details.`);
+                console.error("Undo errors:", result.errors);
+            }
+        } catch (error) {
+            console.error("Failed to undo renames:", error);
+            alert(`Failed to undo renames: ${error}`);
+        } finally {
+            setLoading(false);
+        }
     }
 
     // Column resizing + fluid width support
@@ -1708,7 +1827,7 @@ export default function Preview({server, library, onBack}: Props) {
             if (!el) return;
             const containerWidth = el.clientWidth;
             const gapPx = 8; // gap-2
-            const fixed = 28 + 120 + gapPx * 3; // checkbox + status icon + gaps (removed flags column)
+            const fixed = 60 + 120 + gapPx * 3; // toggle + status icon + gaps (removed flags column)
             const avail = Math.max(0, containerWidth - fixed);
             const w1 = Math.max(240, Math.floor(avail * (2.0 / 4.0))); // current path column gets more space
             const w2 = Math.max(240, Math.floor(avail * (2.0 / 4.0))); // proposed column gets more space
@@ -1720,7 +1839,7 @@ export default function Preview({server, library, onBack}: Props) {
             if (!el) return;
             const containerWidth = el.clientWidth;
             const gapPx = 8;
-            const fixed = 28 + 120 + gapPx * 3; // checkbox + status icon + gaps
+            const fixed = 60 + 120 + gapPx * 3; // toggle + status icon + gaps
             const avail = Math.max(0, containerWidth - fixed);
             const totalFlex = colWidths.current + colWidths.proposed;
             if (avail <= 0 || totalFlex <= 0) return;
@@ -1743,7 +1862,7 @@ export default function Preview({server, library, onBack}: Props) {
         const start = { ...colWidths };
         const el = containerRef.current;
         const gapPx = 8;
-        const fixed = 28 + 120 + gapPx * 3; // checkbox + status icon + gaps
+        const fixed = 60 + 120 + gapPx * 3; // toggle + status icon + gaps
         const containerWidth = el?.clientWidth ?? 0;
         const avail = Math.max(0, containerWidth - fixed);
         const min = 160;
@@ -1767,7 +1886,7 @@ export default function Preview({server, library, onBack}: Props) {
         window.addEventListener("mouseup", onUp);
     }
 
-    const gridTemplate = `28px ${colWidths.current}px ${colWidths.proposed}px 120px 0px`;
+    const gridTemplate = `60px ${colWidths.current}px ${colWidths.proposed}px 120px 0px`;
 
     // Window title
     useEffect(() => {
@@ -1796,6 +1915,9 @@ export default function Preview({server, library, onBack}: Props) {
                         <button onClick={applyRename} disabled={anyRedSelected} className="inline-flex items-center gap-1 rounded-md bg-cyan-500 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-cyan-400 disabled:opacity-50">
                             <IconBolt className="h-5 w-5"/>
                             Proceed
+                        </button>
+                        <button onClick={undoLastRename} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+                            ↶ Undo
                         </button>
                         <button title="Reload library" onClick={() => setReloadTick(t => t + 1)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             <IconRefresh className="h-5 w-5"/>
@@ -2133,30 +2255,57 @@ export default function Preview({server, library, onBack}: Props) {
                             <div></div>
                         </div>
                         {pageRows.map((r) => (
-                            <div key={r.id} className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40" style={{gridTemplateColumns: gridTemplate}}>
-                                <Toggle checked={selectedIds.has(r.id)} onChange={() => toggle(r.id)}/>
-                                <div
-                                    className="truncate cursor-pointer hover:bg-neutral-700/50 rounded px-1 py-0.5 transition-colors"
-                                    title={r.filePath}
-                                    onMouseEnter={(e) => handleMouseEnter(e, r)}
-                                    onMouseLeave={handleMouseLeave}
-                                >
-                                    {shortenFilePath(r.filePath, library.roots || [])}
-                                </div>
-                                <div className="flex items-center gap-2">
+                            <>
+                                <div key={r.id} className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40" style={{gridTemplateColumns: gridTemplate}}>
+                                    <Toggle checked={selectedIds.has(r.id)} onChange={() => toggle(r.id)}/>
                                     <div
-                                        className="relative cursor-help"
-                                        title={r.flags.length > 0 ? `Status: ${r.status} | Issues: ${r.flags.join(", ")}` : `Status: ${r.status}`}
+                                        className="truncate cursor-pointer hover:bg-neutral-700/50 rounded px-1 py-0.5 transition-colors"
+                                        title={r.filePath}
+                                        onMouseEnter={(e) => handleMouseEnter(e, r)}
+                                        onMouseLeave={handleMouseLeave}
                                     >
-                                        {r.status === "good" && <span className="text-emerald-400">🟩</span>}
-                                        {r.status === "warning" && <span className="text-amber-300">🟨</span>}
-                                        {r.status === "error" && <span className="text-red-400">🟥</span>}
-                                        {r.status === "unmatched" && <span>❌</span>}
+                                        {shortenFilePath(r.filePath, library.roots || [])}
                                     </div>
-                                    <div className="truncate" title={r.proposed}>{r.proposed}</div>
+                                    <div className="flex items-center gap-2">
+                                        <div
+                                            className="relative cursor-help"
+                                            title={r.flags.length > 0 ? `Status: ${r.status} | Issues: ${r.flags.join(", ")}` : `Status: ${r.status}`}
+                                        >
+                                            {r.status === "good" && <span className="text-emerald-400">🟩</span>}
+                                            {r.status === "warning" && <span className="text-amber-300">🟨</span>}
+                                            {r.status === "error" && <span className="text-red-400">🟥</span>}
+                                            {r.status === "unmatched" && <span>❌</span>}
+                                        </div>
+                                        <div className="truncate" title={r.proposed}>{r.proposed}</div>
+                                    </div>
+                                    <div></div>
                                 </div>
-                                <div></div>
-                            </div>
+                                {/* Subtitle operations */}
+                                {r.subtitleOperations && r.subtitleOperations.length > 0 && (
+                                    <div className="ml-7 border-l-2 border-neutral-700 pl-3">
+                                        {r.subtitleOperations.map((subOp, idx) => (
+                                            <div key={idx} className="grid items-center gap-2 px-3 py-1 text-sm text-neutral-400 hover:bg-neutral-800/20" style={{gridTemplateColumns: gridTemplate}}>
+                                                <div className="text-xs">📝</div>
+                                                <div className="truncate text-xs" title={subOp.originalPath}>
+                                                    {subOp.originalPath.split('/').pop()}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="relative cursor-help">
+                                                        {subOp.warningFlags.length > 0 && <span className="text-amber-300">⚠️</span>}
+                                                        <span className="text-cyan-400">→</span>
+                                                    </div>
+                                                    <div className="truncate text-xs" title={subOp.proposedPath}>
+                                                        {subOp.proposedPath.split('/').pop()}
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-neutral-500">
+                                                    {subOp.operationType}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
                         ))}
                         {displayRows.length === 0 && <p className="px-3 py-2 text-neutral-400">No items to preview.</p>}
                     </div>
