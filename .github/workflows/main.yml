@@ -31,6 +31,13 @@ jobs:
         with:
           toolchain: stable
 
+      # Install system dependencies for Linux (GTK development libraries)
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev
+
       # Cache npm dependencies
       - name: Cache node_modules
         uses: actions/cache@v4
@@ -47,6 +54,9 @@ jobs:
       # Build + Package Tauri
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
+        env:
+          # Set PKG_CONFIG_PATH for Linux builds
+          PKG_CONFIG_PATH: ${{ matrix.platform == 'ubuntu-latest' && '/usr/lib/x86_64-linux-gnu/pkgconfig' || '' }}
         with:
           # Only publish a release if triggered by a tag
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
