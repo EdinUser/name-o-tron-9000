@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # ✅ manual trigger from Actions tab
   push:
     tags:
-      - "v*" # still runs automatically when you push a tag like v1.0.0
+      - "v*" # ✅ runs automatically when you push a version tag like v1.0.0
 
 jobs:
   build:
@@ -31,30 +31,31 @@ jobs:
         with:
           toolchain: stable
 
-      # Cache npm/yarn/pnpm dependencies
-      - name: Cache dependencies
+      # Cache npm dependencies
+      - name: Cache node_modules
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.npm
-            ~/.cache/yarn
-            ~/.pnpm-store
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-deps-
+            ${{ runner.os }}-node-
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
 
       # Build + Package Tauri
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         with:
-          # Use tag name if present, otherwise use workflow run ID
-          tagName: ${{ github.ref_name || github.run_id }}
-          releaseName: "Build ${{ github.ref_name || format('manual-run-{0}', github.run_id) }}"
-          releaseBody: "Cross-platform installers are available below."
+          # Only publish a release if triggered by a tag
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
+          releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || '' }}
           releaseDraft: false
           prerelease: false
 
-      # Optional: Upload build artifacts directly to workflow run
+      # Always upload artifacts (manual or tagged builds)
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
