@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from "react";
+import Select from "../components/Select";
 import { invoke } from "@tauri-apps/api/core";
 import {useSettings, type Settings, type EncodingMode} from "../state/settings";
 import EditionParsersModal from "../components/EditionParsersModal";
@@ -360,6 +361,26 @@ function Radio<T extends string>({value, setValue, opts}: { value: T; setValue: 
     );
 }
 
+// Minimal custom select to avoid native styling and match dark theme
+// Deprecated inline Select kept for backward-compatibility; prefer components/Select
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function LocalSelectDeprecated<T extends string>({ value, onChange, options, className }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[]; className?: string }) {
+    return (
+        <div className={`relative inline-flex items-center ${className || ""}`}>
+            <select
+                value={value}
+                onChange={(e) => onChange(e.target.value as T)}
+                className="appearance-none px-2 py-1 text-sm bg-neutral-900/70 border border-neutral-700/70 rounded text-neutral-200 focus:outline-none focus:ring-1 focus:ring-cyan-600/40 hover:bg-neutral-800/70 pr-7"
+            >
+                {options.map(opt => (
+                    <option key={opt.value} value={opt.value} className="bg-neutral-900 text-neutral-200">{opt.label}</option>
+                ))}
+            </select>
+            <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400">▾</span>
+        </div>
+    );
+}
+
 function General({s, onChange}: { s: Settings; onChange: (v: Settings["general"]) => void }) {
     const g = s.general;
     const set = (patch: Partial<typeof g>) => onChange({...g, ...patch});
@@ -476,53 +497,53 @@ function General({s, onChange}: { s: Settings; onChange: (v: Settings["general"]
 
                                         return scenarios.map((scenario, i) => {
                                             let result = "";
-                                            let status = "green";
+                                            let status = "good";
 
                                             if (scenario.type === "path_length" && g.safety.pathLengthCheck) {
                                                 if (scenario.content.length > 255) {
-                                                    result = "🟥 BLOCKED (>255 chars)";
-                                                    status = "red";
+                                                    result = "🟥 ERROR (>255 chars)";
+                                                    status = "error";
                                                 } else if (scenario.content.length > 200) {
                                                     result = "🟨 WARNING (>200 chars)";
-                                                    status = "yellow";
+                                                    status = "warning";
                                                 } else {
-                                                    result = "🟩 OK";
+                                                    result = "🟩 GOOD";
                                                 }
                                             } else if (scenario.type === "reserved_name" && g.safety.reservedNamesCheck) {
                                                 const reserved = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])\./i.test(scenario.content);
                                                 if (reserved) {
-                                                    result = "🟥 BLOCKED (reserved name)";
-                                                    status = "red";
+                                                    result = "🟥 ERROR (reserved name)";
+                                                    status = "error";
                                                 } else {
-                                                    result = "🟩 OK";
+                                                    result = "🟩 GOOD";
                                                 }
                                             } else if (scenario.type === "unicode") {
                                                 if (g.encoding.mode === "ascii") {
-                                                    result = "🟥 BLOCKED (non-ASCII)";
-                                                    status = "red";
+                                                    result = "🟥 ERROR (non-ASCII)";
+                                                    status = "error";
                                                 } else if (g.encoding.mode === "transliterate") {
-                                                    result = "🟨 TRANSLITERATED";
-                                                    status = "yellow";
+                                                    result = "🟨 WARNING (transliterated)";
+                                                    status = "warning";
                                                 } else {
-                                                    result = "🟩 OK (Unicode kept)";
+                                                    result = "🟩 GOOD (Unicode kept)";
                                                 }
                                             } else if (scenario.type === "conflict") {
                                                 if (g.conflictHandling === "skip") {
-                                                    result = "⏭️ SKIPPED";
-                                                    status = "yellow";
+                                                    result = "⏭️ WARNING (skipped)";
+                                                    status = "warning";
                                                 } else if (g.conflictHandling === "overwrite") {
-                                                    result = "🔄 OVERWRITTEN";
-                                                    status = "yellow";
+                                                    result = "🔄 WARNING (overwritten)";
+                                                    status = "warning";
                                                 } else {
-                                                    result = "🔢 RENAMED (2)";
-                                                    status = "yellow";
+                                                    result = "🔢 WARNING (renamed)";
+                                                    status = "warning";
                                                 }
                                             } else {
-                                                result = "🟩 OK";
+                                                result = "🟩 GOOD";
                                             }
 
                                             return (
-                                                <div key={i} className={`truncate ${status === "red" ? "text-red-400" : status === "yellow" ? "text-amber-400" : "text-emerald-400"}`}>
+                                                <div key={i} className={`truncate ${status === "error" ? "text-red-400" : status === "warning" ? "text-amber-400" : "text-emerald-400"}`}>
                                                     {result}
                                                 </div>
                                             );
@@ -1327,6 +1348,76 @@ function Misc({s, onChange}: { s: Settings; onChange: (v: Settings["misc"]) => v
                 </Row>
             </Section>
 
+            <Section title="Character Replacement">
+                <div className="space-y-4">
+                    <div className="text-sm text-neutral-300">
+                        Configure how invalid characters in filenames are replaced during renaming.
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-200 mb-2">
+                                Separators (:)
+                            </label>
+                            <Select
+                                value={m.characterReplacement.separators}
+                                onChange={(v) => set({characterReplacement: {...m.characterReplacement, separators: v as "-" | "_" | "remove"}})}
+                                options={[{value: "-", label: "-"}, {value: "_", label: "_"}, {value: "remove", label: "Remove"}]}
+                            />
+                            <div className="text-xs text-neutral-400 mt-1">e.g. "Star Trek: Discovery" → "Star Trek - Discovery"</div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-200 mb-2">
+                                Quotes (")
+                            </label>
+                            <Select
+                                value={m.characterReplacement.quotes}
+                                onChange={(v) => set({characterReplacement: {...m.characterReplacement, quotes: v as "'" | "`" | "remove"}})}
+                                options={[{value: "'", label: "'"}, {value: "`", label: "`"}, {value: "remove", label: "Remove"}]}
+                            />
+                            <div className="text-xs text-neutral-400 mt-1">Swap double quotes with single quotes</div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-200 mb-2">
+                                Wildcards (* ?)
+                            </label>
+                            <Select
+                                value={m.characterReplacement.wildcards}
+                                onChange={(v) => set({characterReplacement: {...m.characterReplacement, wildcards: v as "-" | "remove"}})}
+                                options={[{value: "-", label: "-"}, {value: "remove", label: "Remove"}]}
+                            />
+                            <div className="text-xs text-neutral-400 mt-1">Replace asterisks and question marks</div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-200 mb-2">
+                                Brackets (&lt; &gt;)
+                            </label>
+                            <Select
+                                value={m.characterReplacement.brackets}
+                                onChange={(v) => set({characterReplacement: {...m.characterReplacement, brackets: v as "()" | "[]" | "remove"}})}
+                                options={[{value: "()", label: "( )"}, {value: "[]", label: "[ ]"}, {value: "remove", label: "Remove"}]}
+                            />
+                            <div className="text-xs text-neutral-400 mt-1">Convert angle brackets to parentheses or square brackets</div>
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-neutral-200 mb-2">
+                                General (\ / |)
+                            </label>
+                            <Select
+                                value={m.characterReplacement.general}
+                                onChange={(v) => set({characterReplacement: {...m.characterReplacement, general: v as "-" | "_" | "remove"}})}
+                                options={[{value: "-", label: "-"}, {value: "_", label: "_"}, {value: "remove", label: "Remove"}]}
+                            />
+                            <div className="text-xs text-neutral-400 mt-1">Replace backslashes, forward slashes, and pipes</div>
+                        </div>
+                    </div>
+                </div>
+            </Section>
+
             <Section title="File Handling Preview">
                 <div className="space-y-2 text-sm">
                     <div className="text-neutral-300 font-medium mb-3">How file handling settings work:</div>
@@ -1363,43 +1454,43 @@ function Misc({s, onChange}: { s: Settings; onChange: (v: Settings["misc"]) => v
 
                                         return examples.map((example, i) => {
                                             let result = "";
-                                            let status = "green";
+                                            let status = "good";
 
                                             if (example.type === "unmatched") {
                                                 if (m.unmatchedHandling === "leave") {
                                                     result = "✅ Left in place";
                                                 } else if (m.unmatchedHandling === "move_unmatched") {
-                                                    result = "📁 Moved to Unmatched/";
-                                                    status = "yellow";
+                                                    result = "📁 WARNING (moved)";
+                                                    status = "warning";
                                                 } else if (m.unmatchedHandling === "move_extras") {
-                                                    result = "📁 Moved to Extras/";
-                                                    status = "yellow";
+                                                    result = "📁 WARNING (moved)";
+                                                    status = "warning";
                                                 } else if (m.unmatchedHandling === "delete") {
-                                                    result = "🗑️ Deleted";
-                                                    status = "red";
+                                                    result = "🗑️ WARNING (deleted)";
+                                                    status = "warning";
                                                 }
                                             } else if (example.type === "nonmedia") {
                                                 if (m.nonMediaHandling === "skip") {
-                                                    result = "⏭️ Skipped";
-                                                    status = "yellow";
+                                                    result = "⏭️ WARNING (skipped)";
+                                                    status = "warning";
                                                 } else if (m.nonMediaHandling === "move_extras") {
-                                                    result = "📁 Moved to Extras/";
-                                                    status = "yellow";
+                                                    result = "📁 WARNING (moved)";
+                                                    status = "warning";
                                                 } else if (m.nonMediaHandling === "delete") {
-                                                    result = "🗑️ Deleted";
-                                                    status = "red";
+                                                    result = "🗑️ WARNING (deleted)";
+                                                    status = "warning";
                                                 }
                                             } else if (example.type === "reserved") {
                                                 if (m.warnings.reservedNames) {
-                                                    result = "🟥 BLOCKED (reserved)";
-                                                    status = "red";
+                                                    result = "🟥 ERROR (reserved)";
+                                                    status = "error";
                                                 } else {
-                                                    result = "✅ Processed";
+                                                    result = "✅ GOOD (processed)";
                                                 }
                                             }
 
                                             return (
-                                                <div key={i} className={`truncate ${status === "red" ? "text-red-400" : status === "yellow" ? "text-amber-400" : "text-emerald-400"}`}>
+                                                <div key={i} className={`truncate ${status === "error" ? "text-red-400" : status === "warning" ? "text-amber-400" : "text-emerald-400"}`}>
                                                     {result}
                                                 </div>
                                             );

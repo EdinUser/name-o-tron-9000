@@ -1676,3 +1676,110 @@ fn parse_roots_from_xml(xml: &str) -> Option<Vec<String>> {
     }
     Some(out)
 }
+
+/// Sanitize a filename according to Windows rules and user preferences
+pub fn sanitize_filename(filename: &str, settings: &CharacterReplacement) -> String {
+    let mut result = filename.to_string();
+
+    // 1. Handle separators (:)
+    match settings.separators.as_str() {
+        "-" => result = result.replace(':', "-"),
+        "_" => result = result.replace(':', "_"),
+        "remove" => result = result.replace(':', ""),
+        _ => {}
+    }
+
+    // 2. Handle quotes (")
+    match settings.quotes.as_str() {
+        "'" => result = result.replace('"', "'"),
+        "`" => result = result.replace('"', "`"),
+        "remove" => result = result.replace('"', ""),
+        _ => {}
+    }
+
+    // 3. Handle wildcards (* ?)
+    match settings.wildcards.as_str() {
+        "-" => {
+            result = result.replace('*', "-");
+            result = result.replace('?', "-");
+        }
+        "remove" => {
+            result = result.replace('*', "");
+            result = result.replace('?', "");
+        }
+        _ => {}
+    }
+
+    // 4. Handle brackets (< >)
+    match settings.brackets.as_str() {
+        "()" => {
+            result = result.replace('<', "(");
+            result = result.replace('>', ")");
+        }
+        "[]" => {
+            result = result.replace('<', "[");
+            result = result.replace('>', "]");
+        }
+        "remove" => {
+            result = result.replace('<', "");
+            result = result.replace('>', "");
+        }
+        _ => {}
+    }
+
+    // 5. Handle general characters (\ / |)
+    match settings.general.as_str() {
+        "-" => {
+            result = result.replace('\\', "-");
+            result = result.replace('/', "-");
+            result = result.replace('|', "-");
+        }
+        "_" => {
+            result = result.replace('\\', "_");
+            result = result.replace('/', "_");
+            result = result.replace('|', "_");
+        }
+        "remove" => {
+            result = result.replace('\\', "");
+            result = result.replace('/', "");
+            result = result.replace('|', "");
+        }
+        _ => {}
+    }
+
+    // 6. Strip control characters (0x00–0x1F, 0x7F)
+    result = result.chars()
+        .filter(|&c| !c.is_ascii_control() || c == '\n' || c == '\r' || c == '\t')
+        .collect();
+
+    // 7. Strip trailing dots and spaces
+    result = result.trim_end_matches(|c: char| c == '.' || c == ' ').to_string();
+
+    // 8. Handle reserved names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+    let base = result.replace('.', "");
+    let reserved_names = [
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    ];
+
+    if reserved_names.iter().any(|&name| base.to_uppercase() == name) {
+        result.push_str("_file");
+    }
+
+    result
+}
+
+#[derive(Deserialize)]
+pub struct CharacterReplacement {
+    pub separators: String,
+    pub quotes: String,
+    pub wildcards: String,
+    pub brackets: String,
+    pub general: String,
+}
+
+#[tauri::command]
+pub fn sanitize_filename_cmd(filename: String, settings: CharacterReplacement) -> String {
+    sanitize_filename(&filename, &settings)
+}

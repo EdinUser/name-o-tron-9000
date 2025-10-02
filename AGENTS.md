@@ -51,7 +51,7 @@ Key goals:
 ## Architecture
 - **Frontend (React/TypeScript) in `src/`**
   - **Pages**: Home (discovery/auth), LibrarySelection, ShowSelection, Preview, Settings (5 tabs)
-  - **Components**: Custom SVG icons, PathMappingModal, LibraryMappingPanel, TemplateHelpModal, EditionParsersModal, PlexPopoverCard (metadata hover card)
+  - **Components**: Custom SVG icons, PathMappingModal, LibraryMappingPanel, TemplateHelpModal, EditionParsersModal, PlexPopoverCard (metadata hover card), Select (shared styled dropdown)
   - **State Management**: Settings persistence (localStorage + Tauri backend)
   - **Utils**: Template rendering engine with placeholder support (see `docs/name-templating.md`); edition detection heuristics and ID extraction helpers
   - **Search Behavior (Movies/TV in Preview)**
@@ -164,6 +164,13 @@ Agent practices:
 - If adding features, update related docs in `docs/` accordingly
   - Discovery specifics are documented in `docs/plex-discovery.md`.
   - UX conventions: window title reflects the current screen; the Discover action appears only on Home and the discovered servers are cached for the session.
+
+### UI Conventions (important)
+- Use the shared `Select` component in `src/components/Select.tsx` for ALL dropdowns. This ensures:
+  - Consistent compact sizing, dark theme, and custom caret
+  - Accessible focus styles and predictable behavior across platforms
+  - Easy future updates to dropdown styling in a single place
+- Avoid native `<select>` styling directly in pages; if an exception is required, match the Select styles.
 
 Planning & messaging (for agent UIs):
 - Maintain a short plan; one step in progress

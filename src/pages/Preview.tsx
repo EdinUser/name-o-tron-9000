@@ -55,15 +55,30 @@ type EpisodeItem = {
     thumb?: string;
 };
 
+type MusicItem = {
+    type: "music";
+    ratingKey: string;
+    artist: string;
+    album: string;
+    track: string;
+    trackNumber?: number;
+    disc?: number;
+    file: string;
+    year?: number;
+    genre?: string;
+    guid?: string;
+    thumb?: string;
+};
+
 type PreviewRow = {
     id: string;
-    kind: "movie" | "episode";
+    kind: "movie" | "episode" | "music";
     filePath: string;
     proposed: string;
-    status: "green" | "yellow" | "red" | "unmatched";
+    status: "good" | "warning" | "error" | "unmatched";
     flags: string[];
     // Original Plex metadata for popover display
-    metadata?: MovieItem | EpisodeItem;
+    metadata?: MovieItem | EpisodeItem | MusicItem;
 };
 
 type SectionResponse = any; // shape varies by library type (mock fixtures)
@@ -163,11 +178,34 @@ function sortEditionsByPriority(editionToken: string): string {
 }
 
 
-function sanitizeProposal(name: string): { ok: boolean; reason?: string } {
-    if (/[\\/:*?"<>|]/.test(name)) return {ok: false, reason: "invalid-chars"};
-    const base = name.replace(/\.[^.]+$/, "");
-    if (RESERVED.has(base.toUpperCase())) return {ok: false, reason: "reserved-name"};
-    return {ok: true};
+async function sanitizeProposal(name: string, settings: any): Promise<{ ok: boolean; reason?: string; sanitized?: string }> {
+    try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const sanitized = await invoke<string>("sanitize_filename_cmd", {
+            filename: name,
+            settings: settings.misc.characterReplacement
+        });
+
+        // Check if the sanitized name still contains invalid characters
+        if (/[\\/:*?"<>|]/.test(sanitized)) {
+            return {ok: false, reason: "invalid-chars", sanitized};
+        }
+
+        // Check for reserved names (after sanitization)
+        const base = sanitized.replace(/\.[^.]+$/, "");
+        if (RESERVED.has(base.toUpperCase())) {
+            return {ok: false, reason: "reserved-name", sanitized};
+        }
+
+        return {ok: true, sanitized};
+    } catch (error) {
+        console.error("Failed to sanitize filename:", error);
+        // Fallback to basic validation if backend fails
+        if (/[\\/:*?"<>|]/.test(name)) return {ok: false, reason: "invalid-chars"};
+        const base = name.replace(/\.[^.]+$/, "");
+        if (RESERVED.has(base.toUpperCase())) return {ok: false, reason: "reserved-name"};
+        return {ok: true, sanitized: name};
+    }
 }
 
 function normalizeUnicode(name: string) {
@@ -257,7 +295,7 @@ function parseEpisodeInfo(filePath: string, fallbackTitle: string): { showTitle:
     return { showTitle, season, index };
 }
 
-function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie: boolean, collectionsEnabled: boolean, collectionName: string, settings: any): PreviewRow {
+async function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie: boolean, collectionsEnabled: boolean, collectionName: string, settings: any): Promise<PreviewRow> {
     const ext = extname(m.file) || ".mkv";
 
     // Get edition from Plex API or detect from file path
@@ -671,32 +709,38 @@ function getOrganizedPath(title: string, year?: number, genre?: string, collecti
         flags.push("marked-iso");
     }
 
-    const {ok, reason} = sanitizeProposal(basename(proposed));
-    let status: PreviewRow["status"] = "green";
+    const sanitizeResult = await sanitizeProposal(basename(proposed), settings);
+    const {ok, reason, sanitized} = sanitizeResult;
+    if (sanitized) {
+        // Use the sanitized filename instead of the original
+        proposed = proposed.replace(basename(proposed), sanitized);
+    }
+
+    let status: PreviewRow["status"] = "good";
     if (!VIDEO_EXTS.has(ext)) {
-        status = "yellow";
+        status = "warning";
         flags.push("non-media-ext");
     }
     if (!ok) {
-        status = "red";
+        status = "error";
         if (reason) flags.push(reason);
     }
     const highlight = settings.general.encoding.highlightNonLatin;
-    if (highlight && hasNonLatin(proposed) && status !== "red") {
-        status = status === "green" ? "yellow" : status;
+    if (highlight && hasNonLatin(proposed) && status !== "error") {
+        status = status === "good" ? "warning" : status;
         flags.push("non-latin");
     }
     if (proposed.length > 255) {
-        status = "red";
+        status = "error";
         flags.push(">255 path");
-    } else if (proposed.length > 200 && status !== "red") {
-        status = "yellow";
+    } else if (proposed.length > 200 && status !== "error") {
+        status = "warning";
         flags.push(">200 path");
     }
     return {id: m.ratingKey, kind: "movie", filePath: m.file, proposed, status, flags};
 }
 
-function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolders: boolean, settings: any): PreviewRow {
+async function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolders: boolean, settings: any): Promise<PreviewRow> {
     const ext = extname(e.file) || ".mkv";
 
     // Extract IDs from GUID
@@ -925,29 +969,131 @@ function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolde
         flags.push("marked-iso");
     }
 
-    const {ok, reason} = sanitizeProposal(basename(proposed));
-    let status: PreviewRow["status"] = "green";
+    const sanitizeResult = await sanitizeProposal(basename(proposed), settings);
+    const {ok, reason, sanitized} = sanitizeResult;
+    if (sanitized) {
+        // Use the sanitized filename instead of the original
+        proposed = proposed.replace(basename(proposed), sanitized);
+    }
+
+    let status: PreviewRow["status"] = "good";
     if (!VIDEO_EXTS.has(ext)) {
-        status = "yellow";
+        status = "warning";
         flags.push("non-media-ext");
     }
     if (!ok) {
-        status = "red";
+        status = "error";
         if (reason) flags.push(reason);
     }
     const highlight2 = settings.general.encoding.highlightNonLatin;
-    if (highlight2 && hasNonLatin(proposed) && status !== "red") {
-        status = status === "green" ? "yellow" : status;
+    if (highlight2 && hasNonLatin(proposed) && status !== "error") {
+        status = status === "good" ? "warning" : status;
         flags.push("non-latin");
     }
     if (proposed.length > 255) {
-        status = "red";
+        status = "error";
         flags.push(">255 path");
-    } else if (proposed.length > 200 && status !== "red") {
-        status = "yellow";
+    } else if (proposed.length > 200 && status !== "error") {
+        status = "warning";
         flags.push(">200 path");
     }
     return {id: e.ratingKey, kind: "episode", filePath: e.file, proposed, status, flags};
+}
+
+async function computeMusicProposal(m: MusicItem, template: string, settings: any): Promise<PreviewRow> {
+    const ext = extname(m.file) || ".mp3";
+
+    // Extract IDs from GUID if available
+    const imdbId = m.guid ? extractImdbId(m.guid) : null;
+    const thetvdbId = m.guid ? extractTvdbId(m.guid) : null;
+    const tmdbId = m.guid ? extractTmdbId(m.guid) : null;
+
+    // Apply music-specific settings
+    let trackNumber = m.trackNumber;
+    let discNumber = m.disc;
+
+    // Normalize track numbers if enabled
+    if (settings.music.normalizeTrackNumbers && trackNumber) {
+        trackNumber = Math.max(1, Math.min(999, trackNumber));
+    }
+
+    // Apply disc subfolders if enabled
+    let folderPrefix = "";
+    if (settings.music.discSubfolders && discNumber && discNumber > 1) {
+        folderPrefix = `Disc ${discNumber}/`;
+    }
+
+    // Apply format AAT (Artist - Album - Track) if enabled
+    let dynamicTemplate = template;
+    if (settings.music.formatAAT) {
+        // For AAT format, ensure we have artist/album/track structure
+        if (!template.includes('{artist}') || !template.includes('{album}') || !template.includes('{track}')) {
+            // If template doesn't include all AAT components, use a default AAT structure
+            dynamicTemplate = "{artist}/{album}/{trackNumber:02} - {track}{ext}";
+        }
+    }
+
+    // Build template context
+    const ctx = {
+        artist: m.artist,
+        album: m.album,
+        track: m.track,
+        trackNumber: trackNumber ?? "",
+        disc: discNumber ?? "",
+        ext,
+        year: m.year ?? "",
+        genre: m.genre ?? "",
+        // ID fields
+        imdb: imdbId ?? "",
+        thetvdb: thetvdbId ?? "",
+        tmdb: tmdbId ?? "",
+    } as any;
+
+    let proposed = renderTemplate(dynamicTemplate, ctx);
+    if (!proposed.endsWith(ext)) proposed += ext;
+
+    // Apply folder structure
+    if (folderPrefix) {
+        proposed = folderPrefix + proposed;
+    }
+
+    proposed = normalizeUnicode(proposed);
+
+    // Handle special cases for extras and non-audio files
+    const flags: string[] = [];
+
+    // Check for non-audio extensions
+    const audioExts = new Set([".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg", ".wma"]);
+    if (!audioExts.has(ext.toLowerCase())) {
+        flags.push("non-audio-ext");
+    }
+
+    const sanitizeResult = await sanitizeProposal(basename(proposed), settings);
+    const {ok, reason, sanitized} = sanitizeResult;
+    if (sanitized) {
+        // Use the sanitized filename instead of the original
+        proposed = proposed.replace(basename(proposed), sanitized);
+    }
+
+    let status: PreviewRow["status"] = "good";
+    if (!ok) {
+        status = "error";
+        if (reason) flags.push(reason);
+    }
+    const highlight = settings.general.encoding.highlightNonLatin;
+    if (highlight && hasNonLatin(proposed) && status !== "error") {
+        status = status === "good" ? "warning" : status;
+        flags.push("non-latin");
+    }
+    if (proposed.length > 255) {
+        status = "error";
+        flags.push(">255 path");
+    } else if (proposed.length > 200 && status !== "error") {
+        status = "warning";
+        flags.push(">200 path");
+    }
+
+    return {id: m.ratingKey, kind: "music", filePath: m.file, proposed, status, flags};
 }
 
 export default function Preview({server, library, onBack}: Props) {
@@ -966,9 +1112,11 @@ export default function Preview({server, library, onBack}: Props) {
     }, [settings.general.pagination.defaultMovieLimit]);
     const [episodesPaging, setEpisodesPaging] = useState({ start: 0, size: 200, exhausted: false });
     const containerRef = useRef<HTMLDivElement | null>(null);
-    const [colWidths, setColWidths] = useState<{ current: number; proposed: number; flags: number }>({ current: 480, proposed: 480, flags: 320 });
+    const [colWidths, setColWidths] = useState<{ current: number; proposed: number; flags: number }>({ current: 480, proposed: 480, flags: 0 });
     // Template is computed from current settings
-    const template = library.type === "movie" ? settings.templates.movie : settings.templates.episode;
+    const template = library.type === "movie" ? settings.templates.movie :
+                     library.type === "show" ? settings.templates.episode :
+                     settings.templates.music;
     const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
     const [showMapModal, setShowMapModal] = useState(false);
     const [showTemplateHelp, setShowTemplateHelp] = useState(false);
@@ -1133,7 +1281,56 @@ export default function Preview({server, library, onBack}: Props) {
                             thumb: String(item.thumb ?? ""),
                         };
                         const tpl = settings.templates.movie || template;
-                        const row = computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
+                        const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
+                        row.metadata = m; // Store original metadata for popover
+                        list.push(row);
+                    }
+                } else if (library.type === "artist") {
+                    // Fetch music tracks using the fetch_library_content command (music tracks are under Metadata)
+                    const data = await invoke<SectionResponse>("fetch_library_content", {
+                        server: server.address,
+                        libraryKey: library.key,
+                        token: token ?? null,
+                        start: moviesPaging.start, // Reuse movie paging for music
+                        size: moviesPaging.size,
+                    });
+                    const mc = data?.MediaContainer;
+                    const md = mc?.Metadata ?? [];
+                    if (md.length === 0) {
+                        setMoviesPaging(prev => ({ ...prev, exhausted: true }));
+                    } else if (md.length < moviesPaging.size) {
+                        setMoviesPaging(prev => ({ ...prev, exhausted: true }));
+                    }
+                    for (const item of md) {
+                        const file = item?.Media?.[0]?.Part?.[0]?.file;
+                        if (!file) continue;
+                        const musicRatingKey = String(item.ratingKey ?? item.key ?? file);
+
+                        console.log("Music item fields:", {
+                            title: item.title,
+                            grandparentTitle: item.grandparentTitle, // Artist
+                            parentTitle: item.parentTitle, // Album
+                            year: item.year,
+                            genre: item.genre,
+                            track: item.index, // Track number
+                            disc: item.parentIndex, // Disc number
+                        });
+
+                        const m: MusicItem = {
+                            type: "music",
+                            ratingKey: musicRatingKey,
+                            artist: String(item.grandparentTitle ?? "Unknown Artist"),
+                            album: String(item.parentTitle ?? "Unknown Album"),
+                            track: String(item.title ?? "Unknown Track"),
+                            trackNumber: item.index ? Number(item.index) : undefined,
+                            disc: item.parentIndex ? Number(item.parentIndex) : undefined,
+                            file: String(file),
+                            year: item.year ? Number(item.year) : undefined,
+                            genre: String(item.genre ?? ""),
+                            thumb: String(item.thumb ?? ""),
+                        };
+                        const tpl = settings.templates.music || template;
+                        const row = await computeMusicProposal(m, tpl, settings);
                         row.metadata = m; // Store original metadata for popover
                         list.push(row);
                     }
@@ -1180,7 +1377,7 @@ export default function Preview({server, library, onBack}: Props) {
                             };
                             const tpl = settings.templates.episode || template;
                             const useSeasonFolders = !!settings.tv.seasonFolders;
-                            const proposal = computeEpisodeProposal(e, tpl, useSeasonFolders, settings);
+                            const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings);
                             proposal.metadata = e; // Store original metadata for popover
                             list.push(proposal);
                         }
@@ -1190,15 +1387,21 @@ export default function Preview({server, library, onBack}: Props) {
                         }
                     }
                     // If no show selected, show message to go back to show selection
-                } else {
+                } else if (library.type === "show") {
                     // For TV shows without a selected show, show a message
                     setRows([]);
                     setError("Please select a TV show first from the show selection page.");
                     return; // Exit early to avoid setting selected IDs on empty list
+                } else {
+                    // For other library types (movie, artist), this is handled above
+                    // This else clause should not be reached for valid library types
+                    setRows([]);
+                    setError(`Unsupported library type: ${library.type}`);
+                    return;
                 }
 
                 setRows(list);
-                setSelectedIds(new Set(list.filter(r => r.status !== "red").map(r => r.id)));
+                setSelectedIds(new Set(list.filter(r => r.status !== "error").map(r => r.id)));
             } catch (e: any) {
                 setError(e?.message ?? String(e));
             } finally {
@@ -1402,7 +1605,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.movie || template;
-                            const row = computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
+                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
                             row.metadata = m; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -1432,7 +1635,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.episode || template;
-                            const row = computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
+                            const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
                             row.metadata = e; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -1473,7 +1676,7 @@ export default function Preview({server, library, onBack}: Props) {
         return combined;
     }, [rows, filteredRows, remoteResults, debouncedSearchQuery, remoteQuery]);
 
-    const anyRedSelected = useMemo(() => displayRows.some(r => r.status === "red" && selectedIds.has(r.id)), [displayRows, selectedIds]);
+    const anyRedSelected = useMemo(() => displayRows.some(r => r.status === "error" && selectedIds.has(r.id)), [displayRows, selectedIds]);
     const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
     const pageRows = useMemo(() => displayRows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize), [displayRows, page, pageSize]);
     useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
@@ -1487,7 +1690,7 @@ export default function Preview({server, library, onBack}: Props) {
     }
 
     function skipReds() {
-        setSelectedIds(new Set(rows.filter(r => r.status !== "red").map(r => r.id)));
+        setSelectedIds(new Set(rows.filter(r => r.status !== "error").map(r => r.id)));
     }
 
     function applyRename() {
@@ -1504,12 +1707,11 @@ export default function Preview({server, library, onBack}: Props) {
             if (!el) return;
             const containerWidth = el.clientWidth;
             const gapPx = 8; // gap-2
-            const fixed = 28 + 120 + gapPx * 4; // checkbox + status + gaps
+            const fixed = 28 + 120 + gapPx * 3; // checkbox + status icon + gaps (removed flags column)
             const avail = Math.max(0, containerWidth - fixed);
-            const w1 = Math.max(240, Math.floor(avail * (1.5 / 4.0)));
-            const w2 = Math.max(240, Math.floor(avail * (1.5 / 4.0)));
-            const w3 = Math.max(160, Math.max(0, avail - w1 - w2));
-            setColWidths({ current: w1, proposed: w2, flags: w3 });
+            const w1 = Math.max(240, Math.floor(avail * (2.0 / 4.0))); // current path column gets more space
+            const w2 = Math.max(240, Math.floor(avail * (2.0 / 4.0))); // proposed column gets more space
+            setColWidths({ current: w1, proposed: w2, flags: 0 }); // flags column removed
         }
 
         function onResize() {
@@ -1517,16 +1719,14 @@ export default function Preview({server, library, onBack}: Props) {
             if (!el) return;
             const containerWidth = el.clientWidth;
             const gapPx = 8;
-            const fixed = 28 + 120 + gapPx * 4;
+            const fixed = 28 + 120 + gapPx * 3; // checkbox + status icon + gaps
             const avail = Math.max(0, containerWidth - fixed);
-            const totalFlex = colWidths.current + colWidths.proposed + colWidths.flags;
+            const totalFlex = colWidths.current + colWidths.proposed;
             if (avail <= 0 || totalFlex <= 0) return;
             const ratio = avail / totalFlex;
             let current = Math.max(160, Math.floor(colWidths.current * ratio));
-            let proposed = Math.max(160, Math.floor(colWidths.proposed * ratio));
-            let flags = Math.max(160, Math.floor(avail - current - proposed));
-            if (flags < 160) flags = 160;
-            setColWidths({ current, proposed, flags });
+            let proposed = Math.max(160, Math.floor(avail - current));
+            setColWidths({ current, proposed, flags: 0 });
         }
 
         // Initial distribution and resize listener
@@ -1542,7 +1742,7 @@ export default function Preview({server, library, onBack}: Props) {
         const start = { ...colWidths };
         const el = containerRef.current;
         const gapPx = 8;
-        const fixed = 28 + 120 + gapPx * 4;
+        const fixed = 28 + 120 + gapPx * 3; // checkbox + status icon + gaps
         const containerWidth = el?.clientWidth ?? 0;
         const avail = Math.max(0, containerWidth - fixed);
         const min = 160;
@@ -1552,12 +1752,11 @@ export default function Preview({server, library, onBack}: Props) {
             let current = start.current;
             let proposed = start.proposed;
             if (which === "current") {
-                current = Math.max(min, Math.min(avail - min - min, start.current + dx));
+                current = Math.max(min, Math.min(avail - min, start.current + dx));
             } else {
-                proposed = Math.max(min, Math.min(avail - min - min, start.proposed + dx));
+                proposed = Math.max(min, Math.min(avail - min, start.proposed + dx));
             }
-            let flags = Math.max(min, avail - current - proposed);
-            setColWidths({ current, proposed, flags });
+            setColWidths({ current, proposed, flags: 0 });
         }
         function onUp() {
             window.removeEventListener("mousemove", onMove);
@@ -1567,7 +1766,7 @@ export default function Preview({server, library, onBack}: Props) {
         window.addEventListener("mouseup", onUp);
     }
 
-    const gridTemplate = `28px ${colWidths.current}px ${colWidths.proposed}px 120px ${colWidths.flags}px`;
+    const gridTemplate = `28px ${colWidths.current}px ${colWidths.proposed}px 120px 0px`;
 
     // Window title
     useEffect(() => {
@@ -1605,16 +1804,21 @@ export default function Preview({server, library, onBack}: Props) {
                             value={template}
                             onChange={(e) => {
                                 const next = e.target.value;
+                                const templateKey = library.type === "movie" ? "movie" :
+                                                   library.type === "show" ? "episode" : "music";
                                 const updated = {
                                     ...settings,
                                     templates: {
                                         ...settings.templates,
-                                        [library.type === "movie" ? "movie" : "episode"]: next,
+                                        [templateKey]: next,
                                     }
                                 } as any;
                                 updateSettings(updated);
                             }}
-                            placeholder={library.type === "movie" ? "Movie template" : "Episode template"}
+                            placeholder={
+                                library.type === "movie" ? "Movie template" :
+                                library.type === "show" ? "Episode template" : "Music template"
+                            }
                             className="w-[380px] rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-500"
                         />
                         <button
@@ -1630,12 +1834,16 @@ export default function Preview({server, library, onBack}: Props) {
                           onClick={() => {
                             const def = library.type === "movie"
                               ? "{title}[ ({year})]{ext}"
-                              : "{showTitle} - S{season:02}E{episode:02} - {title}{ext}";
+                              : library.type === "show"
+                              ? "{showTitle} - S{season:02}E{episode:02} - {title}{ext}"
+                              : "{artist}/{album}/{trackNumber:02} - {track}{ext}";
+                            const templateKey = library.type === "movie" ? "movie" :
+                                               library.type === "show" ? "episode" : "music";
                             const updated = {
                               ...settings,
                               templates: {
                                 ...settings.templates,
-                                [library.type === "movie" ? "movie" : "episode"]: def,
+                                [templateKey]: def,
                               }
                             } as any;
                             updateSettings(updated);
@@ -1716,7 +1924,7 @@ export default function Preview({server, library, onBack}: Props) {
                                                     thumb: String(item.thumb ?? ""),
                                                 };
                                                 const tpl = settings.templates.movie || template;
-                                                const row = computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
+                                                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
                                                 row.metadata = m; // Store original metadata for popover
                                                 more.push(row);
                                             }
@@ -1735,6 +1943,80 @@ export default function Preview({server, library, onBack}: Props) {
                                     <IconInfo className="h-4 w-4 text-neutral-400 hover:text-neutral-200 cursor-help" />
                                     <div className="invisible group-hover:visible absolute right-0 mt-2 w-48 rounded-md bg-neutral-800 p-2 text-xs text-neutral-200 shadow-lg z-20">
                                         {rows.length} movies loaded
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {library.type === "artist" && !moviesPaging.exhausted && (
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={async () => {
+                                        const nextStart = rows.length;
+                                        setLoading(true);
+                                        try {
+                                            const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
+                                            const data = await invoke<SectionResponse>("fetch_library_content", {
+                                                server: server.address,
+                                                libraryKey: library.key,
+                                                token,
+                                                start: nextStart,
+                                                size: moviesPaging.size,
+                                            });
+                                            const mc = data?.MediaContainer;
+                                            const md = mc?.Metadata ?? [];
+                                            if (md.length === 0) {
+                                                setMoviesPaging(prev => ({ ...prev, exhausted: true }));
+                                            }
+                                            const more: PreviewRow[] = [];
+                                            for (const item of md) {
+                                                const file = item?.Media?.[0]?.Part?.[0]?.file;
+                                                if (!file) continue;
+                                                const musicRatingKey = String(item.ratingKey ?? item.key ?? file);
+
+                                                console.log("Load more music item fields:", {
+                                                    title: item.title,
+                                                    grandparentTitle: item.grandparentTitle, // Artist
+                                                    parentTitle: item.parentTitle, // Album
+                                                    year: item.year,
+                                                    genre: item.genre,
+                                                    track: item.index, // Track number
+                                                    disc: item.parentIndex, // Disc number
+                                                });
+
+                                                const m: MusicItem = {
+                                                    type: "music",
+                                                    ratingKey: musicRatingKey,
+                                                    artist: String(item.grandparentTitle ?? "Unknown Artist"),
+                                                    album: String(item.parentTitle ?? "Unknown Album"),
+                                                    track: String(item.title ?? "Unknown Track"),
+                                                    trackNumber: item.index ? Number(item.index) : undefined,
+                                                    disc: item.parentIndex ? Number(item.parentIndex) : undefined,
+                                                    file: String(file),
+                                                    year: item.year ? Number(item.year) : undefined,
+                                                    genre: String(item.genre ?? ""),
+                                                    thumb: String(item.thumb ?? ""),
+                                                };
+                                                const tpl = settings.templates.music || template;
+                                                const row = await computeMusicProposal(m, tpl, settings);
+                                                row.metadata = m; // Store original metadata for popover
+                                                more.push(row);
+                                            }
+                                            setRows(prev => [...prev, ...more]);
+                                        } catch (e) {
+                                            console.warn("Load more music tracks failed", e);
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
+                                >
+                                    Load more tracks
+                                </button>
+                                <div className="group relative">
+                                    <IconInfo className="h-4 w-4 text-neutral-400 hover:text-neutral-200 cursor-help" />
+                                    <div className="invisible group-hover:visible absolute right-0 mt-2 w-48 rounded-md bg-neutral-800 p-2 text-xs text-neutral-200 shadow-lg z-20">
+                                        {rows.length} tracks loaded
                                     </div>
                                 </div>
                             </div>
@@ -1779,7 +2061,7 @@ export default function Preview({server, library, onBack}: Props) {
                                                         thumb: String(item.thumb ?? ""),
                                                     };
                                                     const tpl = settings.templates.episode || template;
-                                                    const row = computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
+                                                    const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
                                                     row.metadata = e; // Store original metadata for popover
                                                     more.push(row);
                                                 }
@@ -1847,8 +2129,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 <span>Proposed</span>
                                 <span onMouseDown={(e) => startResize("proposed", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize"/>
                             </div>
-                            <div>Status</div>
-                            <div>Flags</div>
+                            <div></div>
                         </div>
                         {pageRows.map((r) => (
                             <div key={r.id} className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40" style={{gridTemplateColumns: gridTemplate}}>
@@ -1861,14 +2142,19 @@ export default function Preview({server, library, onBack}: Props) {
                                 >
                                     {shortenFilePath(r.filePath, library.roots || [])}
                                 </div>
-                                <div className="truncate" title={r.proposed}>{r.proposed}</div>
-                                <div>
-                                    {r.status === "green" && <span className="text-emerald-400">🟩 Green</span>}
-                                    {r.status === "yellow" && <span className="text-amber-300">🟨 Yellow</span>}
-                                    {r.status === "red" && <span className="text-red-400">🟥 Red</span>}
-                                    {r.status === "unmatched" && <span>❌ Unmatched</span>}
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        className="relative cursor-help"
+                                        title={r.flags.length > 0 ? `Status: ${r.status} | Issues: ${r.flags.join(", ")}` : `Status: ${r.status}`}
+                                    >
+                                        {r.status === "good" && <span className="text-emerald-400">🟩</span>}
+                                        {r.status === "warning" && <span className="text-amber-300">🟨</span>}
+                                        {r.status === "error" && <span className="text-red-400">🟥</span>}
+                                        {r.status === "unmatched" && <span>❌</span>}
+                                    </div>
+                                    <div className="truncate" title={r.proposed}>{r.proposed}</div>
                                 </div>
-                                <div className="truncate text-neutral-400" title={r.flags.join(", ")}>{r.flags.join(", ")}</div>
+                                <div></div>
                             </div>
                         ))}
                         {displayRows.length === 0 && <p className="px-3 py-2 text-neutral-400">No items to preview.</p>}
@@ -1896,10 +2182,13 @@ export default function Preview({server, library, onBack}: Props) {
                     <div className="mt-3 flex items-center justify-between text-sm text-neutral-300">
                         <div className="flex items-center gap-2">
                             <span>Rows per page</span>
-                            <select value={pageSize} onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value)); }}
-                                    className="rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1">
-                                {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-                            </select>
+                            <div className="inline-block">
+                                <select value={pageSize} onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value)); }}
+                                        className="appearance-none px-2 py-1 text-sm bg-neutral-900/70 border border-neutral-700/70 rounded text-neutral-200 focus:outline-none focus:ring-1 focus:ring-cyan-600/40 hover:bg-neutral-800/70 pr-7">
+                                    {[10, 25, 50, 100].map(n => <option key={n} value={n} className="bg-neutral-900 text-neutral-200">{n}</option>)}
+                                </select>
+                                <span className="pointer-events-none -ml-6 text-neutral-400">▾</span>
+                            </div>
                         </div>
                         <div className="flex items-center gap-2">
                             <span>{filteredRows.length} results • Page {page} / {totalPages}</span>
@@ -1923,7 +2212,7 @@ export default function Preview({server, library, onBack}: Props) {
             )}
             {showTemplateHelp && (
                 <TemplateHelpModal
-                    libraryType={library.type as "movie" | "show"}
+                    libraryType={library.type as "movie" | "show" | "artist"}
                     onClose={() => setShowTemplateHelp(false)}
                 />
             )}

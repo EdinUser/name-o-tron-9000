@@ -35,6 +35,15 @@ const TEMPLATE_FIELDS: TemplateField[] = [
   { name: "parentIndex", description: "Season number (alternative to season)", example: "5", availableIn: "episodes" },
   { name: "index", description: "Episode number (alternative to episode)", example: "12", availableIn: "episodes" },
 
+  // Music-specific fields
+  { name: "artist", description: "The artist name", example: "The Beatles", availableIn: "music" },
+  { name: "album", description: "The album name", example: "Abbey Road", availableIn: "music" },
+  { name: "track", description: "The track title", example: "Come Together", availableIn: "music" },
+  { name: "trackNumber", description: "Track number (can be formatted with padding)", example: "1", availableIn: "music" },
+  { name: "disc", description: "Disc number (for multi-disc albums)", example: "1", availableIn: "music" },
+  { name: "year", description: "Release year of the track/album", example: "1969", availableIn: "music" },
+  { name: "genre", description: "Music genre", example: "Rock", availableIn: "music" },
+
   // Formatting options
   { name: "title:02", description: "Pad numbers with leading zeros (e.g., {season:02})", example: "05", availableIn: "both" },
   { name: "title:03", description: "Pad numbers with 3 digits (e.g., {episode:03})", example: "012", availableIn: "both" },
@@ -53,9 +62,10 @@ type Props = {
 
 export default function TemplateHelpModal({ libraryType, onClose }: Props) {
   // Map library type to field availability
-  const getFieldAvailability = (type: string): "movies" | "episodes" => {
+  const getFieldAvailability = (type: string): "movies" | "episodes" | "music" => {
     if (type === "movie") return "movies";
     if (type === "show") return "episodes";
+    if (type === "artist") return "music";
     return "movies"; // Default fallback
   };
 
@@ -86,6 +96,11 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
         {fieldAvailability === "episodes" && (
           <div className="mb-4">
             <p className="text-neutral-300 text-sm">Showing fields for TV episodes</p>
+          </div>
+        )}
+        {fieldAvailability === "music" && (
+          <div className="mb-4">
+            <p className="text-neutral-300 text-sm">Showing fields for music tracks</p>
           </div>
         )}
 
@@ -132,6 +147,20 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
                 <code className="text-cyan-400">{"{showTitle} - S{season:02}E{episode:02} - {title}{ext}"}</code>
                 <span className="text-neutral-300 ml-2">→ Breaking Bad - S05E12 - Rabid Dog.mkv</span>
               </div>
+            )}
+            {fieldAvailability === "music" && (
+              <>
+                <div className="bg-neutral-800 rounded p-2">
+                  <span className="text-neutral-400">Music:</span>{" "}
+                  <code className="text-cyan-400">{"{artist}/{album}/{trackNumber:02} - {track}{ext}"}</code>
+                  <span className="text-neutral-300 ml-2">→ The Beatles/Abbey Road/01 - Come Together.mp3</span>
+                </div>
+                <div className="bg-neutral-800 rounded p-2">
+                  <span className="text-neutral-400">Simple:</span>{" "}
+                  <code className="text-cyan-400">{"{trackNumber:02} - {track}{ext}"}</code>
+                  <span className="text-neutral-300 ml-2">→ 01 - Come Together.mp3</span>
+                </div>
+              </>
             )}
           </div>
         </div>

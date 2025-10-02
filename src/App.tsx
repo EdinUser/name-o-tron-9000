@@ -8,7 +8,7 @@ import { SettingsProvider } from "./state/settings";
 import type { PlexLibrary, PlexServer } from "./types/plex";
 
 type Screen = "home" | "libraries" | "shows" | "preview";
-type PreviewFrom = "libraries" | "shows";
+type PreviewFrom = "libraries" | "shows" | "music";
 
 function App() {
   const [screen, setScreen] = useState<Screen>("home");

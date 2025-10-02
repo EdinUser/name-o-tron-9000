@@ -14,6 +14,7 @@ pub use plex_api::fetch_library_content;
 pub use plex_api::fetch_tv_shows;
 pub use plex_api::fetch_show_episodes;
 pub use plex_api::search_content;
+pub use plex_api::sanitize_filename_cmd;
 
 #[derive(Serialize)]
 pub struct PlexServerDto {
@@ -328,6 +329,7 @@ pub fn run() {
             plex_api::fetch_collections,
             plex_api::fetch_collection_items,
             plex_api::search_content,
+            plex_api::sanitize_filename_cmd,
             fetch_plex_image,
             path_map::test_mapping,
             settings::get_settings,

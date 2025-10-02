@@ -62,10 +62,19 @@ export type MusicSettings = {
   normalizeTrackNumbers: boolean;
 };
 
+export type CharacterReplacement = {
+  separators: "-" | "_" | "remove";
+  quotes: "'" | "`" | "remove";
+  wildcards: "-" | "remove";
+  brackets: "()" | "[]" | "remove";
+  general: "-" | "_" | "remove";
+};
+
 export type MiscSettings = {
   unmatchedHandling: "leave" | "move_unmatched" | "move_extras" | "delete";
   nonMediaHandling: "skip" | "move_extras" | "delete";
   warnings: { pathLength: boolean; reservedNames: boolean; nonMediaDetection: boolean };
+  characterReplacement: CharacterReplacement;
 };
 
 export type TemplateSettings = {
@@ -80,6 +89,12 @@ export type TemplateSettings = {
    * Example: "{showTitle} - S{season:02}E{episode:02} - {title}{ext}"
    */
   episode: string;
+  /**
+   * Template for Music track path (relative).
+   * Supported placeholders include {artist}, {album}, {track}, {trackNumber}, {disc}, {ext}.
+   * Example: "{artist}/{album}/{trackNumber:02} - {track}{ext}"
+   */
+  music: string;
 };
 
 export type PaginationSettings = {
@@ -174,10 +189,18 @@ const defaultSettings: Settings = {
     unmatchedHandling: "leave",
     nonMediaHandling: "skip",
     warnings: { pathLength: true, reservedNames: true, nonMediaDetection: true },
+    characterReplacement: {
+      separators: "-",
+      quotes: "'",
+      wildcards: "-",
+      brackets: "()",
+      general: "-",
+    },
   },
   templates: {
     movie: "{title}[ ({year})]{ext}",
     episode: "{showTitle} - S{season:02}E{episode:02} - {title}{ext}",
+    music: "{artist}/{album}/{trackNumber:02} - {track}{ext}",
   },
 };
 

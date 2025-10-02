@@ -112,50 +112,50 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
 
     if (!isVisible || !metadata) return null;
 
-    return (
-        <div
-            className="fixed z-50 w-80 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
-            style={{
-                left: position.x,
-                top: position.y,
-                transform: 'translate(-50%, -100%)',
-            }}
-        >
-            <div className="p-4">
-                <div className="flex items-start gap-3">
-                    {/* Movie/TV poster */}
-                    <div className="w-16 h-24 bg-neutral-700 rounded flex-shrink-0 flex items-center justify-center overflow-hidden">
-                        {posterDataUrl ? (
-                            <img
-                                src={posterDataUrl}
-                                alt={`${metadata.type === "movie" ? metadata.title : metadata.showTitle} poster`}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                    console.log("Image failed to display:", e);
-                                    // Hide image on error and show placeholder
-                                    e.currentTarget.style.display = 'none';
-                                    e.currentTarget.parentElement!.querySelector('.poster-placeholder')!.classList.remove('hidden');
-                                }}
-                                onLoad={() => {
-                                    console.log("Image displayed successfully");
-                                }}
-                            />
-                        ) : imageLoading ? (
-                            <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs">
-                                Loading...
+    // Movie card layout - side by side with portrait poster
+    if (metadata.type === "movie") {
+        return (
+            <div
+                className="fixed z-50 w-96 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
+                style={{
+                    left: position.x,
+                    top: position.y,
+                    transform: 'translate(-50%, -100%)',
+                }}
+            >
+                <div className="p-4">
+                    <div className="flex items-start gap-3">
+                        {/* Movie poster - portrait orientation */}
+                        <div className="w-32 h-48 bg-neutral-700 rounded flex-shrink-0 flex items-center justify-center overflow-hidden">
+                            {posterDataUrl ? (
+                                <img
+                                    src={posterDataUrl}
+                                    alt={`${metadata.title} poster`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        console.log("Movie poster failed to display:", e);
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.parentElement!.querySelector('.poster-placeholder')!.classList.remove('hidden');
+                                    }}
+                                    onLoad={() => {
+                                        console.log("Movie poster displayed successfully");
+                                    }}
+                                />
+                            ) : imageLoading ? (
+                                <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs">
+                                    Loading...
+                                </div>
+                            ) : null}
+                            <div className={`w-full h-full flex items-center justify-center text-neutral-400 text-xs poster-placeholder ${posterDataUrl || imageLoading ? 'hidden' : ''}`}>
+                                Poster
                             </div>
-                        ) : null}
-                        <div className={`w-full h-full flex items-center justify-center text-neutral-400 text-xs poster-placeholder ${posterDataUrl || imageLoading ? 'hidden' : ''}`}>
-                            Poster
                         </div>
-                    </div>
 
-                    <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-neutral-100 text-sm leading-tight mb-1">
-                            {metadata.type === "movie" ? metadata.title : `${metadata.showTitle} - ${metadata.title}`}
-                        </h3>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-neutral-100 text-sm leading-tight mb-1">
+                                {metadata.title}
+                            </h3>
 
-                        {metadata.type === "movie" && (
                             <div className="space-y-1 text-xs text-neutral-300">
                                 {metadata.year && (
                                     <div className="flex gap-2">
@@ -207,32 +207,76 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
                                     </div>
                                 )}
                             </div>
-                        )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
-                        {metadata.type === "episode" && (
-                            <div className="space-y-1 text-xs text-neutral-300">
-                                <div className="flex gap-2">
-                                    <span className="text-neutral-400">Show:</span>
-                                    <span>{metadata.showTitle}</span>
-                                </div>
-                                {metadata.season && metadata.index && (
-                                    <div className="flex gap-2">
-                                        <span className="text-neutral-400">Episode:</span>
-                                        <span>S{metadata.season.toString().padStart(2, '0')}E{metadata.index.toString().padStart(2, '0')}</span>
-                                    </div>
-                                )}
-                                {metadata.year && (
-                                    <div className="flex gap-2">
-                                        <span className="text-neutral-400">Year:</span>
-                                        <span>{metadata.year}</span>
-                                    </div>
-                                )}
-                                {metadata.parentTitle && (
-                                    <div className="flex gap-2">
-                                        <span className="text-neutral-400">Season:</span>
-                                        <span>{metadata.parentTitle}</span>
-                                    </div>
-                                )}
+    // TV Show card layout - stacked with landscape poster
+    return (
+        <div
+            className="fixed z-50 w-80 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
+            style={{
+                left: position.x,
+                top: position.y,
+                transform: 'translate(-50%, -100%)',
+            }}
+        >
+            <div className="p-4">
+                {/* TV poster - landscape orientation */}
+                <div className="w-full h-32 bg-neutral-700 rounded mb-3 flex items-center justify-center overflow-hidden">
+                    {posterDataUrl ? (
+                        <img
+                            src={posterDataUrl}
+                            alt={`${metadata.showTitle} poster`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                                console.log("TV poster failed to display:", e);
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentElement!.querySelector('.poster-placeholder')!.classList.remove('hidden');
+                            }}
+                            onLoad={() => {
+                                console.log("TV poster displayed successfully");
+                            }}
+                        />
+                    ) : imageLoading ? (
+                        <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs">
+                            Loading...
+                        </div>
+                    ) : null}
+                    <div className={`w-full h-full flex items-center justify-center text-neutral-400 text-xs poster-placeholder ${posterDataUrl || imageLoading ? 'hidden' : ''}`}>
+                        Poster
+                    </div>
+                </div>
+
+                <div className="space-y-1">
+                    <h3 className="font-semibold text-neutral-100 text-sm leading-tight mb-2">
+                        {metadata.showTitle} - {metadata.title}
+                    </h3>
+
+                    <div className="space-y-1 text-xs text-neutral-300">
+                        <div className="flex gap-2">
+                            <span className="text-neutral-400">Show:</span>
+                            <span>{metadata.showTitle}</span>
+                        </div>
+                        {metadata.season && metadata.index && (
+                            <div className="flex gap-2">
+                                <span className="text-neutral-400">Episode:</span>
+                                <span>S{metadata.season.toString().padStart(2, '0')}E{metadata.index.toString().padStart(2, '0')}</span>
+                            </div>
+                        )}
+                        {metadata.year && (
+                            <div className="flex gap-2">
+                                <span className="text-neutral-400">Year:</span>
+                                <span>{metadata.year}</span>
+                            </div>
+                        )}
+                        {metadata.parentTitle && (
+                            <div className="flex gap-2">
+                                <span className="text-neutral-400">Season:</span>
+                                <span>{metadata.parentTitle}</span>
                             </div>
                         )}
                     </div>
