@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 use tauri::path::BaseDirectory;
 use tauri::Manager;
 
+// TODO: These DTO structs are currently unused but may be needed for future settings validation and documentation
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PathMappingDto {
     #[serde(rename = "server_id")]

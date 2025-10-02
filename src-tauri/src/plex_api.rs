@@ -9,10 +9,10 @@ use tauri_plugin_opener::OpenerExt;
 #[derive(Debug, Clone)]
 pub struct LoginState {
     pub client_id: String,
-    pub pin_id: i64,
-    pub code: String,
-    pub started_at: Instant,
-    pub expires_in: i64,
+    pub _pin_id: i64,
+    pub _code: String,
+    pub _started_at: Instant,
+    pub _expires_in: i64,
     pub token: Option<String>,
     pub status: LoginStatus,
 }
@@ -42,10 +42,10 @@ struct PinCreateResp {
 
 #[derive(Deserialize)]
 struct PinPollResp {
-    id: i64,
-    code: String,
+    _id: i64,
+    _code: String,
     #[serde(default, rename = "expiresIn")]
-    expires_in: i64,
+    _expires_in: i64,
     #[serde(default, rename = "authToken")]
     auth_token: Option<String>,
 }
@@ -148,10 +148,10 @@ pub async fn plex_login(app: tauri::AppHandle) -> Result<LoginStartResult, Strin
     // Save state
     let login_state = LoginState {
         client_id: client_id.clone(),
-        pin_id: pin.id,
-        code: pin.code.clone(),
-        started_at: Instant::now(),
-        expires_in: if pin.expires_in > 0 { pin.expires_in } else { 120 },
+        _pin_id: pin.id,
+        _code: pin.code.clone(),
+        _started_at: Instant::now(),
+        _expires_in: if pin.expires_in > 0 { pin.expires_in } else { 120 },
         token: None,
         status: LoginStatus::Pending,
     };
@@ -293,10 +293,10 @@ pub fn plex_logout() -> Result<(), String> {
     } else {
         *guard = Some(LoginState {
             client_id: uuid::Uuid::new_v4().to_string(),
-            pin_id: 0,
-            code: String::new(),
-            started_at: Instant::now(),
-            expires_in: 0,
+            _pin_id: 0,
+            _code: String::new(),
+            _started_at: Instant::now(),
+            _expires_in: 0,
             token: None,
             status: LoginStatus::Idle,
         });
@@ -370,14 +370,16 @@ pub async fn fetch_library_content(
     for b in &bases {
         // Try most common patterns first (allLeaves with token in header)
         if let Some(t) = token.as_ref() {
-            urls.push(format!("{}/library/sections/{}/allLeaves?{}", b, library_key, paging));
+            let tok = urlencoding::encode(t);
+            urls.push(format!("{}/library/sections/{}/allLeaves?{}&X-Plex-Token={}", b, library_key, paging, tok));
         } else {
             urls.push(format!("{}/library/sections/{}/allLeaves?{}", b, library_key, paging));
         }
 
         // Fallback to 'all' if 'allLeaves' fails
         if let Some(t) = token.as_ref() {
-            urls.push(format!("{}/library/sections/{}/all?{}", b, library_key, paging));
+            let tok = urlencoding::encode(t);
+            urls.push(format!("{}/library/sections/{}/all?{}&X-Plex-Token={}", b, library_key, paging, tok));
         } else {
             urls.push(format!("{}/library/sections/{}/all?{}", b, library_key, paging));
         }
@@ -672,8 +674,8 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
         parent_index: Option<i64>,
         // ID fields for template support
         guid: Option<String>,
-        imdb_id: Option<String>,
-        thetvdb_id: Option<String>,
+        _imdb_id: Option<String>,
+        _thetvdb_id: Option<String>,
     }
 
     let mut items: Vec<Item> = Vec::new();

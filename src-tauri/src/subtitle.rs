@@ -67,7 +67,7 @@ pub struct PreviewRenamesRequest {
 #[derive(Debug, Deserialize)]
 pub struct ApplyRenamesRequest {
     pub operations: Vec<RenameOperation>,
-    pub settings: serde_json::Value,
+    pub _settings: serde_json::Value, // TODO: Currently unused, may be needed for future features
 }
 
 const SUPPORTED_SUBTITLE_EXTENSIONS: &[&str] = &[".srt", ".ass", ".ssa", ".vtt"];
@@ -197,7 +197,7 @@ fn find_subtitle_files(video_path: &str) -> Vec<SubtitleFile> {
     subtitles
 }
 
-fn classify_subtitle_filename(filename: &str, video_basename: &str) -> SubtitleClassification {
+fn classify_subtitle_filename(filename: &str, _video_basename: &str) -> SubtitleClassification {
     // Extract language suffix from filename
     if let Ok(regex) = Regex::new(SUBTITLE_PATTERNS[0]) {
         if let Some(captures) = regex.captures(filename) {
@@ -212,10 +212,10 @@ fn classify_subtitle_filename(filename: &str, video_basename: &str) -> SubtitleC
 
 #[command]
 pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewResult, String> {
-    let mut video_operations = Vec::new();
+    let video_operations = Vec::new();
     let mut subtitle_operations = Vec::new();
     let mut warnings = Vec::new();
-    let mut blocking_errors = Vec::new();
+    let blocking_errors = Vec::new();
 
     // Parse settings
     let general_settings: serde_json::Value = request.settings.get("general")
@@ -386,7 +386,7 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
                     let filename = Path::new(&subtitle.original_path).file_name().unwrap().to_string_lossy();
                     if let Ok(regex) = Regex::new(SUBTITLE_PATTERNS[1]) {
                         if let Some(captures) = regex.captures(&filename) {
-                            if let (Some(prefix), Some(lang_suffix)) = (captures.get(1), captures.get(2)) {
+                            if let (Some(_prefix), Some(lang_suffix)) = (captures.get(1), captures.get(2)) {
                                 let extension = Path::new(&subtitle.original_path).extension()
                                     .unwrap_or_default().to_string_lossy();
                                 let new_filename = format!("{}.{}.{}", new_basename, lang_suffix.as_str(), extension);

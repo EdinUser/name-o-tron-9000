@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useState, useRef, useCallback} from "react";
 import Select from "../components/Select";
 import Toggle from "../components/Toggle";
 import Radio from "../components/Radio";
@@ -26,6 +26,8 @@ export default function SettingsModal({onClose}: Props) {
     const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
     const [dragStartModalPos, setDragStartModalPos] = useState({ x: 0, y: 0 });
     const [justFinishedDragging, setJustFinishedDragging] = useState(false);
+    const [originalBodyOverflow, setOriginalBodyOverflow] = useState<string>("");
+    const modalRef = useRef<HTMLDivElement>(null);
 
     // Update local settings when global settings change
     useEffect(() => {
@@ -63,7 +65,7 @@ export default function SettingsModal({onClose}: Props) {
         }
     }
 
-    const handleClose = (e?: React.MouseEvent) => {
+    const handleClose = useCallback((e?: React.MouseEvent) => {
         // Prevent default behavior and event propagation
         e?.preventDefault();
         e?.stopPropagation();
@@ -73,7 +75,7 @@ export default function SettingsModal({onClose}: Props) {
         } else {
             onClose();
         }
-    };
+    }, [hasChanges, onClose]);
 
     const handleConfirmClose = () => {
         setShowConfirmDialog(false);
@@ -203,9 +205,38 @@ export default function SettingsModal({onClose}: Props) {
         setJustFinishedDragging(false);
     }, [settings]); // Reset when settings change (modal reopens)
 
+    // Body scroll lock when modal opens
+    useEffect(() => {
+        const originalOverflow = document.body.style.overflow;
+        setOriginalBodyOverflow(originalOverflow);
+
+        // Prevent body scroll when modal is open
+        document.body.style.overflow = "hidden";
+
+        // Cleanup function to restore original overflow
+        return () => {
+            document.body.style.overflow = originalBodyOverflow;
+        };
+    }, []); // Run once when modal mounts
+
+    // Escape key handler to close modal
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                handleClose();
+            }
+        };
+
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [handleClose]); // Run when handleClose changes
+
     return (
         <>
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => (!isDragging && !justFinishedDragging && dragStartPos.x === 0) && handleClose(e)} style={{ zIndex: 9999 }}>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ zIndex: 9999 }}>
                 <div
                     className="settings-modal-content bg-neutral-900 border border-neutral-700 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl"
                     style={{

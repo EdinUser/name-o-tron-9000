@@ -1138,7 +1138,7 @@ export default function Preview({server, library, onBack}: Props) {
     const [reloadTick, setReloadTick] = useState(0);
 
     // Popover state for showing Plex metadata on hover
-    const [popoverData, setPopoverData] = useState<{ metadata: MovieItem | EpisodeItem | null; position: { x: number; y: number } }>({
+    const [popoverData, setPopoverData] = useState<{ metadata: MovieItem | EpisodeItem | MusicItem | null; position: { x: number; y: number } }>({
         metadata: null,
         position: { x: 0, y: 0 }
     });
@@ -2225,10 +2225,6 @@ export default function Preview({server, library, onBack}: Props) {
                                 </button>
                             )}
                         </div>
-                        <button title="Reload library" onClick={() => setReloadTick(t => t + 1)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
-                            <IconRefresh className="h-5 w-5" />
-                            Reload
-                        </button>
                     </div>
                 </div>
 

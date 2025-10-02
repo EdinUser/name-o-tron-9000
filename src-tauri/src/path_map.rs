@@ -7,7 +7,10 @@ pub struct PathMapping {
     pub plex_root: String,
     pub local_root: String,
     pub platform: Option<String>,
+    // TODO: This struct is currently unused but may be needed for future path mapping features
 }
+
+// TODO: These utility functions are currently unused but may be needed for future path resolution features
 
 fn norm_root(s: &str, case_insensitive: bool) -> String {
     let mut out = s.replace('\\', "/");
