@@ -4,7 +4,7 @@ type TemplateField = {
   name: string;
   description: string;
   example?: string;
-  availableIn: "movies" | "episodes" | "both";
+  availableIn: "movies" | "episodes" | "music" | "both";
 };
 
 const TEMPLATE_FIELDS: TemplateField[] = [
@@ -137,7 +137,7 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">With Edition:</span>{" "}
                   <code className="text-cyan-400">{"{title}[ ({year})]{edition}{ext}"}</code>
-                  <span className="text-neutral-300 ml-2">→ Inception (2010) {edition-extended}.mkv</span>
+                  <span className="text-neutral-300 ml-2">→ Inception (2010) Extended.mkv</span>
                 </div>
               </>
             )}

@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useRef, useCallback} from "react";
+import React, {useEffect, useState, useCallback} from "react";
 import Select from "../components/Select";
 import Toggle from "../components/Toggle";
 import Radio from "../components/Radio";
@@ -21,13 +21,11 @@ export default function SettingsModal({onClose}: Props) {
     const [isEditionParsersModalOpen, setIsEditionParsersModalOpen] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
     const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
     const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
     const [dragStartModalPos, setDragStartModalPos] = useState({ x: 0, y: 0 });
     const [justFinishedDragging, setJustFinishedDragging] = useState(false);
     const [originalBodyOverflow, setOriginalBodyOverflow] = useState<string>("");
-    const modalRef = useRef<HTMLDivElement>(null);
 
     // Update local settings when global settings change
     useEffect(() => {
@@ -142,7 +140,7 @@ export default function SettingsModal({onClose}: Props) {
         }
     };
 
-    const handleMouseUp = (e?: React.MouseEvent<HTMLDivElement> | MouseEvent) => {
+    const handleMouseUp = () => {
         // This handler is mainly for the modal content onMouseUp
         // The global mouseup handler in useEffect will handle the state cleanup
         if (isDragging) {
@@ -1241,11 +1239,11 @@ function TV({s, onChange}: { s: Settings; onChange: (v: Settings["tv"]) => void 
 
                                             let result = dynamicTemplate
                                                 .replace(/\{showTitle\}/g, ep.showTitle)
-                                                .replace(/\{season(?::(\d+))?\}/g, (match, padding) => {
+                                                .replace(/\{season(?::(\d+))?\}/g, (_, padding) => {
                                                     const pad = padding ? parseInt(padding) : 2;
                                                     return String(season).padStart(pad, '0');
                                                 })
-                                                .replace(/\{episode(?::(\d+))?\}/g, (match, padding) => {
+                                                .replace(/\{episode(?::(\d+))?\}/g, (_, padding) => {
                                                     const pad = padding ? parseInt(padding) : 2;
                                                     return String(episode).padStart(pad, '0');
                                                 })

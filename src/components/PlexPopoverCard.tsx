@@ -15,6 +15,8 @@ interface MovieMetadata {
     summary?: string;
     edition?: string;
     editionTitle?: string;
+    thumb?: string;
+    ratingKey?: string;
 }
 
 interface EpisodeMetadata {
@@ -26,6 +28,8 @@ interface EpisodeMetadata {
     year?: number;
     grandparentTitle?: string;
     parentTitle?: string;
+    thumb?: string;
+    ratingKey?: string;
 }
 
 interface MusicMetadata {
@@ -37,6 +41,8 @@ interface MusicMetadata {
     disc?: number;
     year?: number;
     genre?: string;
+    thumb?: string;
+    ratingKey?: string;
 }
 
 type Metadata = MovieMetadata | EpisodeMetadata | MusicMetadata;
@@ -128,10 +134,11 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
                 } catch (error) {
                     console.error("Invoke failed completely:", error);
                     console.error("Error type:", typeof error);
-                    console.error("Error message:", error?.message || error);
+                    console.error("Error message:", (error as any)?.message || error);
 
                     // Network errors for Plex metadata paths are expected - Plex protects these URLs
-                    if (imagePath.startsWith("/library/metadata/") && error?.message?.includes("error sending request")) {
+                    const errorMessage = (error as any)?.message || String(error);
+                    if (imagePath.startsWith("/library/metadata/") && errorMessage.includes("error sending request")) {
                         console.log("Plex server blocked direct image access (expected behavior)");
                         console.log("This is normal - Plex requires special handling for image URLs");
                         setPosterDataUrl(null);
