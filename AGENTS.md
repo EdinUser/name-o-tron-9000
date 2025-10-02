@@ -19,7 +19,7 @@ Relevant specs are in:
 - **Complete UI Framework**: All 5 pages implemented (Home, Library Selection, Show Selection, Preview, Settings)
 - **Plex Integration**: Full API integration with server discovery (SSDP multicast), PIN authentication, and metadata fetching
 - **Safety Systems**: Traffic-light status system (🟩/🟨/🟥/❌) with comprehensive validation and batch guards
-- **Settings Management**: All 5 tabs fully implemented with every setting option from specifications
+- **Settings Management**: All 5 tabs fully implemented with every setting option from specifications, using consistent custom Radio and Select components
 - **Path Mapping**: Cross-platform path resolution with validation and UI for managing mappings
 - **Template Engine**: Live template editing with placeholder support and validation
 - **Security**: System keyring integration for secure token storage
@@ -170,7 +170,11 @@ Agent practices:
   - Consistent compact sizing, dark theme, and custom caret
   - Accessible focus styles and predictable behavior across platforms
   - Easy future updates to dropdown styling in a single place
-- Avoid native `<select>` styling directly in pages; if an exception is required, match the Select styles.
+- Use the shared `Radio` component in `src/components/Radio.tsx` for ALL radio button groups. This ensures:
+  - Consistent pill-style segmented controls for multi-option selections
+  - Proper keyboard navigation and accessibility
+  - Unified styling that matches the app's dark theme
+- Avoid native `<select>` or `<input type="radio">` styling directly in pages; if an exception is required, match the Select/Radio component styles.
 
 Planning & messaging (for agent UIs):
 - Maintain a short plan; one step in progress

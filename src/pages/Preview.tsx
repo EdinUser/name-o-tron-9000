@@ -4,6 +4,7 @@ import {IconArrowBack, IconBolt, IconHome, IconInfo, IconQuestionCircle, IconRef
 import PathMappingModal from "../components/PathMappingModal";
 import TemplateHelpModal from "../components/TemplateHelpModal";
 import PlexPopoverCard from "../components/PlexPopoverCard";
+import Toggle from "../components/Toggle";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import {useSettings} from "../state/settings";
@@ -2133,7 +2134,7 @@ export default function Preview({server, library, onBack}: Props) {
                         </div>
                         {pageRows.map((r) => (
                             <div key={r.id} className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40" style={{gridTemplateColumns: gridTemplate}}>
-                                <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggle(r.id)} className="h-4 w-4 accent-cyan-500"/>
+                                <Toggle checked={selectedIds.has(r.id)} onChange={() => toggle(r.id)}/>
                                 <div
                                     className="truncate cursor-pointer hover:bg-neutral-700/50 rounded px-1 py-0.5 transition-colors"
                                     title={r.filePath}
