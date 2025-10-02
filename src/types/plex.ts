@@ -7,7 +7,7 @@ export type PlexServer = {
 
 export type PlexLibrary = {
   key: string; // section id
-  type: "movie" | "show" | string;
+  type: "movie" | "show" | "artist" | string;
   title: string;
+  roots?: string[];
 };
-
