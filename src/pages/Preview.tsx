@@ -507,7 +507,7 @@ function detectExistingFolderStructure(folders: string[]): {
     return { type: 'custom', confidence: 0.3 };
 }
 
-function getOrganizedPath(title: string, year?: number, genre?: string, collectionName?: string): string {
+function getOrganizedPath(title: string, year?: number, genre?: string): string {
         const baseFolderName = safeFolderName(title);
         let organizedPath = "";
 
@@ -617,7 +617,7 @@ function getOrganizedPath(title: string, year?: number, genre?: string, collecti
     // If collections are disabled or movie has no collection, apply intelligent folder structure logic
     else {
         // Get desired organized path based on folder structure settings
-        const desiredPath = getOrganizedPath(m.title, m.year, m.genre, collectionName);
+        const desiredPath = getOrganizedPath(m.title, m.year, m.genre);
 
         // Make decisions based on folder structure behavior setting
         if (folderStructureBehavior === "preserve_existing") {
@@ -1154,8 +1154,8 @@ export default function Preview({server, library, onBack}: Props) {
         };
 
         console.log("Hover Debug - Row metadata:", {
-            title: row.metadata.type === "movie" ? row.metadata.title : row.metadata.showTitle,
-            thumb: row.metadata.thumb,
+            title: row.metadata.type === "movie" ? row.metadata.title : (row.metadata as any).showTitle || (row.metadata as any).title || "Unknown",
+            thumb: (row.metadata as any).thumb,
             filePath: row.filePath
         });
 
@@ -2365,7 +2365,7 @@ export default function Preview({server, library, onBack}: Props) {
 
             {/* Plex metadata popover */}
             <PlexPopoverCard
-                metadata={popoverData.metadata}
+                metadata={popoverData.metadata as any}
                 isVisible={!!popoverData.metadata}
                 position={popoverData.position}
                 plexServerUrl={server.address}
