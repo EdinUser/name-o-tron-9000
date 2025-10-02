@@ -19,6 +19,15 @@ export type GeneralSettings = {
     defaultShowLimit: number;
     defaultMusicLimit: number;
   };
+  subtitles: {
+    renameWithVideo: boolean;
+    preserveLanguageCodes: boolean;
+    languageCodeHandling: "preserve" | "normalize" | "strip";
+    skipSubtitles: boolean;
+    convertToUtf8: boolean;
+    backupBeforeConversion: boolean;
+    skipUncertainEncoding: boolean;
+  };
 };
 
 export type EditionParser = {
@@ -43,6 +52,10 @@ export type MovieSettings = {
   };
   ids: "none" | "preserve" | "auto_append_all";
   specials: { moveExtras: boolean; markISO: boolean };
+  subtitles: {
+    forcedSdhHandling: "preserve" | "normalize" | "strip";
+    unknownSubtitleHandling: "preserve" | "append_unk";
+  };
 };
 
 export type TvSettings = {
@@ -54,6 +67,11 @@ export type TvSettings = {
   warnEpisodeCountMismatch: boolean;
   ids: "none" | "preserve" | "auto_append_all";
   specials: { moveExtras: boolean; markISO: boolean };
+  subtitles: {
+    flattenPerEpisodeSubfolders: boolean;
+    handleNonMatchingNames: boolean;
+    multiSubHandling: "preserve" | "number" | "first_only";
+  };
 };
 
 export type MusicSettings = {
@@ -126,6 +144,15 @@ const defaultSettings: Settings = {
       defaultShowLimit: 200,
       defaultMusicLimit: 200,
     },
+    subtitles: {
+      renameWithVideo: true,
+      preserveLanguageCodes: true,
+      languageCodeHandling: "preserve",
+      skipSubtitles: false,
+      convertToUtf8: false,
+      backupBeforeConversion: true,
+      skipUncertainEncoding: true,
+    },
   },
   movies: {
     collections: { enabled: true, mode: "always", naming: "original" },
@@ -169,6 +196,10 @@ const defaultSettings: Settings = {
     },
     ids: "preserve",
     specials: { moveExtras: true, markISO: true },
+    subtitles: {
+      forcedSdhHandling: "preserve",
+      unknownSubtitleHandling: "preserve",
+    },
   },
   tv: {
     seasonFolders: true,
@@ -179,6 +210,11 @@ const defaultSettings: Settings = {
     warnEpisodeCountMismatch: true,
     ids: "preserve",
     specials: { moveExtras: true, markISO: true },
+    subtitles: {
+      flattenPerEpisodeSubfolders: true,
+      handleNonMatchingNames: true,
+      multiSubHandling: "preserve",
+    },
   },
   music: {
     formatAAT: true,

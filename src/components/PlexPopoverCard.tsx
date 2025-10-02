@@ -28,7 +28,18 @@ interface EpisodeMetadata {
     parentTitle?: string;
 }
 
-type Metadata = MovieMetadata | EpisodeMetadata;
+interface MusicMetadata {
+    type: "music";
+    artist: string;
+    album: string;
+    track: string;
+    trackNumber?: number;
+    disc?: number;
+    year?: number;
+    genre?: string;
+}
+
+type Metadata = MovieMetadata | EpisodeMetadata | MusicMetadata;
 
 interface PlexPopoverCardProps {
     metadata: Metadata;
@@ -40,6 +51,36 @@ interface PlexPopoverCardProps {
 export default function PlexPopoverCard({ metadata, isVisible, position, plexServerUrl }: PlexPopoverCardProps) {
     const [posterDataUrl, setPosterDataUrl] = useState<string | null>(null);
     const [imageLoading, setImageLoading] = useState(false);
+
+    // Smart positioning that calculates once when popover becomes visible or metadata changes
+    const smartPosition = React.useMemo(() => {
+        if (!isVisible || !metadata || typeof window === 'undefined') {
+            return { x: position.x, y: position.y, transform: 'translate(-50%, 0%)' };
+        }
+
+        const viewportHeight = window.innerHeight;
+        const cardHeight = metadata.type === "movie" ? 280 : metadata.type === "episode" ? 240 : 280; // Approximate card heights
+        const margin = 20; // Margin from viewport edges
+
+        // Check if there's enough space below
+        const spaceBelow = viewportHeight - position.y - margin;
+
+        if (spaceBelow >= cardHeight) {
+            // Position below mouse pointer
+            return {
+                x: position.x,
+                y: position.y,
+                transform: 'translate(-50%, 0%)'
+            };
+        } else {
+            // Position above mouse pointer
+            return {
+                x: position.x,
+                y: position.y,
+                transform: 'translate(-50%, -100%)'
+            };
+        }
+    }, [isVisible, metadata?.type]); // Only recalculate when visibility or metadata type changes, not position
 
     // Fetch poster image using backend command when component mounts or metadata changes
     useEffect(() => {
@@ -118,9 +159,9 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
             <div
                 className="fixed z-50 w-96 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
                 style={{
-                    left: position.x,
-                    top: position.y,
-                    transform: 'translate(-50%, -100%)',
+                    left: smartPosition.x,
+                    top: smartPosition.y,
+                    transform: smartPosition.transform,
                 }}
             >
                 <div className="p-4">
@@ -215,73 +256,161 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
     }
 
     // TV Show card layout - stacked with landscape poster
-    return (
-        <div
-            className="fixed z-50 w-80 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
-            style={{
-                left: position.x,
-                top: position.y,
-                transform: 'translate(-50%, -100%)',
-            }}
-        >
-            <div className="p-4">
-                {/* TV poster - landscape orientation */}
-                <div className="w-full h-32 bg-neutral-700 rounded mb-3 flex items-center justify-center overflow-hidden">
-                    {posterDataUrl ? (
-                        <img
-                            src={posterDataUrl}
-                            alt={`${metadata.showTitle} poster`}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                                console.log("TV poster failed to display:", e);
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.parentElement!.querySelector('.poster-placeholder')!.classList.remove('hidden');
-                            }}
-                            onLoad={() => {
-                                console.log("TV poster displayed successfully");
-                            }}
-                        />
-                    ) : imageLoading ? (
-                        <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs">
-                            Loading...
+    if (metadata.type === "episode") {
+        return (
+            <div
+                className="fixed z-50 w-80 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
+                style={{
+                    left: smartPosition.x,
+                    top: smartPosition.y,
+                    transform: smartPosition.transform,
+                }}
+            >
+                <div className="p-4">
+                    {/* TV poster - landscape orientation */}
+                    <div className="w-full h-32 bg-neutral-700 rounded mb-3 flex items-center justify-center overflow-hidden">
+                        {posterDataUrl ? (
+                            <img
+                                src={posterDataUrl}
+                                alt={`${metadata.showTitle} poster`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    console.log("TV poster failed to display:", e);
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.parentElement!.querySelector('.poster-placeholder')!.classList.remove('hidden');
+                                }}
+                                onLoad={() => {
+                                    console.log("TV poster displayed successfully");
+                                }}
+                            />
+                        ) : imageLoading ? (
+                            <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs">
+                                Loading...
+                            </div>
+                        ) : null}
+                        <div className={`w-full h-full flex items-center justify-center text-neutral-400 text-xs poster-placeholder ${posterDataUrl || imageLoading ? 'hidden' : ''}`}>
+                            Poster
                         </div>
-                    ) : null}
-                    <div className={`w-full h-full flex items-center justify-center text-neutral-400 text-xs poster-placeholder ${posterDataUrl || imageLoading ? 'hidden' : ''}`}>
-                        Poster
                     </div>
-                </div>
 
-                <div className="space-y-1">
-                    <h3 className="font-semibold text-neutral-100 text-sm leading-tight mb-2">
-                        {metadata.showTitle} - {metadata.title}
-                    </h3>
+                    <div className="space-y-1">
+                        <h3 className="font-semibold text-neutral-100 text-sm leading-tight mb-2">
+                            {metadata.showTitle} - {metadata.title}
+                        </h3>
 
-                    <div className="space-y-1 text-xs text-neutral-300">
-                        <div className="flex gap-2">
-                            <span className="text-neutral-400">Show:</span>
-                            <span>{metadata.showTitle}</span>
+                        <div className="space-y-1 text-xs text-neutral-300">
+                            <div className="flex gap-2">
+                                <span className="text-neutral-400">Show:</span>
+                                <span>{metadata.showTitle}</span>
+                            </div>
+                            {metadata.season && metadata.index && (
+                                <div className="flex gap-2">
+                                    <span className="text-neutral-400">Episode:</span>
+                                    <span>S{metadata.season.toString().padStart(2, '0')}E{metadata.index.toString().padStart(2, '0')}</span>
+                                </div>
+                            )}
+                            {metadata.year && (
+                                <div className="flex gap-2">
+                                    <span className="text-neutral-400">Year:</span>
+                                    <span>{metadata.year}</span>
+                                </div>
+                            )}
+                            {metadata.parentTitle && (
+                                <div className="flex gap-2">
+                                    <span className="text-neutral-400">Season:</span>
+                                    <span>{metadata.parentTitle}</span>
+                                </div>
+                            )}
                         </div>
-                        {metadata.season && metadata.index && (
-                            <div className="flex gap-2">
-                                <span className="text-neutral-400">Episode:</span>
-                                <span>S{metadata.season.toString().padStart(2, '0')}E{metadata.index.toString().padStart(2, '0')}</span>
-                            </div>
-                        )}
-                        {metadata.year && (
-                            <div className="flex gap-2">
-                                <span className="text-neutral-400">Year:</span>
-                                <span>{metadata.year}</span>
-                            </div>
-                        )}
-                        {metadata.parentTitle && (
-                            <div className="flex gap-2">
-                                <span className="text-neutral-400">Season:</span>
-                                <span>{metadata.parentTitle}</span>
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>
-        </div>
-    );
+        );
+    }
+
+    // Music card layout - stacked with square poster
+    if (metadata.type === "music") {
+        return (
+            <div
+                className="fixed z-50 w-80 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
+                style={{
+                    left: smartPosition.x,
+                    top: smartPosition.y,
+                    transform: smartPosition.transform,
+                }}
+            >
+                <div className="p-4">
+                    {/* Music poster - square orientation */}
+                    <div className="w-48 h-48 bg-neutral-700 rounded mb-3 flex items-center justify-center overflow-hidden mx-auto">
+                        {posterDataUrl ? (
+                            <img
+                                src={posterDataUrl}
+                                alt={`${metadata.artist} - ${metadata.album} poster`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    console.log("Music poster failed to display:", e);
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.parentElement!.querySelector('.poster-placeholder')!.classList.remove('hidden');
+                                }}
+                                onLoad={() => {
+                                    console.log("Music poster displayed successfully");
+                                }}
+                            />
+                        ) : imageLoading ? (
+                            <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs">
+                                Loading...
+                            </div>
+                        ) : null}
+                        <div className={`w-full h-full flex items-center justify-center text-neutral-400 text-xs poster-placeholder ${posterDataUrl || imageLoading ? 'hidden' : ''}`}>
+                            Album Art
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <h3 className="font-semibold text-neutral-100 text-sm leading-tight mb-2">
+                            {metadata.track}
+                        </h3>
+
+                        <div className="space-y-1 text-xs text-neutral-300">
+                            <div className="flex gap-2">
+                                <span className="text-neutral-400">Artist:</span>
+                                <span>{metadata.artist}</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <span className="text-neutral-400">Album:</span>
+                                <span>{metadata.album}</span>
+                            </div>
+                            {metadata.year && (
+                                <div className="flex gap-2">
+                                    <span className="text-neutral-400">Year:</span>
+                                    <span>{metadata.year}</span>
+                                </div>
+                            )}
+                            {metadata.genre && (
+                                <div className="flex gap-2">
+                                    <span className="text-neutral-400">Genre:</span>
+                                    <span>{metadata.genre}</span>
+                                </div>
+                            )}
+                            {metadata.trackNumber && (
+                                <div className="flex gap-2">
+                                    <span className="text-neutral-400">Track:</span>
+                                    <span>{metadata.trackNumber}</span>
+                                </div>
+                            )}
+                            {metadata.disc && (
+                                <div className="flex gap-2">
+                                    <span className="text-neutral-400">Disc:</span>
+                                    <span>{metadata.disc}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Default fallback (should not happen with proper typing)
+    return null;
 }

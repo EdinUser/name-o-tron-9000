@@ -8,6 +8,7 @@ mod path_map;
 mod settings;
 mod plex_api;
 mod secure;
+mod subtitle;
 
 // Re-export functions used by frontend
 pub use plex_api::fetch_library_content;
@@ -337,6 +338,9 @@ pub fn run() {
             secure::secure_save_token,
             secure::secure_get_token,
             secure::secure_clear_token,
+            subtitle::preview_renames,
+            subtitle::apply_renames,
+            subtitle::undo_last_rename,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

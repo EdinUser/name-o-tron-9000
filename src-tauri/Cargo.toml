@@ -34,3 +34,5 @@ whoami = "1.5"
 ureq = { version = "2.9", default-features = false, features = ["tls", "json"] }
 base64 = "0.22"
 dirs = "5.0"
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1.10"

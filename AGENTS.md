@@ -19,21 +19,18 @@ Relevant specs are in:
 - **Complete UI Framework**: All 5 pages implemented (Home, Library Selection, Show Selection, Preview, Settings)
 - **Plex Integration**: Full API integration with server discovery (SSDP multicast), PIN authentication, and metadata fetching
 - **Safety Systems**: Traffic-light status system (🟩/🟨/🟥/❌) with comprehensive validation and batch guards
-- **Settings Management**: All 5 tabs fully implemented with every setting option from specifications
+- **Settings Management**: All 5 tabs fully implemented with every setting option from specifications, using consistent custom Radio and Select components
 - **Path Mapping**: Cross-platform path resolution with validation and UI for managing mappings
 - **Template Engine**: Live template editing with placeholder support and validation
 - **Security**: System keyring integration for secure token storage
 - **Metadata Popovers + Posters**: Hover cards with Plex metadata and poster thumbnails via a backend image fetcher with caching
 
-### 🔄 PARTIALLY IMPLEMENTED
-- **Preview System**: Complete proposal generation and status checking, but uses mock filesystem operations
+### ✅ FULLY IMPLEMENTED (Frontend + Backend)
+- **Rename Engine**: Complete filesystem operations with atomic operations, comprehensive rollback logging, and safety checks
+- **Subtitle Handling**: Full subtitle detection, classification, renaming, and encoding conversion with rollback support
+- **Preview System**: Complete proposal generation with real filesystem validation and subtitle operations
 
-### ❌ MISSING (Critical Next Steps)
-- **Rename Engine**: The actual filesystem operations (`preview_renames`, `apply_renames`, `undo_last_rename`)
-- **Rollback Logging**: JSON log writing for undo functionality
-- **Filesystem Safety**: Permission checks and atomic file operations
-
-**The app can currently discover servers, authenticate, browse libraries, generate rename proposals with safety checks, and manage all settings - but cannot actually perform filesystem operations yet.**
+**The app now provides end-to-end functionality: discover servers, authenticate, browse libraries, generate rename proposals with safety checks, preview subtitle operations, and perform actual filesystem renames with full rollback capabilities.**
 
 ## Scope
 - This file applies to the entire repository tree.
@@ -86,12 +83,12 @@ IPC contract (current commands):
 - `test_mapping({ server_id, plex_root, local_root })` → mapping validation (exists/writable)
 - `get_settings()` / `save_settings(settings)`
 - `secure_save_token(token)` / `secure_get_token()` / `secure_clear_token()`
+- `preview_renames({libraryId, scope, settings})` → {video_operations, subtitle_operations, warnings, blocking_errors}
+- `apply_renames({operations, settings})` → {success, operations_applied, operations_failed, rollback_log_path, errors}
+- `undo_last_rename()` → {success, operations_applied, operations_failed, rollback_log_path, errors}
 
-Planned (not yet implemented; UI stubs present):
-- `preview_renames({libraryId, scope, settings})` → [{old, new, status, flags}]
-- `apply_renames({plan, settings})` → {summary, logPath}
-- `undo_last_rename()` → summary
-- `retry_skipped()` → new preview for skipped
+**Planned for future enhancement:**
+- `retry_skipped()` → new preview for skipped items
 
 ## Safety & Recovery (must‑haves)
 Follow `docs/name-o-tron-9000-safety.md:1`.
@@ -107,12 +104,27 @@ Follow `docs/name-o-tron-9000-safety.md:1`.
 - Export logs TXT/CSV/JSON; store at `~/.nameotron/logs/` (cross‑platform app‑data dir)
 
 Current state in code:
-- Preview enforces traffic‑light rules for template output (invalid chars, path length, non‑media ext, non‑Latin highlighting). Filesystem checks (perms/target exists) are pending with the rename engine.
+- Preview enforces traffic‑light rules for template output (invalid chars, path length, non‑media ext, non‑Latin highlighting).
+- Rename engine implements real filesystem operations with atomic operations, comprehensive safety checks, and full rollback logging.
+- Subtitle operations are fully integrated with detection, classification, encoding conversion, and rollback support.
 
 Rollback log shape (example):
 ```json
 [
-  { "old": "Inception.1080p.mkv", "new": "Inception (2010).mkv", "status": "success" }
+  {
+    "operation_type": "rename",
+    "original_path": "Inception.1080p.mkv",
+    "new_path": "Inception (2010).mkv",
+    "backup_path": null,
+    "status": "success"
+  },
+  {
+    "operation_type": "rename",
+    "original_path": "Inception.eng.srt",
+    "new_path": "Inception (2010).eng.srt",
+    "backup_path": null,
+    "status": "success"
+  }
 ]
 ```
 
@@ -170,7 +182,11 @@ Agent practices:
   - Consistent compact sizing, dark theme, and custom caret
   - Accessible focus styles and predictable behavior across platforms
   - Easy future updates to dropdown styling in a single place
-- Avoid native `<select>` styling directly in pages; if an exception is required, match the Select styles.
+- Use the shared `Radio` component in `src/components/Radio.tsx` for ALL radio button groups. This ensures:
+  - Consistent pill-style segmented controls for multi-option selections
+  - Proper keyboard navigation and accessibility
+  - Unified styling that matches the app's dark theme
+- Avoid native `<select>` or `<input type="radio">` styling directly in pages; if an exception is required, match the Select/Radio component styles.
 
 Planning & messaging (for agent UIs):
 - Maintain a short plan; one step in progress
@@ -187,25 +203,19 @@ Planning & messaging (for agent UIs):
 - **Basic Settings page (General tab only)** - All 5 tabs fully implemented, far exceeding original scope
 - **Rescan library via Plex API** - Implemented via reload functionality in Preview page
 
-### 🔄 PARTIALLY COMPLETED
-- **Renaming engine with dry‑run and safety checks** - Template application and safety validation complete, but actual filesystem operations pending
-
-### ❌ PENDING
-- **Apply rename + write rollback log** - Core filesystem operations and logging system needed
+### ✅ COMPLETED
+- **Renaming engine with dry‑run and safety checks** - Complete with atomic filesystem operations, comprehensive rollback logging, and subtitle handling
 
 ## Next Phases (high‑level)
 
-**Immediate Priority (Complete MVP):**
-1. **🔴 Rename Engine Implementation** - Core filesystem operations
-   - Implement `preview_renames`, `apply_renames`, `undo_last_rename` commands
-   - Add robust filesystem safety checks and atomic operations
-   - Create rollback logging system (JSON logs to `~/.nameotron/logs/`)
+**MVP Complete!** ✅
+- All core functionality implemented: discovery, authentication, preview, rename engine, rollback, and subtitle handling
 
 **Enhancement Priorities (Post-MVP):**
-2. **🟡 Auto‑Fix Reds heuristics** - Smart conflict resolution and path sanitization
-3. **🟡 Retry Skipped flow** - Workflow for handling previously skipped items
-4. **🟡 Unmatched workflows** - Better handling of files not in Plex database
-5. **🟢 Advanced Features** - Webhook listener, enhanced UI modes, batch processing optimizations
+1. **🟡 Auto‑Fix Reds heuristics** - Smart conflict resolution and path sanitization
+2. **🟡 Retry Skipped flow** - Workflow for handling previously skipped items
+3. **🟡 Unmatched workflows** - Better handling of files not in Plex database
+4. **🟢 Advanced Features** - Webhook listener, enhanced UI modes, batch processing optimizations
 
 ## Definition of Done
 - Behavior aligns with `docs/` specs
@@ -277,40 +287,58 @@ Examples:
 - `A…(very long)…Z.mkv` (length > 255) → 🟥
 - `Amélie (2001).mkv` with highlightNonLatin = true → 🟨; otherwise 🟩
 
-Planned additions in the Rename Engine (apply‑time checks):
+Implemented in Rename Engine (apply‑time checks):
 - 🟥 for target already exists, duplicate target within batch, insufficient permissions, invalid source path, cross‑device failure unrecoverable.
+- Comprehensive subtitle operation validation and rollback logging.
 
-## Rename Engine Roadmap
+## Rename Engine Implementation ✅
 
-Invariants:
+**Status: FULLY IMPLEMENTED**
+
+The rename engine provides complete filesystem operations with comprehensive safety and rollback capabilities.
+
+**Invariants:**
 - Never execute apply with any selected 🟥 items.
-- Dry‑run first: compute mapping and statuses before touching disk.
-- Atomic intent: prefer `rename` within the same filesystem; on cross‑device moves, copy + fsync + metadata + verified cleanup.
+- Atomic operations: prefer `rename` within the same filesystem; cross‑device moves use copy + verified cleanup.
 - Idempotent where possible: safe to re‑apply after partial failure using logs.
+- Comprehensive subtitle operation support with encoding conversion and rollback.
 
-Operations:
-- `preview_renames(...)`
-  - Input: library scope + settings
-  - Output: `{ old, new, status, flags }[]` using existing template engine and validation.
-- `apply_renames({ plan, settings })`
-  - Pre‑flight: check permissions, collisions, create parent dirs; block if any 🟥.
-  - Execution: for each item
-    - Same‑device: `std::fs::rename` to a temp name then final destination, or directly if safe
-    - Cross‑device: copy to temp, fsync, set times/attrs where viable, then delete source
-  - Logging: append per‑item result to rollback log (JSONL or array) as you go; fsync log file periodically.
-  - Return `{ summary, logPath }`.
+**Operations:**
+- `preview_renames({libraryId, scope, settings})`
+  - Input: library scope + complete settings
+  - Output: `{video_operations, subtitle_operations, warnings, blocking_errors}`
+  - Validates all operations before execution
+- `apply_renames({operations, settings})`
+  - Pre‑flight: checks permissions, collisions, creates parent dirs; blocks if any 🟥
+  - Execution: atomic operations for each item (video + subtitle)
+  - Logging: writes comprehensive JSON rollback log with operation details
+  - Return: `{success, operations_applied, operations_failed, rollback_log_path, errors}`
 - `undo_last_rename()`
-  - Read the most recent rollback log and reverse successful entries; skip missing files safely.
+  - Reads the most recent rollback log and reverses successful entries
+  - Safely handles missing files and partial failures
+  - Return: same format as apply_renames
 
-Rollback logging:
-- Location: `~/.nameotron/logs/` in the OS app‑data dir (see `settings.rs`).
-- Shape (JSON array):
-  - `[ { "old": "Inception.1080p.mkv", "new": "Inception (2010).mkv", "status": "success" } ]`
-- Always create a log for every apply run (even on dry‑run if configured, marked accordingly).
+**Rollback logging:**
+- Location: `~/.nameotron/logs/` in the OS app‑data dir
+- Shape (JSON array with operation details):
+  ```json
+  [
+    {
+      "operation_type": "rename",
+      "original_path": "Inception.1080p.mkv",
+      "new_path": "Inception (2010).mkv",
+      "backup_path": null,
+      "status": "success"
+    }
+  ]
+  ```
+- Includes subtitle operations, encoding conversions, and backup file paths
+- Always created for every apply run with detailed operation metadata
 
-Failure handling:
-- Stop‑on‑first‑fatal vs continue‑and‑report configurable post‑MVP; MVP may stop on fatal and report partials.
-- On crash mid‑batch, log allows manual or automated resume/undo.
+**Failure handling:**
+- Stops on blocking errors, continues with warnings where safe
+- On crash mid‑batch, rollback log allows manual or automated recovery
+- Encoding conversion failures skip the operation with detailed error logging
 
 ## Path Mapping Guide
 
@@ -351,6 +379,8 @@ Common flows:
 Tips:
 - To simulate token persistence, set `general.authPersistence` to `secure` (keyring) or `file` (localStorage + settings).
 - Use settings modal to tweak templates and verify preview recalculations immediately.
+- Test subtitle operations by creating test files with various naming patterns (e.g., `Movie.eng.srt`, `2_English.srt`).
+- Verify rollback functionality by checking `~/.nameotron/logs/` for JSON logs after apply operations.
 
 ## Performance Notes
 

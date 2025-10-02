@@ -1,4 +1,5 @@
 import { EditionParser } from "../state/settings";
+import Toggle from "./Toggle";
 
 type Props = {
   isOpen: boolean;
@@ -73,11 +74,9 @@ export default function EditionParsersModal({ isOpen, onClose, parsers, onChange
             <div className="grid grid-cols-2 gap-2">
               {contentParsers.map(parser => (
                 <label key={parser.id} className="flex items-center gap-2 p-2 rounded hover:bg-neutral-800 cursor-pointer">
-                  <input
-                    type="checkbox"
+                  <Toggle
                     checked={parser.enabled}
                     onChange={() => handleToggleParser(parser.id)}
-                    className="h-4 w-4 accent-cyan-500"
                   />
                   <span className="text-neutral-200">{parser.name}</span>
                 </label>
@@ -107,11 +106,9 @@ export default function EditionParsersModal({ isOpen, onClose, parsers, onChange
             <div className="grid grid-cols-2 gap-2">
               {technicalParsers.map(parser => (
                 <label key={parser.id} className="flex items-center gap-2 p-2 rounded hover:bg-neutral-800 cursor-pointer">
-                  <input
-                    type="checkbox"
+                  <Toggle
                     checked={parser.enabled}
                     onChange={() => handleToggleParser(parser.id)}
-                    className="h-4 w-4 accent-cyan-500"
                   />
                   <span className="text-neutral-200">{parser.name}</span>
                 </label>
