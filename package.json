@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "mock:plex": "node tests/mock-plex-server.cjs"
+    "mock:plex": "node _helpers/tests/mock-plex-server.cjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

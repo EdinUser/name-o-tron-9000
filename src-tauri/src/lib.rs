@@ -1,6 +1,8 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::Serialize;
-use plex_api::{list_libraries, plex_login, plex_login_status, plex_logout};
+use plex_api::list_libraries;
+mod plex_auth;
+use plex_auth::{plex_login, plex_login_status, plex_logout};
 use base64::{Engine as _, engine::general_purpose};
 use std::fs;
 use dirs;

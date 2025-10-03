@@ -2,55 +2,21 @@ use once_cell::sync::Lazy;
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
-use tauri_plugin_opener::OpenerExt;
+use std::time::Duration;
 
-#[derive(Debug, Clone)]
-pub struct LoginState {
-    pub client_id: String,
-    pub _pin_id: i64,
-    pub _code: String,
-    pub _started_at: Instant,
-    pub _expires_in: i64,
-    pub token: Option<String>,
-    pub status: LoginStatus,
+#[derive(Serialize, Deserialize)]
+pub struct PlexLibraryDto {
+    pub key: String,
+    #[serde(rename = "type")]
+    pub r#type: String,
+    pub title: String,
+    #[serde(default)]
+    pub roots: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum LoginStatus {
-    #[serde(rename = "pending")]
-    Pending,
-    #[serde(rename = "authorized")]
-    Authorized,
-    #[serde(rename = "error")]
-    Error,
-    #[serde(rename = "expired")]
-    Expired,
-    #[serde(rename = "idle")]
-    Idle,
-}
 
-#[derive(Deserialize)]
-struct PinCreateResp {
-    id: i64,
-    code: String,
-    #[serde(default, rename = "expiresIn")]
-    expires_in: i64,
-}
 
-#[derive(Deserialize)]
-struct PinPollResp {
-    _id: i64,
-    _code: String,
-    #[serde(default, rename = "expiresIn")]
-    _expires_in: i64,
-    #[serde(default, rename = "authToken")]
-    auth_token: Option<String>,
-}
 
-static LOGIN: Lazy<Mutex<Option<LoginState>>> = Lazy::new(|| Mutex::new(None));
 
 fn with_plex_headers(
     builder: reqwest::RequestBuilder,
@@ -68,262 +34,46 @@ fn with_plex_headers(
         .header("Accept", "application/json")
 }
 
-async fn create_pin(client: &reqwest::Client, client_id: &str) -> Result<PinCreateResp, String> {
-    let url = "https://plex.tv/api/v2/pins?strong=true";
-    let resp = with_plex_headers(client.post(url), client_id)
-        .send()
-        .await
-        .map_err(|e| format!("create pin error: {e}"))?;
-    
-    let status = resp.status();
-    let text = resp.text().await.unwrap_or_default();
-    
-    if !status.is_success() {
-        return Err(format!("create pin http {}: {}", status, text));
-    }
-    
-    serde_json::from_str(&text)
-        .map_err(|e| format!("create pin parse error: {e}"))
-}
-
-async fn poll_pin(client: &reqwest::Client, client_id: &str, pin_id: i64) -> Result<PinPollResp, String> {
-    let url = format!("https://plex.tv/api/v2/pins/{}", pin_id);
-    let resp = with_plex_headers(client.get(url), client_id)
-        .send()
-        .await
-        .map_err(|e| format!("poll pin error: {e}"))?;
-        
-    let status = resp.status();
-    let text = resp.text().await.unwrap_or_default();
-    
-    if !status.is_success() {
-        return Err(format!("poll pin http {}: {}", status, text));
-    }
-    
-    serde_json::from_str(&text)
-        .map_err(|e| format!("poll pin parse error: {e}"))
-}
-
-#[derive(Serialize)]
-pub struct LoginStartResult {
-    pub status: LoginStatus,
-    pub code: String,
-    pub client_id: String,
-    pub auth_url: String,
-}
-
-#[tauri::command]
-pub async fn plex_login(app: tauri::AppHandle) -> Result<LoginStartResult, String> {
-    println!("Starting Plex login process...");
-    
-    let client_id = uuid::Uuid::new_v4().to_string();
-    println!("Generated client ID: {}", client_id);
-
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()
-        .map_err(|e| {
-            let error = format!("Failed to create HTTP client: {}", e);
-            println!("{}", error);
-            error
-        })?;
-
-    println!("Creating Plex PIN...");
-    let pin = create_pin(&client, &client_id).await.map_err(|e| {
-        let error = format!("Failed to create Plex PIN: {}", e);
-        println!("{}", error);
-        error
-    })?;
-    
-    println!("Created PIN with ID: {}", pin.id);
-    
-    let auth_url = format!(
-        "https://app.plex.tv/auth#?clientID={}&code={}",
-        urlencoding::encode(&client_id),
-        urlencoding::encode(&pin.code)
-    );
-    
-    println!("Auth URL: {}", auth_url);
-
-    // Save state
-    let login_state = LoginState {
-        client_id: client_id.clone(),
-        _pin_id: pin.id,
-        _code: pin.code.clone(),
-        _started_at: Instant::now(),
-        _expires_in: if pin.expires_in > 0 { pin.expires_in } else { 120 },
-        token: None,
-        status: LoginStatus::Pending,
-    };
-    
-    println!("Saving login state...");
-    {
-        let mut guard = LOGIN.lock().map_err(|e| {
-            let error = format!("Failed to acquire login state lock: {}", e);
-            println!("{}", error);
-            error
-        })?;
-        *guard = Some(login_state);
-    }
-
-    // Open browser via opener plugin
-    println!("Opening browser for authentication...");
-    if let Err(e) = app.opener().open_url(auth_url.clone(), Option::<String>::None) {
-        let error = format!("Failed to open browser: {}", e);
-        println!("{}", error);
-        return Err(error);
-    }
-
-    // Clone values needed for background task
-    let client_id_for_poller = client_id.clone();
-    let pin_id = pin.id;
-
-    // Start background poller using tokio::spawn for async operations
-    tokio::spawn(async move {
-        println!("Starting background poller for PIN {}...", pin_id);
-        
-        let poll_client = match reqwest::Client::builder()
-            .timeout(Duration::from_secs(30))
-            .build() {
-                Ok(client) => client,
-                Err(e) => {
-                    println!("Failed to create poll client: {}", e);
-                    return;
-                }
-            };
-            
-        let deadline = Instant::now() + Duration::from_secs(300); // 5 minutes timeout
-        let mut status = LoginStatus::Pending;
-        let mut token: Option<String> = None;
-        let mut last_error = None;
-
-        while Instant::now() < deadline {
-            match poll_pin(&poll_client, &client_id_for_poller, pin_id).await {
-                Ok(r) => {
-                    println!("Poll response: auth_token={:?}", r.auth_token.is_some());
-                    if let Some(auth_token) = r.auth_token {
-                        println!("Authentication successful!");
-                        token = Some(auth_token);
-                        status = LoginStatus::Authorized;
-                        break;
-                    }
-                }
-                Err(e) => {
-                    println!("Poll error: {}", e);
-                    last_error = Some(e);
-                    tokio::time::sleep(Duration::from_secs(2)).await;
-                }
-            }
-        }
-
-        if status != LoginStatus::Authorized {
-            println!("Authentication failed or timed out");
-            if let Some(err) = last_error {
-                println!("Last error: {}", err);
-            }
-            return; // Just return without error since we're in a spawned task
-        }
-
-        let mut guard = match LOGIN.lock() {
-            Ok(guard) => guard,
-            Err(e) => {
-                println!("Failed to acquire login state lock: {}", e);
-                return;
-            }
-        };
-        
-        if let Some(login) = guard.as_mut() {
-            login.status = status;
-            login.token = token.clone();
-            println!("Updated login state: status={:?}, has_token={}", status, token.is_some());
-        }
-    });
-
-    let result = LoginStartResult {
-        status: LoginStatus::Pending,
-        code: pin.code,
-        client_id,
-        auth_url,
-    };
-    
-    println!("Login process started successfully");
-    Ok(result)
-}
-
-#[derive(Serialize)]
-pub struct LoginStatusResult {
-    pub status: LoginStatus,
-    pub token: Option<String>,
-}
-
-#[tauri::command]
-pub fn plex_login_status() -> Result<LoginStatusResult, String> {
-    println!("Checking login status...");
-    
-    let guard = match LOGIN.lock() {
-        Ok(guard) => guard,
-        Err(e) => {
-            let error = format!("Failed to acquire login state lock: {}", e);
-            println!("{}", error);
-            return Err(error);
-        }
-    };
-    
-    if let Some(state) = &*guard {
-        println!("Current login status: {:?}, has_token: {}", state.status, state.token.is_some());
-        Ok(LoginStatusResult {
-            status: state.status,
-            token: state.token.clone(),
-        })
-    } else {
-        println!("No active login session found");
-        Ok(LoginStatusResult {
-            status: LoginStatus::Idle,
-            token: None,
-        })
-    }
-}
-
-#[tauri::command]
-pub fn plex_logout() -> Result<(), String> {
-    let mut guard = LOGIN.lock().unwrap();
-    if let Some(state) = guard.as_mut() {
-        state.token = None;
-        state.status = LoginStatus::Idle;
-    } else {
-        *guard = Some(LoginState {
-            client_id: uuid::Uuid::new_v4().to_string(),
-            _pin_id: 0,
-            _code: String::new(),
-            _started_at: Instant::now(),
-            _expires_in: 0,
-            token: None,
-            status: LoginStatus::Idle,
-        });
-    }
-    Ok(())
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct PlexLibraryDto {
-    pub key: String,
-    #[serde(rename = "type")]
-    pub r#type: String,
-    pub title: String,
-    #[serde(default)]
-    pub roots: Vec<String>,
-}
 
 fn current_client_id() -> String {
-    if let Some(s) = LOGIN.lock().unwrap().as_ref() {
+    if let Some(s) = crate::plex_auth::LOGIN.lock().unwrap().as_ref() {
         return s.client_id.clone();
     }
-    // Fallback stable id for non-login flows
     static FALLBACK: Lazy<String> = Lazy::new(|| uuid::Uuid::new_v4().to_string());
     FALLBACK.clone()
 }
 
-// Note: keep imports lean; unused imports trigger warnings in dev builds.
+async fn fetch_server_access_token(
+    account_token: &str,
+    client_id: &str,
+    server_base: &str,
+) -> Option<String> {
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(15)).build().ok()?;
+    let url = "https://plex.tv/api/v2/resources?includeHttps=1&includeRelay=1";
+    let resp = with_plex_headers(client.get(url), client_id)
+        .header("X-Plex-Token", account_token)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .ok()?;
+    if !resp.status().is_success() { return None; }
+    let text = resp.text().await.ok()?;
+    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let arr = v.as_array()?;
+    let target = server_base.trim_end_matches('/').to_ascii_lowercase();
+    for dev in arr {
+        if dev.get("product").and_then(|x| x.as_str()).unwrap_or("") != "Plex Media Server" { continue; }
+        let access = dev.get("accessToken").and_then(|x| x.as_str());
+        let conns = dev.get("connections").and_then(|x| x.as_array()).cloned().unwrap_or_default();
+        for c in conns {
+            let uri = c.get("uri").and_then(|x| x.as_str()).unwrap_or("").to_ascii_lowercase();
+            if !uri.is_empty() && (target == uri.trim_end_matches('/') || uri.trim_end_matches('/').ends_with(&target)) {
+                if let Some(tok) = access { return Some(tok.to_string()); }
+            }
+        }
+    }
+    None
+}
 
 #[tauri::command]
 pub async fn fetch_library_content(
@@ -1306,7 +1056,7 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
             ));
         }
     };
-    
+
     let status = response.status();
     let response_text = match response.text().await {
         Ok(text) => text,
@@ -1318,7 +1068,55 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
     };
 
     println!("Received response status: {}", status);
-    
+
+    if status.as_u16() == 401 {
+        if let Some(acc_tok) = token.as_deref() {
+            println!("list_libraries: 401 – attempting server access token via plex.tv resources");
+            if let Some(server_tok) = fetch_server_access_token(acc_tok, &client_id, &bases[0]).await {
+                println!("list_libraries: obtained server token, retrying across candidates");
+                let mut retry_urls: Vec<String> = Vec::new();
+                for b in &bases {
+                    retry_urls.push(format!("{}/library/sections?X-Plex-Token={}", b, urlencoding::encode(&server_tok)));
+                    retry_urls.push(format!("{}/library/sections/?X-Plex-Token={}", b, urlencoding::encode(&server_tok)));
+                }
+                for (i, u) in retry_urls.iter().enumerate() {
+                    println!("list_libraries: retry {} → {}", i + 1, u);
+                    let mut req = with_plex_headers(client.get(u), &client_id)
+                        .header("Accept", "application/json, application/xml;q=0.9")
+                        .header("Accept-Encoding", "identity")
+                        .header("Connection", "close")
+                        .header("X-Plex-Token", &server_tok);
+                    match req.send().await {
+                        Ok(r) => {
+                            if r.status().is_success() {
+                                let body = r.text().await.unwrap_or_default();
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                                    let dirs = json.get("MediaContainer").and_then(|m| m.get("Directory")).and_then(|x| x.as_array()).cloned().unwrap_or_default();
+                                    let mut out = Vec::new();
+                                    for d in dirs {
+                                        let key = d.get("key").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                                        let typ = d.get("type").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                                        let title = d.get("title").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                                        if !key.is_empty() && !title.is_empty() { out.push(PlexLibraryDto { key, r#type: typ, title, roots: vec![] }); }
+                                    }
+                                    return Ok(out);
+                                }
+                            } else {
+                                println!("list_libraries: retry got {}", r.status());
+                            }
+                        }
+                        Err(e) => {
+                            println!("list_libraries: retry error {} on {}", e, u);
+                        }
+                    }
+                }
+                println!("list_libraries: retries with server token failed");
+            } else {
+                println!("list_libraries: could not obtain server token from resources");
+            }
+        }
+    }
+
     if !status.is_success() {
         let error = format!("HTTP {}: {}", status, response_text);
         println!("Error response: {}", error);
@@ -1425,15 +1223,20 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                 in_dir = false;
                 cur_roots.clear();
             }
+            Ok(Event::End(_)) => {
+                // Handle other end tags (like Location)
+            }
+            Ok(_) => {
+                // Handle other event types (Text, Comment, etc.)
+            }
             Err(e) => {
                 println!("XML parsing error: {}", e);
                 break;
-            },
-            _ => {}
+            }
         }
         buf.clear();
     }
-    
+
     if !out.is_empty() {
         println!("Successfully parsed {} libraries from XML", out.len());
         return Ok(out);

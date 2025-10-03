@@ -32,4 +32,4 @@ src-tauri/target/
 src-tauri/.cargo/
 
 # tests
-tests/*
+_helpers
