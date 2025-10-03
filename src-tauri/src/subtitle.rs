@@ -593,7 +593,6 @@ pub async fn undo_last_rename() -> Result<ApplyResult, String> {
     // Remove the log file after successful undo
     if operations_failed == 0 {
         if let Err(e) = fs::remove_file(&most_recent_log) {
-            eprintln!("Warning: Failed to remove rollback log: {}", e);
         }
     }
 

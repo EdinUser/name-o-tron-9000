@@ -141,7 +141,7 @@ pub async fn fetch_library_content(
     // Try reqwest first across candidates
     let mut last_reqwest_err: Option<String> = None;
     let mut response_opt = None;
-    for (i, url) in urls.iter().enumerate() {
+    for (_i, url) in urls.iter().enumerate() {
         let mut req = with_plex_headers(client.get(url), &client_id)
             .header("Accept", "application/json, application/xml;q=0.9")
             .header("Accept-Encoding", "identity")
@@ -149,7 +149,6 @@ pub async fn fetch_library_content(
         if let Some(t) = token.as_ref() {
             req = req.header("X-Plex-Token", t);
         }
-        println!("fetch_library_content: attempt {} → {}", i + 1, url);
         match req.send().await {
             Ok(resp) => {
                 let status = resp.status();
@@ -157,8 +156,7 @@ pub async fn fetch_library_content(
                     response_opt = Some(resp);
                     break;
                 } else {
-                    let body_len = resp.text().await.unwrap_or_default().len();
-                    println!("fetch_library_content: non-success {} (len {}) on {} — trying next candidate", status, body_len, url);
+                    let _body_len = resp.text().await.unwrap_or_default().len();
                     last_reqwest_err = Some(format!("HTTP {} @ {}", status, url));
                     continue;
                 }
@@ -168,7 +166,6 @@ pub async fn fetch_library_content(
                 if e.is_timeout() { kind = "timeout".into(); }
                 else if e.is_connect() { kind = "connect".into(); }
                 else if e.is_request() { kind = "request".into(); }
-                println!("fetch_library_content: reqwest {} on {} → {}", kind, url, e);
                 last_reqwest_err = Some(format!("{} @ {}", kind, url));
             }
         }
@@ -181,7 +178,6 @@ pub async fn fetch_library_content(
         Some(r) => r,
         None => {
             // Fallback to ureq (simple blocking client) for tricky servers
-            println!("fetch_library_content: falling back to ureq");
             let product = "Name-o-Tron 9000";
             let version = env!("CARGO_PKG_VERSION");
             let platform = std::env::consts::OS;
@@ -202,7 +198,6 @@ pub async fn fetch_library_content(
                     .set("X-Plex-Device", platform)
                     .set("X-Plex-Device-Name", &whoami::devicename());
                 if let Some(t) = token.as_ref() { r = r.set("X-Plex-Token", t); }
-                println!("fetch_library_content/ureq: attempt {} → {}", i + 1, url);
                 match r.call() {
                     Ok(resp) => {
                         let status = resp.status();
@@ -219,12 +214,10 @@ pub async fn fetch_library_content(
                             }
                         } else {
                             let len = resp.into_string().unwrap_or_default().len();
-                            println!("fetch_library_content/ureq: non-success {} (len {}) on {} — trying next", status, len, url);
                             continue;
                         }
                     }
                     Err(e) => {
-                        println!("fetch_library_content/ureq: error on {} → {}", url, e);
                     }
                 }
             }
@@ -236,10 +229,8 @@ pub async fn fetch_library_content(
     };
 
     let status = response.status();
-    println!("fetch_library_content: response status {}", status);
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        println!("fetch_library_content: non-success {} body len {}", status, body.len());
         return Err(format!("HTTP {}: {}", status, body));
     }
 
@@ -249,18 +240,15 @@ pub async fn fetch_library_content(
     if trimmed.starts_with('{') || trimmed.starts_with('[') {
         match serde_json::from_str::<serde_json::Value>(trimmed) {
             Ok(v) => return Ok(v),
-            Err(e) => println!("fetch_library_content: JSON parse error: {}", e),
+            Err(e) => return Err(format!("JSON parse error: {}", e)),
         }
     }
 
     // Try minimal XML → JSON adapter for MediaContainer/Video/Part.file
     if trimmed.starts_with('<') {
-        println!("fetch_library_content: attempting XML parse fallback");
         if let Some(json) = xml_media_to_json(&text) {
-            println!("fetch_library_content: XML parsed into JSON-like value ({} items)", json["MediaContainer"]["Metadata"].as_array().map(|a| a.len()).unwrap_or(0));
             return Ok(json);
         } else {
-            println!("fetch_library_content: XML parse fallback failed");
         }
     }
 
@@ -311,7 +299,6 @@ fn xml_collections_to_json(xml: &str) -> Option<serde_json::Value> {
             }
             Ok(Event::Eof) => break,
             Err(e) => {
-                println!("xml_collections_to_json: XML parse error: {}", e);
                 return None;
             }
             _ => {}
@@ -372,7 +359,6 @@ fn xml_collection_items_to_json(xml: &str) -> Option<serde_json::Value> {
             }
             Ok(Event::Eof) => break,
             Err(e) => {
-                println!("xml_collection_items_to_json: XML parse error: {}", e);
                 return None;
             }
             _ => {}
@@ -646,14 +632,11 @@ async fn http_get_with_variants(
             .header("Accept-Encoding", "identity")
             .header("Connection", "close");
         if let Some(t) = token { req = req.header("X-Plex-Token", t); }
-        println!("http_get_with_variants: attempt {} → {}", i + 1, url);
         match req.send().await {
             Ok(r) => {
-                println!("http_get_with_variants: success {} → {}", r.status(), url);
                 return Ok(r)
             },
             Err(e) => {
-                println!("http_get_with_variants: error on {} → {}", url, e);
                 last_err = Some(format!("{e}"));
             }
         }
@@ -740,7 +723,6 @@ pub async fn fetch_tv_shows(
                     }
                 }
                 let out = serde_json::json!({"MediaContainer": {"Directory": dirs}});
-                println!("fetch_tv_shows: normalized shows = {}", out["MediaContainer"]["Directory"].as_array().map(|a| a.len()).unwrap_or(0));
                 return Ok(out);
             }
             return Ok(v);
@@ -761,7 +743,6 @@ pub async fn search_content(
     limit: Option<usize>,
     token: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    println!("SEARCH API: Called with query='{}', section_id={:?}, limit={:?}", query, section_id, limit);
     let limit = limit.unwrap_or(3); // Default limit per hub type
 
     let base_in = server.trim_end_matches('/');
@@ -812,7 +793,6 @@ pub async fn search_content(
         if let Some(v) = xml_search_to_json(&text) { return Ok(v); }
     }
     // Debug: return raw response for investigation
-    println!("Search API raw response: {}", &text[..text.len().min(500)]);
     Ok(serde_json::json!({"_raw": text}))
 }
 
@@ -868,7 +848,7 @@ pub async fn fetch_collections(
                     if trimmed.starts_with('{') || trimmed.starts_with('[') {
                         match serde_json::from_str::<serde_json::Value>(trimmed) {
                             Ok(v) => return Ok(v),
-                            Err(e) => println!("fetch_collections: JSON parse error: {}", e),
+                            Err(e) => return Err(format!("JSON parse error: {}", e)),
                         }
                     }
 
@@ -881,7 +861,7 @@ pub async fn fetch_collections(
                     return Ok(serde_json::Value::String(text));
                 }
             }
-            Err(e) => println!("fetch_collections: reqwest error on {} → {}", url, e),
+            Err(e) => return Err(format!("reqwest error on {}: {}", url, e)),
         }
     }
 
@@ -920,7 +900,7 @@ pub async fn fetch_collection_items(
                     if trimmed.starts_with('{') || trimmed.starts_with('[') {
                         match serde_json::from_str::<serde_json::Value>(trimmed) {
                             Ok(v) => return Ok(v),
-                            Err(e) => println!("fetch_collection_items: JSON parse error: {}", e),
+                            Err(e) => return Err(format!("JSON parse error: {}", e)),
                         }
                     }
 
@@ -933,7 +913,7 @@ pub async fn fetch_collection_items(
                     return Ok(serde_json::Value::String(text));
                 }
             }
-            Err(e) => println!("fetch_collection_items: reqwest error on {} → {}", url, e),
+            Err(e) => return Err(format!("reqwest error on {}: {}", url, e)),
         }
     }
 
@@ -1062,25 +1042,20 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
         Ok(text) => text,
         Err(e) => {
             let error = format!("Failed to read response text: {}", e);
-            println!("{}", error);
             return Err(error);
         }
     };
 
-    println!("Received response status: {}", status);
 
     if status.as_u16() == 401 {
         if let Some(acc_tok) = token.as_deref() {
-            println!("list_libraries: 401 – attempting server access token via plex.tv resources");
             if let Some(server_tok) = fetch_server_access_token(acc_tok, &client_id, &bases[0]).await {
-                println!("list_libraries: obtained server token, retrying across candidates");
                 let mut retry_urls: Vec<String> = Vec::new();
                 for b in &bases {
                     retry_urls.push(format!("{}/library/sections?X-Plex-Token={}", b, urlencoding::encode(&server_tok)));
                     retry_urls.push(format!("{}/library/sections/?X-Plex-Token={}", b, urlencoding::encode(&server_tok)));
                 }
                 for (i, u) in retry_urls.iter().enumerate() {
-                    println!("list_libraries: retry {} → {}", i + 1, u);
                     let req = with_plex_headers(client.get(u), &client_id)
                         .header("Accept", "application/json, application/xml;q=0.9")
                         .header("Accept-Encoding", "identity")
@@ -1102,31 +1077,24 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                                     return Ok(out);
                                 }
                             } else {
-                                println!("list_libraries: retry got {}", r.status());
                             }
                         }
                         Err(e) => {
-                            println!("list_libraries: retry error {} on {}", e, u);
                         }
                     }
                 }
-                println!("list_libraries: retries with server token failed");
             } else {
-                println!("list_libraries: could not obtain server token from resources");
             }
         }
     }
 
     if !status.is_success() {
         let error = format!("HTTP {}: {}", status, response_text);
-        println!("Error response: {}", error);
         return Err(error);
     }
 
     // Try to parse as JSON first
-    println!("Attempting to parse response as JSON...");
     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text) {
-        println!("Successfully parsed JSON response");
         if let Some(media_container) = json.get("MediaContainer") {
             if let Some(dirs_val) = media_container.get("Directory") {
                 let dirs_slice: Vec<&serde_json::Value> = match dirs_val {
@@ -1146,20 +1114,15 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                     }
                     dirs.push(PlexLibraryDto { key, r#type: typ, title, roots });
                 }
-                println!("Parsed {} libraries (JSON)", dirs.len());
                 return Ok(dirs);
             } else {
-                println!("No 'Directory' field found in MediaContainer");
             }
         } else {
-            println!("No 'MediaContainer' field found in response");
         }
     } else {
-        println!("Failed to parse response as JSON, trying XML...");
     }
 
     // Fallback to XML parsing
-    println!("Attempting to parse response as XML...");
     let mut reader = Reader::from_str(&response_text);
     reader.trim_text(true);
     let mut buf = Vec::new();
@@ -1230,7 +1193,6 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                 // Handle other event types (Text, Comment, etc.)
             }
             Err(e) => {
-                println!("XML parsing error: {}", e);
                 break;
             }
         }
@@ -1238,13 +1200,11 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
     }
 
     if !out.is_empty() {
-        println!("Successfully parsed {} libraries from XML", out.len());
         return Ok(out);
     }
 
     // If we get here, neither JSON nor XML parsing worked
     let error = format!("Failed to parse libraries from response. Response: {}", response_text);
-    println!("{}", error);
     Err(error)
 }
 

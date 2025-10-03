@@ -39,12 +39,10 @@ export default function Home({onSelectServer}: Props) {
             ];
 
             // Try real Tauri discovery if backend implemented; merge unique results
-            console.debug("Discover: invoking backend discovery with hint 192.168.1.132");
             let found: PlexServer[] | null = null;
             try {
                 found = await invoke<PlexServer[]>("plex_discover", { hints: ["192.168.1.132"] });
             } catch (e: any) {
-                console.warn("Discover: backend invoke failed", e);
                 setError(`Discovery failed: ${e?.message ?? String(e)}`);
                 found = null;
             }
@@ -64,7 +62,6 @@ export default function Home({onSelectServer}: Props) {
             try { await invoke("save_settings", { settings: { discovery: { servers: unique } } }); } catch { /* ignore */ }
             if (unique.length && selectedIdx == null) setSelectedIdx(0);
         } catch (e: any) {
-            console.error("Discover: unexpected error", e);
             if (discoverRun.current === runId) setError(e?.message ?? String(e));
         } finally {
             const elapsed = Date.now() - started;
@@ -86,7 +83,6 @@ export default function Home({onSelectServer}: Props) {
         setDiscovering(true);
         const started = Date.now();
         try {
-            console.debug("Manual add: invoking backend discovery with hint", input);
             const found = await invoke<PlexServer[]>("plex_discover", { hints: [input] });
             if (!Array.isArray(found) || found.length === 0) {
                 setError("Could not reach the provided server. Check address and try again.");
@@ -105,7 +101,6 @@ export default function Home({onSelectServer}: Props) {
             try { await invoke("save_settings", { settings: { discovery: { servers: unique } } }); } catch { /* ignore */ }
             if (unique.length) setSelectedIdx(unique.findIndex(s => s.address.toLowerCase().includes(input.replace(/^https?:\/\//, '').split(':')[0].toLowerCase())) || 0);
         } catch (e: any) {
-            console.error("Manual add: error", e);
             setError(e?.message ?? String(e));
         } finally {
             const elapsed = Date.now() - started;
@@ -191,7 +186,6 @@ export default function Home({onSelectServer}: Props) {
                 }
             };
 
-            console.log("Starting login polling...");
             setTimeout(poll, 500); // Start polling sooner
             // best-effort cleanup when component unmounts
             (ensurePlexLogin as any)._cancel = () => { cancelled = true; };
@@ -246,7 +240,6 @@ export default function Home({onSelectServer}: Props) {
                             try { localStorage.setItem("plexToken", secureTok); } catch {}
                         }
                     } catch (e) {
-                        console.warn("Failed to load token from secure storage:", e);
                     }
                 })();
             }

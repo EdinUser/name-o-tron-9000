@@ -21,7 +21,6 @@ const ICON_SIZES = [
 
 async function generateIcons() {
   try {
-    console.log('🎨 Generating icons from SVG...');
 
     // Read the SVG file
     const svgBuffer = await readFile(SOURCE_SVG);
@@ -38,7 +37,6 @@ async function generateIcons() {
         })
         .toFile(outputPath);
 
-      console.log(`✅ Generated ${name} (${size}x${size})`);
     }
 
     // For ICO and ICNS generation, you can use:
@@ -46,14 +44,9 @@ async function generateIcons() {
     // - ImageMagick: convert icon.png icon.ico
     // - macOS: iconutil -c icns icon.iconset/
 
-    console.log('\n💡 Tip: For ICO/ICNS generation from the PNG files:');
-    console.log('- Online: Use favicon.io or realfavicongenerator.net');
-    console.log('- ImageMagick: convert src-tauri/icons/icon.png src-tauri/icons/icon.ico');
-    console.log('- macOS: Create icon.iconset folder with multiple sizes, then: iconutil -c icns icon.iconset');
-    console.log('\n🚀 You can now run: npm run tauri build');
 
   } catch (error) {
-    console.error('❌ Error generating icons:', error.message);
+    console.error('Error generating icons:', error.message);
     process.exit(1);
   }
 }

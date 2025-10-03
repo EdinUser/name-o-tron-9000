@@ -203,7 +203,6 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
                     return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&cached_data)));
                 }
                 Err(e) => {
-                    eprintln!("Failed to read cached image: {}", e);
                 }
             }
         }
@@ -269,7 +268,6 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
             base_url.clone()
         };
 
-        println!("Trying image URL {}: {}", i + 1, url_with_token);
 
         let mut request = client.get(&url_with_token);
 
@@ -297,19 +295,16 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
                     if let Some(ref cache_dir) = cache_dir {
                         let cache_file = cache_dir.join(format!("{}.jpg", cache_key));
                         if let Err(e) = fs::write(&cache_file, &image_data) {
-                            eprintln!("Failed to cache image: {}", e);
                         }
                     }
 
                     return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&image_data)));
                 } else {
                     last_error = Some(format!("Image request failed with status: {}", response.status()));
-                    println!("Attempt {} failed: {}", i + 1, response.status());
                 }
             }
             Err(e) => {
                 last_error = Some(format!("Failed to fetch image: {}", e));
-                println!("Attempt {} error: {}", i + 1, e);
             }
         }
     }

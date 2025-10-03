@@ -43,7 +43,6 @@ async fn test_http_client_integration() {
         }
     }
 
-    println!("HTTP client integration test completed");
 }
 
 #[tokio::test]
@@ -79,11 +78,9 @@ async fn test_error_handling_integration() {
         }
         Err(e) => {
             // Network error is also acceptable in this test
-            println!("Network error (expected): {}", e);
         }
     }
 
-    println!("Error handling integration test completed");
 }
 
 #[tokio::test]
@@ -127,7 +124,6 @@ async fn test_concurrent_http_requests() {
         assert_eq!(value.get("status").unwrap(), "ok");
     }
 
-    println!("Concurrent HTTP requests integration test completed");
 }
 
 #[tokio::test]
@@ -205,7 +201,6 @@ async fn test_list_libraries_with_mock_plex_server() {
     assert_eq!(music_lib.r#type, "artist");
     assert_eq!(music_lib.title, "Music");
 
-    println!("Libraries integration test completed successfully");
 }
 
 #[tokio::test]

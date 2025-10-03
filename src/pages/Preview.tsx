@@ -207,7 +207,6 @@ async function sanitizeProposal(name: string, settings: any): Promise<{ ok: bool
 
         return {ok: true, sanitized};
     } catch (error) {
-        console.error("Failed to sanitize filename:", error);
         // Fallback to basic validation if backend fails
         if (/[\\/:*?"<>|]/.test(name)) return {ok: false, reason: "invalid-chars"};
         const base = name.replace(/\.[^.]+$/, "");
@@ -317,10 +316,6 @@ async function computeMovieProposal(m: MovieItem, template: string, ownFolderPer
             editionToken = detected.token || editionToken;
             editionTitle = detected.title || editionTitle;
 
-            // Only log for the specific file the user is asking about
-            if (m.file.toLowerCase().includes('40-year-old virgin') || m.file.toLowerCase().includes('unrated')) {
-                console.log(`🎯 DEBUG: File ${m.file} - Detected edition:`, detected);
-            }
         }
     }
 
@@ -394,14 +389,6 @@ async function computeMovieProposal(m: MovieItem, template: string, ownFolderPer
         }
     }
 
-    // Log debug info for files with editions to understand the behavior
-    if (editionToken || editionTitle) {
-        console.log(`🎯 DEBUG: ${m.file}`);
-        console.log(`  Settings: createFromFilenames=${settings.movies.editions.createFromFilenames}, createMultipleTags=${settings.movies.editions.createMultipleTags}`);
-        console.log(`  Plex data: token=${m.edition}, title=${m.editionTitle}`);
-        console.log(`  Detected: token=${editionToken}, title=${editionTitle}`);
-        console.log(`  Final: display=${editionDisplay}`);
-    }
 
     // Expanded context for movies
     const ctx = {
@@ -678,16 +665,6 @@ function getOrganizedPath(title: string, year?: number, genre?: string): string 
 
     proposed = normalizeUnicode(proposed);
 
-    // Debug logging for folder structure decisions
-    if (m.title.toLowerCase().includes('ace ventura') || m.title.toLowerCase().includes('addams family')) {
-        console.log(`🎯 DEBUG: ${m.title} folder structure decision:`);
-        console.log(`  Current path: ${currentPath}`);
-        console.log(`  Current folders: [${currentFolders.join(', ')}]`);
-        console.log(`  Existing structure: ${JSON.stringify(existingStructure)}`);
-        console.log(`  Desired structure: ${folderStructure}`);
-        console.log(`  Template proposed: ${proposed}`);
-        console.log(`  Final proposed: ${proposed}`);
-    }
     const flags: string[] = [];
 
     // Handle special cases for extras and ISO files
@@ -894,7 +871,6 @@ async function computeEpisodeProposal(e: EpisodeItem, template: string, useSeaso
                 showFolder = safeFolderName(e.showTitle);
             }
 
-            console.log(`🎯 DEBUG: chosen showFolder="${showFolder}", settings.tv.ids="${settings.tv.ids}"`);
             // Preserve ID tags if present in parentheses in the picked folder
             showFolder = showFolder.replace(/\(([^)]+)\)/g, '{$1}');
 
@@ -947,8 +923,6 @@ async function computeEpisodeProposal(e: EpisodeItem, template: string, useSeaso
     }
     proposed = normalizeUnicode(proposed);
 
-    // Debug logging to understand what's happening
-    console.log(`🎯 DEBUG: Template result: "${templateResult}", folderPrefix: "${folderPrefix}", final: "${proposed}"`);
 
     // Handle special cases for extras and ISO files (TV episodes)
     if (settings.tv.specials.moveExtras) {
@@ -1153,12 +1127,6 @@ export default function Preview({server, library, onBack}: Props) {
             y: rect.top - 10 // Position above the element
         };
 
-        console.log("Hover Debug - Row metadata:", {
-            title: row.metadata.type === "movie" ? row.metadata.title : (row.metadata as any).showTitle || (row.metadata as any).title || "Unknown",
-            thumb: (row.metadata as any).thumb,
-            filePath: row.filePath
-        });
-
         setPopoverData({ metadata: row.metadata, position });
     }, []);
 
@@ -1185,7 +1153,6 @@ export default function Preview({server, library, onBack}: Props) {
                     }
                 }
             } catch (error) {
-                console.warn("Failed to load path mappings:", error);
                 setLibraryFolder(null);
             }
         }
@@ -1212,7 +1179,6 @@ export default function Preview({server, library, onBack}: Props) {
                 }
             }
         } catch (error) {
-            console.warn("Failed to refresh path mappings:", error);
             setLibraryFolder(null);
         }
     }, [server.address, server.machineIdentifier, library.roots]);
@@ -1248,28 +1214,11 @@ export default function Preview({server, library, onBack}: Props) {
                         if (!file) continue;
                         const movieRatingKey = String(item.ratingKey ?? item.key ?? file);
 
-                        console.log("Movie item fields:", {
-                            title: item.title,
-                            edition: item.edition,
-                            genre: item.genre,
-                            contentRating: item.contentRating,
-                            studio: item.studio,
-                            director: item.director,
-                            writer: item.writer,
-                            country: item.country,
-                            tagline: item.tagline,
-                            summary: item.summary,
-                            thumb: item.thumb,
-                            art: item.art,
-                        });
-                        console.log("Full item object:", item);
                         // Extract collection information directly from movie metadata
                         const collections = item.Collection || item.collection || [];
-                        console.log(`Raw collections for ${item.title}:`, collections);
                         const collectionName = Array.isArray(collections) && collections.length > 0
                             ? (collections[0]?.tag || collections[0])
                             : "";
-                        console.log(`Movie ${movieRatingKey} (${item.title}) -> Collection: "${collectionName}"`);
 
                         const m: MovieItem = {
                             type: "movie",
@@ -1313,16 +1262,6 @@ export default function Preview({server, library, onBack}: Props) {
                         const file = item?.Media?.[0]?.Part?.[0]?.file;
                         if (!file) continue;
                         const musicRatingKey = String(item.ratingKey ?? item.key ?? file);
-
-                        console.log("Music item fields:", {
-                            title: item.title,
-                            grandparentTitle: item.grandparentTitle, // Artist
-                            parentTitle: item.parentTitle, // Album
-                            year: item.year,
-                            genre: item.genre,
-                            track: item.index, // Track number
-                            disc: item.parentIndex, // Disc number
-                        });
 
                         const m: MusicItem = {
                             type: "music",
@@ -1445,7 +1384,6 @@ export default function Preview({server, library, onBack}: Props) {
                         }
                     }
                 } catch (subtitleError) {
-                    console.warn("Failed to process subtitle operations:", subtitleError);
                     // Continue without subtitle operations
                 }
 
@@ -1540,7 +1478,6 @@ export default function Preview({server, library, onBack}: Props) {
             return;
         }
         let isCancelled = false;
-        console.log("SEARCH EFFECT: triggering remote search", { q, filteredCount: filteredRows.length });
         setSearching(true);
         (async () => {
             try {
@@ -1558,20 +1495,6 @@ export default function Preview({server, library, onBack}: Props) {
                 const hubs = searchResults?.MediaContainer?.Hub || [];
                 const newRows: PreviewRow[] = [];
 
-                // Debug logging to understand search response structure
-                console.log("SEARCH RESULTS DEBUG:", {
-                    query: q,
-                    libraryKey: library.key,
-                    sectionNum,
-                    hubsCount: hubs.length,
-                    hubs: hubs.map((h: any) => ({
-                        type: h.type,
-                        hubIdentifier: h.hubIdentifier,
-                        title: h.title,
-                        itemsCount: (h.Directory || h.Metadata || []).length
-                    }))
-                });
-
                 // Filter hubs to only include those from the current library section
                 // Note: Plex API may return results from all libraries despite sectionId parameter
                 // We need additional filtering here to ensure only current library results are shown
@@ -1580,18 +1503,9 @@ export default function Preview({server, library, onBack}: Props) {
                     // Check if this hub belongs to our current library section
                     // The hub might contain section information that we can use for filtering
                     const hubSectionId = hub.sectionId || hub.librarySectionID;
-                    console.log("HUB DEBUG:", {
-                        hubTitle: hub.title,
-                        hubType: hub.type,
-                        hubSectionId,
-                        ourSectionId: sectionNum,
-                        shouldInclude: hubSectionId == sectionNum || !hubSectionId // Include if no section info or matches our section
-                    });
-
                     // Filter hubs to only include those from the current library section
                     // If hub has section info and it doesn't match our section, skip it
                     if (hubSectionId && hubSectionId != sectionNum) {
-                        console.log(`Skipping hub "${hub.title}" - section ${hubSectionId} != ${sectionNum}`);
                         continue;
                     }
 
@@ -1603,7 +1517,6 @@ export default function Preview({server, library, onBack}: Props) {
 
                         // Skip items that don't have actual file paths (API endpoints, metadata, etc.)
                         if (!filePath || filePath.startsWith('/library/') || filePath.includes('?') || !filePath.includes('.')) {
-                            console.log(`Skipping search result "${item.title}" - no valid file path: "${filePath}"`);
                             continue;
                         }
 
@@ -1616,7 +1529,6 @@ export default function Preview({server, library, onBack}: Props) {
                             });
 
                             if (!isInLibrary) {
-                                console.log(`Skipping item "${item.title}" - file path "${filePath}" not in library roots`);
                                 continue;
                             }
                         }
@@ -1624,7 +1536,6 @@ export default function Preview({server, library, onBack}: Props) {
                         if (library.type === "movie") {
                             // Ensure we have a valid file path before proceeding
                             if (!filePath || filePath.length === 0) {
-                                console.log(`Skipping movie "${item.title}" - no file path`);
                                 continue;
                             }
 
@@ -1634,7 +1545,6 @@ export default function Preview({server, library, onBack}: Props) {
                             const collectionName = Array.isArray(collections) && collections.length > 0
                                 ? (collections[0].tag || collections[0])
                                 : "";
-                            console.log(`Remote movie ${movieRatingKey} (${item.title}) -> Collection: "${collectionName}"`);
 
                             const m: MovieItem = {
                                 type: "movie",
@@ -1662,7 +1572,6 @@ export default function Preview({server, library, onBack}: Props) {
                             // TV episode
                             // Ensure we have a valid file path before proceeding
                             if (!filePath || filePath.length === 0) {
-                                console.log(`Skipping episode "${item.title}" - no file path`);
                                 continue;
                             }
 
@@ -1694,7 +1603,6 @@ export default function Preview({server, library, onBack}: Props) {
                 setRemoteResults(newRows);
                 setRemoteQuery(q);
             } catch (e) {
-                console.warn("Remote search failed:", e);
                 setRemoteResults([]);
                 setRemoteQuery(q);
             } finally {
@@ -1787,7 +1695,6 @@ export default function Preview({server, library, onBack}: Props) {
                 alert(`Successfully applied ${result.operations_applied} operations.\nRollback log saved to: ${result.rollback_log_path}`);
             } else {
                 alert(`Applied ${result.operations_applied} operations, but ${result.operations_failed} failed.\nCheck console for details.`);
-                console.error("Apply errors:", result.errors);
             }
         } catch (error) {
             console.error("Failed to apply renames:", error);
@@ -1810,7 +1717,6 @@ export default function Preview({server, library, onBack}: Props) {
                 setReloadTick(t => t + 1);
             } else {
                 alert(`Undid ${result.operations_applied} operations, but ${result.operations_failed} failed.\nCheck console for details.`);
-                console.error("Undo errors:", result.errors);
             }
         } catch (error) {
             console.error("Failed to undo renames:", error);
@@ -2027,7 +1933,6 @@ export default function Preview({server, library, onBack}: Props) {
                                                 const collectionName = Array.isArray(collections) && collections.length > 0
                                                     ? (collections[0].tag || collections[0])
                                                     : "";
-                                                console.log(`Load more movie ${movieRatingKey} (${item.title}) -> Collection: "${collectionName}"`);
 
                                                 const m: MovieItem = {
                                                     type: "movie",
@@ -2053,7 +1958,6 @@ export default function Preview({server, library, onBack}: Props) {
                                             }
                                             setRows(prev => [...prev, ...more]);
                                         } catch (e) {
-                                            console.warn("Load more movies failed", e);
                                         } finally {
                                             setLoading(false);
                                         }
@@ -2097,16 +2001,6 @@ export default function Preview({server, library, onBack}: Props) {
                                                 if (!file) continue;
                                                 const musicRatingKey = String(item.ratingKey ?? item.key ?? file);
 
-                                                console.log("Load more music item fields:", {
-                                                    title: item.title,
-                                                    grandparentTitle: item.grandparentTitle, // Artist
-                                                    parentTitle: item.parentTitle, // Album
-                                                    year: item.year,
-                                                    genre: item.genre,
-                                                    track: item.index, // Track number
-                                                    disc: item.parentIndex, // Disc number
-                                                });
-
                                                 const m: MusicItem = {
                                                     type: "music",
                                                     ratingKey: musicRatingKey,
@@ -2127,7 +2021,6 @@ export default function Preview({server, library, onBack}: Props) {
                                             }
                                             setRows(prev => [...prev, ...more]);
                                         } catch (e) {
-                                            console.warn("Load more music tracks failed", e);
                                         } finally {
                                             setLoading(false);
                                         }
@@ -2190,7 +2083,6 @@ export default function Preview({server, library, onBack}: Props) {
                                                 }
                                             setRows(prev => [...prev, ...more]);
                                         } catch (e) {
-                                            console.warn("Load more episodes failed", e);
                                         } finally {
                                             setLoading(false);
                                         }
@@ -2252,7 +2144,11 @@ export default function Preview({server, library, onBack}: Props) {
                         </div>
                         {pageRows.map((r) => (
                             <>
-                                <div key={r.id} className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40" style={{gridTemplateColumns: gridTemplate}}>
+                                <div
+                                    key={r.id}
+                                    className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40"
+                                    style={{gridTemplateColumns: gridTemplate}}
+                                >
                                     <Toggle checked={selectedIds.has(r.id)} onChange={() => toggle(r.id)}/>
                                     <div
                                         className="truncate cursor-pointer hover:bg-neutral-700/50 rounded px-1 py-0.5 transition-colors"
