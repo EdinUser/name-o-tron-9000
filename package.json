@@ -8,6 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "test": "tsc --noEmit",
+    "test:ci": "tsc --noEmit",
     "mock:plex": "node _helpers/tests/mock-plex-server.cjs"
   },
   "dependencies": {
