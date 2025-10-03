@@ -1081,7 +1081,7 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                 }
                 for (i, u) in retry_urls.iter().enumerate() {
                     println!("list_libraries: retry {} → {}", i + 1, u);
-                    let mut req = with_plex_headers(client.get(u), &client_id)
+                    let req = with_plex_headers(client.get(u), &client_id)
                         .header("Accept", "application/json, application/xml;q=0.9")
                         .header("Accept-Encoding", "identity")
                         .header("Connection", "close")

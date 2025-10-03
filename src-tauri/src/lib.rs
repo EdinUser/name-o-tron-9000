@@ -6,11 +6,11 @@ use plex_auth::{plex_login, plex_login_status, plex_logout};
 use base64::{Engine as _, engine::general_purpose};
 use std::fs;
 use dirs;
-mod path_map;
-mod settings;
-mod plex_api;
-mod secure;
-mod subtitle;
+pub mod path_map;
+pub mod settings;
+pub mod plex_api;
+pub mod secure;
+pub mod subtitle;
 
 // Re-export functions used by frontend
 pub use plex_api::fetch_library_content;
@@ -18,6 +18,7 @@ pub use plex_api::fetch_tv_shows;
 pub use plex_api::fetch_show_episodes;
 pub use plex_api::search_content;
 pub use plex_api::sanitize_filename_cmd;
+pub use path_map::test_mapping;
 
 #[derive(Serialize)]
 pub struct PlexServerDto {

@@ -8,7 +8,11 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "tsc --noEmit",
+    "tauri:icons": "node scripts/generate-icons.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
     "test:ci": "tsc --noEmit",
     "mock:plex": "node _helpers/tests/mock-plex-server.cjs"
   },
@@ -22,14 +26,20 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.13",
     "@tauri-apps/cli": "^2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0",
     "autoprefixer": "^10.4.21",
     "express": "^5.1.0",
+    "jsdom": "^27.0.0",
     "postcss": "^8.5.6",
+    "sharp": "^0.33.0",
     "tailwindcss": "^4.1.13",
     "typescript": "~5.9",
-    "vite": "^7.1.8"
+    "vite": "^7.1.8",
+    "vitest": "^3.2.4"
   }
 }

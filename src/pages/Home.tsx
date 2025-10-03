@@ -378,8 +378,19 @@ export default function Home({onSelectServer}: Props) {
 
             <section className="mx-auto max-w-6xl px-6 py-8">
                 <div className="mb-6">
-                    <h1 className="text-center text-3xl font-bold tracking-tight">Welcome</h1>
-                    <p className="mt-1 text-center text-neutral-400">Connect to your Plex server to begin.</p>
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="flex items-center gap-4">
+                            <img
+                                src="/name-o-tron-9000.svg"
+                                alt="Name-o-Tron 9000 Robot"
+                                className="h-16 w-auto"
+                            />
+                            <div className="text-center">
+                                <h1 className="text-3xl font-bold tracking-tight">Welcome</h1>
+                                <p className="mt-1 text-neutral-400">Connect to your Plex server to begin.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {error && (

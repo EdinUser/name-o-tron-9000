@@ -1,0 +1,281 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { invoke } from '@tauri-apps/api/core'
+import LibrarySelection from '../LibrarySelection'
+import type { PlexServer, PlexLibrary } from '../../types/plex'
+
+// Mock the invoke function
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(),
+}))
+
+// Mock the window object for goto functions
+Object.defineProperty(window, '__goto_home', {
+  value: vi.fn(),
+  writable: true,
+})
+
+Object.defineProperty(window, '__goto_settings', {
+  value: vi.fn(),
+  writable: true,
+})
+
+const mockLibraries: PlexLibrary[] = [
+  {
+    key: '1',
+    type: 'movie',
+    title: 'Movies',
+    roots: ['/media/Movies']
+  },
+  {
+    key: '2',
+    type: 'show',
+    title: 'TV Shows',
+    roots: ['/media/TV Shows', '/media/TV Shows 2']
+  },
+  {
+    key: '3',
+    type: 'artist',
+    title: 'Music',
+    roots: ['/media/Music']
+  }
+]
+
+const mockServer: PlexServer = {
+  name: 'Test Plex Server',
+  address: 'http://localhost:32400',
+  machineIdentifier: 'test-server-id',
+  owned: true
+}
+
+describe('LibrarySelection', () => {
+  const mockOnBack = vi.fn()
+  const mockOnSelectLibrary = vi.fn()
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('renders loading state initially', async () => {
+    // Mock a delayed response
+    vi.mocked(invoke).mockImplementation(() =>
+      new Promise(resolve => setTimeout(() => resolve([]), 100))
+    )
+
+    render(
+      <LibrarySelection
+        server={mockServer}
+        onBack={mockOnBack}
+        onSelectLibrary={mockOnSelectLibrary}
+      />
+    )
+
+    expect(screen.getByText('Loading libraries…')).toBeInTheDocument()
+  })
+
+  it('displays libraries after loading', async () => {
+    vi.mocked(invoke).mockResolvedValue([
+      {
+        key: '1',
+        type: 'movie',
+        title: 'Movies',
+        roots: ['/media/Movies']
+      },
+      {
+        key: '2',
+        type: 'show',
+        title: 'TV Shows',
+        roots: ['/media/TV Shows']
+      }
+    ])
+
+    render(
+      <LibrarySelection
+        server={mockServer}
+        onBack={mockOnBack}
+        onSelectLibrary={mockOnSelectLibrary}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Movies')).toBeInTheDocument()
+      expect(screen.getByText('TV Shows')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('movie — Section 1 — 1 root(s)')).toBeInTheDocument()
+    expect(screen.getByText('show — Section 2 — 1 root(s)')).toBeInTheDocument()
+  })
+
+  it('displays server information in header', async () => {
+    vi.mocked(invoke).mockResolvedValue([])
+
+    render(
+      <LibrarySelection
+        server={mockServer}
+        onBack={mockOnBack}
+        onSelectLibrary={mockOnSelectLibrary}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Server: Test Plex Server (http://localhost:32400)')).toBeInTheDocument()
+    })
+  })
+
+  it('handles library selection', async () => {
+    const user = userEvent.setup()
+    vi.mocked(invoke).mockResolvedValue(mockLibraries)
+
+    render(
+      <LibrarySelection
+        server={mockServer}
+        onBack={mockOnBack}
+        onSelectLibrary={mockOnSelectLibrary}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Movies')).toBeInTheDocument()
+    })
+
+    const radioButton = screen.getByRole('radio', { name: /movies/i })
+    await user.click(radioButton)
+
+    // Find the Open button for the Movies library (first one)
+    const openButtons = screen.getAllByRole('button', { name: /open/i })
+    await user.click(openButtons[0])
+
+    expect(mockOnSelectLibrary).toHaveBeenCalledWith(mockLibraries[0])
+  })
+
+  it('displays mapping status for libraries', async () => {
+    // Mock get_settings to return path mappings
+    vi.mocked(invoke).mockImplementation((command: string) => {
+      if (command === 'get_settings') {
+        return Promise.resolve({
+          pathMappings: [
+            {
+              server_id: 'test-server-id',
+              plex_root: '/media/Movies',
+              local_root: '/mnt/movies'
+            }
+          ]
+        })
+      }
+      return Promise.resolve([])
+    })
+
+    render(
+      <LibrarySelection
+        server={mockServer}
+        onBack={mockOnBack}
+        onSelectLibrary={mockOnSelectLibrary}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Mapped')).toBeInTheDocument()
+      expect(screen.getByText('Needs Mapping')).toBeInTheDocument()
+    })
+  })
+
+  it('shows error state when loading fails', async () => {
+    vi.mocked(invoke).mockRejectedValue(new Error('Network error'))
+
+    render(
+      <LibrarySelection
+        server={mockServer}
+        onBack={mockOnBack}
+        onSelectLibrary={mockOnSelectLibrary}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Error: Network error')).toBeInTheDocument()
+    })
+  })
+
+  it('opens path mapping modal when Map Paths is clicked', async () => {
+    const user = userEvent.setup()
+    vi.mocked(invoke).mockResolvedValue([])
+
+    render(
+      <LibrarySelection
+        server={mockServer}
+        onBack={mockOnBack}
+        onSelectLibrary={mockOnSelectLibrary}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Map Paths')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText('Map Paths'))
+
+    // Modal should open (PathMappingModal component should be rendered)
+    await waitFor(() => {
+      expect(screen.getByText('Map Plex Paths')).toBeInTheDocument()
+    })
+  })
+
+  it('disables Open button for unmapped libraries', async () => {
+    vi.mocked(invoke).mockResolvedValue(mockLibraries)
+
+    render(
+      <LibrarySelection
+        server={mockServer}
+        onBack={mockOnBack}
+        onSelectLibrary={mockOnSelectLibrary}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Movies')).toBeInTheDocument()
+    })
+
+    // All Open buttons should be disabled since no mappings are set up
+    const openButtons = screen.getAllByRole('button', { name: /open/i })
+    expect(openButtons[0]).toBeDisabled()
+    expect(openButtons[1]).toBeDisabled()
+    expect(openButtons[2]).toBeDisabled()
+  })
+
+  it('calls onBack when Back button is clicked', async () => {
+    const user = userEvent.setup()
+    vi.mocked(invoke).mockResolvedValue([])
+
+    render(
+      <LibrarySelection
+        server={mockServer}
+        onBack={mockOnBack}
+        onSelectLibrary={mockOnSelectLibrary}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Back')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText('Back'))
+    expect(mockOnBack).toHaveBeenCalled()
+  })
+
+  it('displays correct root count for libraries', async () => {
+    vi.mocked(invoke).mockResolvedValue(mockLibraries)
+
+    render(
+      <LibrarySelection
+        server={mockServer}
+        onBack={mockOnBack}
+        onSelectLibrary={mockOnSelectLibrary}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('1 root(s)')).toBeInTheDocument() // Movies
+      expect(screen.getByText('2 root(s)')).toBeInTheDocument() // TV Shows
+    })
+  })
+})
