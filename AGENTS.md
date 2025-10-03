@@ -188,6 +188,16 @@ Agent practices:
   - Unified styling that matches the app's dark theme
 - Avoid native `<select>` or `<input type="radio">` styling directly in pages; if an exception is required, match the Select/Radio component styles.
 
+**Theme System**:
+- **Dark Mode**: Uses cyan accent color (#06b6d4) for optimal contrast and readability
+- **Light Mode**: Uses orange accent color (#d88900) for a warm, modern appearance
+- **Color Overrides**: Comprehensive CSS overrides ensure consistent theming across all components
+- **Improved Grays**: Light mode uses blue-tinted gray backgrounds for better visual appeal and contrast
+
+**Layout Improvements**:
+- **Header Optimization**: Reload button moved from crowded header to logical position above table
+- **Table Backgrounds**: Enhanced light mode table styling with pleasant blue-tinted grays instead of dull grays
+
 Planning & messaging (for agent UIs):
 - Maintain a short plan; one step in progress
 - Group related shell actions under one brief preamble

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
+import { useTheme } from "../state/theme";
 import type { PlexLibrary, PlexServer } from "../types/plex";
-import { IconArrowBack, IconArrowForward, IconHome, IconRefresh, IconSearch, IconSettings } from "../components/icons";
+import { IconArrowBack, IconArrowForward, IconHome, IconRefresh, IconSearch, IconSettings, IconSun, IconMoon } from "../components/icons";
 
 type Props = {
   server: PlexServer;
@@ -14,6 +15,7 @@ type Props = {
 type TvShow = { ratingKey: string; title: string };
 
 export default function ShowSelection({ server, library, onBack, onSelectShow }: Props) {
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shows, setShows] = useState<TvShow[]>([]);
@@ -86,8 +88,8 @@ export default function ShowSelection({ server, library, onBack, onSelectShow }:
   }, [shows, query]);
 
   return (
-    <main className="min-h-screen bg-neutral-900 text-neutral-100">
-      <header className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-900/80 backdrop-blur">
+    <main className="min-h-screen bg-neutral-900 text-neutral-100" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+      <header className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-900/80 backdrop-blur" style={{ backgroundColor: 'var(--bg-secondary)' }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <div className="flex items-center gap-2">
             <button onClick={onBack} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
@@ -103,6 +105,9 @@ export default function ShowSelection({ server, library, onBack, onSelectShow }:
             <button type="button" onClick={() => (window as any).__goto_settings?.()} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
               <IconSettings className="h-5 w-5" />
               Settings
+            </button>
+            <button onClick={toggleTheme} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+              {resolvedTheme === 'dark' ? <IconSun className="h-5 w-5"/> : <IconMoon className="h-5 w-5"/>}
             </button>
           </div>
         </div>

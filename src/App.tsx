@@ -5,6 +5,7 @@ import ShowSelection from "./pages/ShowSelection";
 import Preview from "./pages/Preview";
 import SettingsModal from "./pages/Settings";
 import { SettingsProvider } from "./state/settings";
+import { ThemeProvider } from "./state/theme";
 import type { PlexLibrary, PlexServer } from "./types/plex";
 
 type Screen = "home" | "libraries" | "shows" | "preview";
@@ -92,8 +93,10 @@ function App() {
 
   return (
     <SettingsProvider>
-      {renderCurrentScreen()}
-      {settingsModalOpen && <SettingsModal onClose={() => setSettingsModalOpen(false)} />}
+      <ThemeProvider>
+        {renderCurrentScreen()}
+        {settingsModalOpen && <SettingsModal onClose={() => setSettingsModalOpen(false)} />}
+      </ThemeProvider>
     </SettingsProvider>
   );
 }

@@ -8,6 +8,8 @@ export type GeneralSettings = {
   autoRollbackLog: boolean;
   /** Where to persist Plex auth token */
   authPersistence?: "none" | "secure" | "file";
+  /** Theme preference */
+  theme: "light" | "dark" | "system";
   encoding: {
     mode: EncodingMode; // unicode | transliterate | ascii
     highlightNonLatin: boolean;
@@ -136,6 +138,7 @@ const defaultSettings: Settings = {
     saveRenameLog: { txt: false, csv: false, json: true },
     autoRollbackLog: true,
     authPersistence: "secure",
+    theme: "dark",
     encoding: { mode: "unicode", highlightNonLatin: true },
     conflictHandling: "skip",
     safety: { pathLengthCheck: true, reservedNamesCheck: true, permissionsCheck: true },

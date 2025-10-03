@@ -4,6 +4,8 @@ import Toggle from "../components/Toggle";
 import Radio from "../components/Radio";
 import { invoke } from "@tauri-apps/api/core";
 import {useSettings, type Settings, type EncodingMode} from "../state/settings";
+import {useTheme} from "../state/theme";
+import {IconSun, IconMoon} from "../components/icons";
 import EditionParsersModal from "../components/EditionParsersModal";
 
 type Props = { onClose: () => void };
@@ -12,6 +14,7 @@ type TabKey = "general" | "movies" | "tv" | "music" | "misc";
 
 export default function SettingsModal({onClose}: Props) {
     const { settings, updateSettings } = useSettings();
+    const { resolvedTheme, toggleTheme } = useTheme();
     const [tab, setTab] = useState<TabKey>(() => {
         try { return (localStorage.getItem("nameotron.settings.lastTab") as TabKey) || "general"; } catch { return "general"; }
     });
@@ -234,10 +237,11 @@ export default function SettingsModal({onClose}: Props) {
 
     return (
         <>
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ zIndex: 9999 }}>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ zIndex: 9999, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
                 <div
                     className="settings-modal-content bg-neutral-900 border border-neutral-700 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl"
                     style={{
+                        backgroundColor: 'var(--bg-secondary)',
                         transform: modalPosition.x !== 0 || modalPosition.y !== 0 ? `translate(${modalPosition.x}px, ${modalPosition.y}px)` : undefined,
                         cursor: isDragging ? 'grabbing' : 'default'
                     }}
@@ -250,14 +254,19 @@ export default function SettingsModal({onClose}: Props) {
                         style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
                     >
                         <h1 className="text-xl font-semibold text-neutral-100">Settings</h1>
-                        <button onClick={(e) => handleClose(e)} className="text-neutral-400 hover:text-neutral-200 transition-colors" title="Close (unsaved changes will be lost)">
+                        <div className="flex items-center gap-2">
+                            <button onClick={toggleTheme} className="text-neutral-400 hover:text-neutral-200 transition-colors" title="Toggle theme">
+                                {resolvedTheme === 'dark' ? <IconSun className="h-5 w-5"/> : <IconMoon className="h-5 w-5"/>}
+                            </button>
+                            <button onClick={(e) => handleClose(e)} className="text-neutral-400 hover:text-neutral-200 transition-colors" title="Close (unsaved changes will be lost)">
                             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-6 w-6">
                                 <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         </button>
                     </div>
+                </div>
 
-                    <div className="flex flex-col max-h-[calc(90vh-140px)]">
+                <div className="flex flex-col max-h-[calc(90vh-140px)]">
                         <div className="px-6 pt-4">
                             <Tabs tab={tab} setTab={setTab}/>
                         </div>
@@ -304,7 +313,7 @@ export default function SettingsModal({onClose}: Props) {
             {/* Custom confirm dialog for unsaved changes */}
             {showConfirmDialog && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center" style={{ zIndex: 10000 }} onClick={handleCancelClose}>
-                    <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-6 shadow-2xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-6 shadow-2xl max-w-md w-full mx-4" style={{ backgroundColor: 'var(--bg-secondary)' }} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-8 h-8 bg-amber-500/20 rounded-full flex items-center justify-center">
                                 <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
