@@ -11,6 +11,7 @@ pub mod settings;
 pub mod plex_api;
 pub mod secure;
 pub mod subtitle;
+pub mod video_rename;
 
 // Re-export functions used by frontend
 pub use plex_api::fetch_library_content;
@@ -19,6 +20,7 @@ pub use plex_api::fetch_show_episodes;
 pub use plex_api::search_content;
 pub use plex_api::sanitize_filename_cmd;
 pub use path_map::test_mapping;
+// video_rename module is already declared above
 
 #[derive(Serialize)]
 pub struct PlexServerDto {
@@ -344,6 +346,8 @@ pub fn run() {
             subtitle::preview_renames,
             subtitle::apply_renames,
             subtitle::undo_last_rename,
+            video_rename::preview_video_renames,
+            video_rename::apply_video_renames,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

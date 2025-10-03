@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import type {PlexLibrary, PlexServer} from "../types/plex";
-import {IconArrowBack, IconBolt, IconHome, IconInfo, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch} from "../components/icons";
+import {IconArrowBack, IconBolt, IconHome, IconInfo, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch, IconStatusGood, IconStatusWarning, IconStatusError} from "../components/icons";
 import PathMappingModal from "../components/PathMappingModal";
 import TemplateHelpModal from "../components/TemplateHelpModal";
 import PlexPopoverCard from "../components/PlexPopoverCard";
@@ -1412,7 +1412,7 @@ export default function Preview({server, library, onBack}: Props) {
                 try {
                     const filePaths = list.map(row => row.filePath);
                     if (filePaths.length > 0) {
-                        const previewResult = await invoke<any>("preview_renames", {
+                        const previewResult = await invoke<any>("preview_video_renames", {
                             libraryId: library.key,
                             scope: filePaths,
                             settings: settings,
@@ -1778,7 +1778,7 @@ export default function Preview({server, library, onBack}: Props) {
 
             if (operations.length === 0) return;
 
-            const result = await invoke<any>("apply_renames", {
+            const result = await invoke<any>("apply_video_renames", {
                 operations,
                 settings,
             });
@@ -2267,10 +2267,10 @@ export default function Preview({server, library, onBack}: Props) {
                                             className="relative cursor-help"
                                             title={r.flags.length > 0 ? `Status: ${r.status} | Issues: ${r.flags.join(", ")}` : `Status: ${r.status}`}
                                         >
-                                            {r.status === "good" && <span className="text-emerald-400">🟩</span>}
-                                            {r.status === "warning" && <span className="text-amber-300">🟨</span>}
-                                            {r.status === "error" && <span className="text-red-400">🟥</span>}
-                                            {r.status === "unmatched" && <span>❌</span>}
+                                            {r.status === "good" && <IconStatusGood className="w-5 h-5" />}
+                                            {r.status === "warning" && <IconStatusWarning className="w-5 h-5" />}
+                                            {r.status === "error" && <IconStatusError className="w-5 h-5" />}
+                                            {r.status === "unmatched" && <IconQuestionCircle className="w-5 h-5 text-gray-400" />}
                                         </div>
                                         <div className="truncate" title={r.proposed}>{r.proposed}</div>
                                     </div>

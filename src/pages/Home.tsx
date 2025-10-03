@@ -4,6 +4,7 @@ import { useSettings } from "../state/settings";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type {PlexServer} from "../types/plex";
 import {IconArrowForward, IconBolt, IconLogin, IconLogout, IconRefresh, IconServer, IconSettings, IconCheck} from "../components/icons";
+import AnimatedLogo from "../components/AnimatedLogo";
 
 type Props = {
     onSelectServer: (server: PlexServer) => void;
@@ -380,13 +381,9 @@ export default function Home({onSelectServer}: Props) {
                 <div className="mb-6">
                     <div className="flex flex-col items-center gap-4">
                         <div className="flex items-center gap-4">
-                            <img
-                                src="/name-o-tron-9000.svg"
-                                alt="Name-o-Tron 9000 Robot"
-                                className="h-16 w-auto"
-                            />
+                            <AnimatedLogo className="h-24 w-auto" />
                             <div className="text-center">
-                                <h1 className="text-3xl font-bold tracking-tight">Welcome</h1>
+                                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">Welcome</h1>
                                 <p className="mt-1 text-neutral-400">Connect to your Plex server to begin.</p>
                             </div>
                         </div>

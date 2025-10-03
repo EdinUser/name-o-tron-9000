@@ -1,0 +1,59 @@
+import { useEffect, useState } from "react";
+
+type Props = {
+    className?: string;
+};
+
+export default function AnimatedLogo({ className }: Props) {
+    const [isActive, setIsActive] = useState(false);
+    useEffect(() => {
+        const t = setTimeout(() => setIsActive(true), 50);
+        return () => clearTimeout(t);
+    }, []);
+
+    return (
+        <svg
+            version="1.1"
+            id="Layer_1"
+            xmlns="http://www.w3.org/2000/svg"
+            xmlnsXlink="http://www.w3.org/1999/xlink"
+            x="0px"
+            y="0px"
+            viewBox="0 0 256 280"
+            width="256"
+            height="280"
+            className={`${className ?? "h-20 w-auto"} ${isActive ? "active" : ""}`}
+        >
+            <style type="text/css">
+                {`
+    .st0{fill:#4A5568;stroke:#000000;stroke-width:8;}
+    .st1{fill:#2D3748;stroke:#000000;stroke-width:6;}
+    .st2{fill:#48BB78;stroke:#000000;stroke-width:8;}
+    .st3{fill:none;stroke:#000000;stroke-width:6;stroke-linecap:round;}
+    .st4{fill:#A0AEC0;stroke:#000000;stroke-width:8;}
+            `}
+            </style>
+            <path className="st0 svg-elem-1" d="M128,32L128,32c44.2,0,80,35.8,80,80l0,0c0,44.2-35.8,80-80,80l0,0c-44.2,0-80-35.8-80-80l0,0 C48,67.8,83.8,32,128,32z"/>
+            <circle className="st1 svg-elem-2" cx="128" cy="96" r="43"/>
+            <circle className="st2 svg-elem-3" cx="128" cy="96" r="28"/>
+            <path className="st3 svg-elem-4" d="M92,144c24,24,48,24,72,0"/>
+            <path className="st0 svg-elem-5" d="M38,88h8c3.3,0,6,2.7,6,6v28c0,3.3-2.7,6-6,6h-8c-3.3,0-6-2.7-6-6V94C32,90.7,34.7,88,38,88z"/>
+            <path className="st0 svg-elem-6" d="M210,88h8c3.3,0,6,2.7,6,6v28c0,3.3-2.7,6-6,6h-8c-3.3,0-6-2.7-6-6V94C204,90.7,206.7,88,210,88z"/>
+            <path className="st0 svg-elem-7" d="M96,192h64c4.4,0,8,3.6,8,8v8c0,4.4-3.6,8-8,8H96c-4.4,0-8-3.6-8-8v-8C88,195.6,91.6,192,96,192z"/>
+            <path className="st4 svg-elem-8" d="M66,220h124c5.5,0,10,4.5,10,10v20c0,5.5-4.5,10-10,10H66c-5.5,0-10-4.5-10-10v-20C56,224.5,60.5,220,66,220z"/>
+            <g transform="translate(90,226) scale(0.58)">
+                <g transform="translate(40,0)"></g>
+                <g transform="translate(80,0)"></g>
+                <g transform="translate(120,0)"></g>
+            </g>
+            <g>
+                <path d="M92.9,238.7v-8.9l1.3-1.3l2.6,2.6v6.4l-2.6,2.6L92.9,238.7z M97.3,230.4l-2.6-2.6l1.3-1.3h8.9l1.3,1.3l-2.6,2.6H97.3z M96,253.4l-1.3-1.3l2.6-2.6h6.4l2.6,2.6l-1.3,1.3H96z M97.3,241.9l-1.9-1.9l1.9-1.9h6.4l1.9,1.9l-1.9,1.9H97.3z M104.4,237.4v-6.4 l2.6-2.6l1.3,1.3v8.9l-1.3,1.3L104.4,237.4z M104.4,248.9v-6.4l2.6-2.6l1.3,1.3v8.9l-1.3,1.3L104.4,248.9z" className="svg-elem-9"/>
+                <path d="M111.2,238.7v-8.9l1.3-1.3l2.6,2.6v6.4l-2.6,2.6L111.2,238.7z M111.2,250.2v-8.9l1.3-1.3l2.6,2.6v6.4l-2.6,2.6L111.2,250.2 z M115.6,230.4l-2.6-2.6l1.3-1.3h8.9l1.3,1.3l-2.6,2.6H115.6z M114.4,253.4l-1.3-1.3l2.6-2.6h6.4l2.6,2.6l-1.3,1.3H114.4z M122.7,237.4v-6.4l2.6-2.6l1.3,1.3v8.9l-1.3,1.3L122.7,237.4z M122.7,248.9v-6.4l2.6-2.6l1.3,1.3v8.9l-1.3,1.3L122.7,248.9z" className="svg-elem-10"/>
+                <path d="M129.5,238.7v-8.9l1.3-1.3l2.6,2.6v6.4l-2.6,2.6L129.5,238.7z M129.5,250.2v-8.9l1.3-1.3l2.6,2.6v6.4l-2.6,2.6L129.5,250.2 z M134,230.4l-2.6-2.6l1.3-1.3h8.9l1.3,1.3l-2.6,2.6H134z M132.7,253.4l-1.3-1.3l2.6-2.6h6.4l2.6,2.6l-1.3,1.3H132.7z M141,237.4 v-6.4l2.6-2.6l1.3,1.3v8.9l-1.3,1.3L141,237.4z M141,248.9v-6.4l2.6-2.6l1.3,1.3v8.9l-1.3,1.3L141,248.9z" className="svg-elem-11"/>
+                <path d="M147.8,238.7v-8.9l1.3-1.3l2.6,2.6v6.4l-2.6,2.6L147.8,238.7z M147.8,250.2v-8.9l1.3-1.3l2.6,2.6v6.4l-2.6,2.6L147.8,250.2 z M152.3,230.4l-2.6-2.6l1.3-1.3h8.9l1.3,1.3l-2.6,2.6H152.3z M151,253.4l-1.3-1.3l2.6-2.6h6.4l2.6,2.6l-1.3,1.3H151z M159.3,237.4 v-6.4l2.6-2.6l1.3,1.3v8.9l-1.3,1.3L159.3,237.4z M159.3,248.9v-6.4l2.6-2.6l1.3,1.3v8.9l-1.3,1.3L159.3,248.9z" className="svg-elem-12"/>
+            </g>
+        </svg>
+    );
+}
+
+
