@@ -175,3 +175,43 @@ export function IconQuestionCircle({ className }: IconProps) {
     </svg>
   );
 }
+
+// Semaphore status icons for traffic-light system
+export function IconStatusGood({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <circle cx="12" cy="10.4" r="7.5" fill="#4A5568" stroke="#000000" strokeWidth="0.75"/>
+      <circle cx="12" cy="10.4" r="6" fill="#48BB78" stroke="#000000" strokeWidth="0.5"/>
+      <circle cx="12" cy="10.4" r="2.6" fill="#48BB78" stroke="#000000" strokeWidth="0.75"/>
+      <path d="M8.6,14.9c2.2,2.2,4.4,2.2,6.6,0" stroke="#000000" strokeWidth="0.5" strokeLinecap="round" fill="none"/>
+      <rect x="3.6" y="8.2" width="0.75" height="0.75" fill="#4A5568" stroke="#000000" strokeWidth="0.2"/>
+      <rect x="19.65" y="8.2" width="0.75" height="0.75" fill="#4A5568" stroke="#000000" strokeWidth="0.2"/>
+    </svg>
+  );
+}
+
+export function IconStatusWarning({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <circle cx="12" cy="10.4" r="7.5" fill="#4A5568" stroke="#000000" strokeWidth="0.75"/>
+      <circle cx="12" cy="10.4" r="6" fill="#EDC315" stroke="#000000" strokeWidth="0.5"/>
+      <circle cx="12" cy="10.4" r="2.6" fill="#EDC315" stroke="#000000" strokeWidth="0.75"/>
+      <path d="M8.6,14.9c2.2,2.2,4.4,2.2,6.6,0" stroke="#000000" strokeWidth="0.5" strokeLinecap="round" fill="none"/>
+      <rect x="3.6" y="8.2" width="0.75" height="0.75" fill="#4A5568" stroke="#000000" strokeWidth="0.2"/>
+      <rect x="19.65" y="8.2" width="0.75" height="0.75" fill="#4A5568" stroke="#000000" strokeWidth="0.2"/>
+    </svg>
+  );
+}
+
+export function IconStatusError({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <circle cx="12" cy="10.4" r="7.5" fill="#4A5568" stroke="#000000" strokeWidth="0.75"/>
+      <circle cx="12" cy="10.4" r="6" fill="#EA1818" stroke="#000000" strokeWidth="0.5"/>
+      <circle cx="12" cy="10.4" r="2.6" fill="#EA1818" stroke="#000000" strokeWidth="0.75"/>
+      <path d="M8.6,14.9c2.2,2.2,4.4,2.2,6.6,0" stroke="#000000" strokeWidth="0.5" strokeLinecap="round" fill="none"/>
+      <rect x="3.6" y="8.2" width="0.75" height="0.75" fill="#4A5568" stroke="#000000" strokeWidth="0.2"/>
+      <rect x="19.65" y="8.2" width="0.75" height="0.75" fill="#4A5568" stroke="#000000" strokeWidth="0.2"/>
+    </svg>
+  );
+}

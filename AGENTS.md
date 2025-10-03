@@ -303,20 +303,23 @@ The rename engine provides complete filesystem operations with comprehensive saf
 - Idempotent where possible: safe to re‑apply after partial failure using logs.
 - Comprehensive subtitle operation support with encoding conversion and rollback.
 
-**Operations:**
-- `preview_renames({libraryId, scope, settings})`
-  - Input: library scope + complete settings
-  - Output: `{video_operations, subtitle_operations, warnings, blocking_errors}`
-  - Validates all operations before execution
-- `apply_renames({operations, settings})`
-  - Pre‑flight: checks permissions, collisions, creates parent dirs; blocks if any 🟥
-  - Execution: atomic operations for each item (video + subtitle)
-  - Logging: writes comprehensive JSON rollback log with operation details
-  - Return: `{success, operations_applied, operations_failed, rollback_log_path, errors}`
+**Operations (up-to-date):**
+- `preview_video_renames({ libraryId, scope, settings })`
+  - Input: library scope + complete settings (merged defaults + user overrides)
+  - Output: `{ video_operations, subtitle_operations, warnings, blocking_errors }`
+  - Behavior:
+    - Generates proposed rename/move operations for video and associated subtitles
+    - Applies all rule engines (templates, collections, season folders, specials, multi‑episode, sanitization)
+    - Returns non‑fatal `warnings` and fatal `blocking_errors` for UI traffic‑light logic
+- `apply_video_renames({ operations, settings })`
+  - Pre‑flight: ensures parent folders exist, validates permissions, respects conflict policy
+  - Execution: atomic `rename` within device; cross‑device move uses copy+cleanup strategy
+  - Logging: writes rollback JSON with per‑operation status under `~/.nameotron/logs/`
+  - Return: `{ success, operations_applied, operations_failed, rollback_log_path, errors }`
 - `undo_last_rename()`
-  - Reads the most recent rollback log and reverses successful entries
-  - Safely handles missing files and partial failures
-  - Return: same format as apply_renames
+  - Reads most recent rollback log and reverses successful entries
+  - Safely handles partial failures/missing files
+  - Return: same format as `apply_video_renames`
 
 **Rollback logging:**
 - Location: `~/.nameotron/logs/` in the OS app‑data dir
@@ -339,6 +342,74 @@ The rename engine provides complete filesystem operations with comprehensive saf
 - Stops on blocking errors, continues with warnings where safe
 - On crash mid‑batch, rollback log allows manual or automated recovery
 - Encoding conversion failures skip the operation with detailed error logging
+
+### Rename Rules and Pipelines (Detailed)
+
+This section documents the full rename pipeline as implemented across the frontend (preview) and backend (Rust).
+
+#### 1) Templates and Context
+- Templates (configured under `settings.templates`) are rendered using a simple placeholder engine with optional groups:
+  - Placeholders: `{title}`, `{year}`, `{ext}`, `{ids}`, `{showTitle}`, `{season}`, `{episode}`, `{grandparentTitle}`, `{parentTitle}`
+  - Number formatting: `{episode:02}` → zero‑padded to 2 digits
+  - Optional groups: text inside `[...]` is omitted if all placeholders in the group are empty
+- Movie template example: `{title}[ ({year})]{ext}`
+- Episode template example: `{showTitle} - S{season:02}E{episode:02} - {title}{ext}`
+
+#### 2) Movie Rules
+- Collections:
+  - Controlled by `movies.collections.enabled` and `movies.collections.mode` (`always` | `if2plus`)
+  - Collection folder name formatting draws from settings (naming/format where applicable)
+- Folder structure (`movies.folderStructure`):
+  - `none`: optional per‑movie folder if `movies.ownFolderPerMovie` is true
+  - `alpha`: first‑letter folders (A/, B/…)
+  - `alpha_ranges`: grouped ranges (A‑C/, D‑F/…)
+  - `genre`: primary genre as top folder
+  - `year_decade`: decade folders (e.g., `1990-1999/`)
+- Chronology prefixing (`movies.chronologicalPrefix`):
+  - `year`: prefix with year where applicable
+  - `collection_order`: reserved for future ordering support
+- Edition handling:
+  - Edition tokens are detected from filenames (e.g., `{edition-Extended}`) and normalized to display titles (e.g., "Extended Edition")
+  - Insertion occurs before the extension if not already present in the rendered name
+- IDs:
+  - `movies.ids` controls whether IDs are appended/preserved (integrated in the template context as `{ids}`)
+
+#### 3) TV Rules
+- Season folders:
+  - Controlled by `tv.seasonFolders`
+  - Season 0 uses `Specials` folder when `tv.detectOVAsSeason00` is true
+- Multi‑episode normalization:
+  - Controlled by `tv.normalizeMultiEpisode`
+  - Detects patterns like `E01E02` or `E01-E02`; exposes `{multiEpisodeStart}`, `{multiEpisodeEnd}`, `{multiEpisodeRange}` to templates
+- IDs:
+  - `tv.ids` controls whether IDs are appended/preserved (available via `{ids}`)
+
+#### 4) Sanitization & Validation (Preview + Apply)
+- Respects `general.safety` and `general.encoding`:
+  - Path length checks: 🟥 if >255; 🟨 if 200–255 (when enabled)
+  - Reserved names (Windows): flagged when enabled
+  - Invalid characters (`\\ / : * ? " < > |`): sanitized and flagged
+  - Non‑Latin highlighting: 🟨 when `general.encoding.highlightNonLatin` is true
+- Character replacement and normalization:
+  - Unicode is normalized (NFC)
+  - Invalid characters are replaced with `_` during sanitization
+
+#### 5) Conflict Handling (Apply)
+- Conflicts are resolved according to `general.conflictHandling`:
+  - `skip`: skip operation when target exists
+  - `overwrite`: allow overwrite when safe
+  - `suffix2`: append numerical suffix to avoid collision (future enhancement in video path)
+- Parent directories are created as needed; permissions checked when enabled
+
+#### 6) Subtitles
+- Subtitle operations are generated to match the finalized video basename and extension policy
+- Encoding conversion to UTF‑8 is performed when enabled with optional backup
+- Subtitle settings under `general.subtitles`, plus media‑type specifics under `movies.subtitles` and `tv.subtitles`
+
+#### 7) Preview ↔ Apply Parity
+- `preview_video_renames` produces operations that match `apply_video_renames` behavior:
+  - Same sanitization rules, same directory structure, same conflict handling intent
+  - Warnings and blocking errors surface to the UI to enforce traffic‑light rules
 
 ## Path Mapping Guide
 

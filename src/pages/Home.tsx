@@ -4,6 +4,7 @@ import { useSettings } from "../state/settings";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type {PlexServer} from "../types/plex";
 import {IconArrowForward, IconBolt, IconLogin, IconLogout, IconRefresh, IconServer, IconSettings, IconCheck} from "../components/icons";
+import AnimatedLogo from "../components/AnimatedLogo";
 
 type Props = {
     onSelectServer: (server: PlexServer) => void;
@@ -38,12 +39,10 @@ export default function Home({onSelectServer}: Props) {
             ];
 
             // Try real Tauri discovery if backend implemented; merge unique results
-            console.debug("Discover: invoking backend discovery with hint 192.168.1.132");
             let found: PlexServer[] | null = null;
             try {
                 found = await invoke<PlexServer[]>("plex_discover", { hints: ["192.168.1.132"] });
             } catch (e: any) {
-                console.warn("Discover: backend invoke failed", e);
                 setError(`Discovery failed: ${e?.message ?? String(e)}`);
                 found = null;
             }
@@ -63,7 +62,6 @@ export default function Home({onSelectServer}: Props) {
             try { await invoke("save_settings", { settings: { discovery: { servers: unique } } }); } catch { /* ignore */ }
             if (unique.length && selectedIdx == null) setSelectedIdx(0);
         } catch (e: any) {
-            console.error("Discover: unexpected error", e);
             if (discoverRun.current === runId) setError(e?.message ?? String(e));
         } finally {
             const elapsed = Date.now() - started;
@@ -85,7 +83,6 @@ export default function Home({onSelectServer}: Props) {
         setDiscovering(true);
         const started = Date.now();
         try {
-            console.debug("Manual add: invoking backend discovery with hint", input);
             const found = await invoke<PlexServer[]>("plex_discover", { hints: [input] });
             if (!Array.isArray(found) || found.length === 0) {
                 setError("Could not reach the provided server. Check address and try again.");
@@ -104,7 +101,6 @@ export default function Home({onSelectServer}: Props) {
             try { await invoke("save_settings", { settings: { discovery: { servers: unique } } }); } catch { /* ignore */ }
             if (unique.length) setSelectedIdx(unique.findIndex(s => s.address.toLowerCase().includes(input.replace(/^https?:\/\//, '').split(':')[0].toLowerCase())) || 0);
         } catch (e: any) {
-            console.error("Manual add: error", e);
             setError(e?.message ?? String(e));
         } finally {
             const elapsed = Date.now() - started;
@@ -190,7 +186,6 @@ export default function Home({onSelectServer}: Props) {
                 }
             };
 
-            console.log("Starting login polling...");
             setTimeout(poll, 500); // Start polling sooner
             // best-effort cleanup when component unmounts
             (ensurePlexLogin as any)._cancel = () => { cancelled = true; };
@@ -245,7 +240,6 @@ export default function Home({onSelectServer}: Props) {
                             try { localStorage.setItem("plexToken", secureTok); } catch {}
                         }
                     } catch (e) {
-                        console.warn("Failed to load token from secure storage:", e);
                     }
                 })();
             }
@@ -378,8 +372,15 @@ export default function Home({onSelectServer}: Props) {
 
             <section className="mx-auto max-w-6xl px-6 py-8">
                 <div className="mb-6">
-                    <h1 className="text-center text-3xl font-bold tracking-tight">Welcome</h1>
-                    <p className="mt-1 text-center text-neutral-400">Connect to your Plex server to begin.</p>
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="flex items-center gap-4">
+                            <AnimatedLogo className="h-24 w-auto" />
+                            <div className="text-center">
+                                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">Welcome</h1>
+                                <p className="mt-1 text-neutral-400">Connect to your Plex server to begin.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {error && (

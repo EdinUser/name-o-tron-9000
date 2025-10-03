@@ -6,11 +6,12 @@ use plex_auth::{plex_login, plex_login_status, plex_logout};
 use base64::{Engine as _, engine::general_purpose};
 use std::fs;
 use dirs;
-mod path_map;
-mod settings;
-mod plex_api;
-mod secure;
-mod subtitle;
+pub mod path_map;
+pub mod settings;
+pub mod plex_api;
+pub mod secure;
+pub mod subtitle;
+pub mod video_rename;
 
 // Re-export functions used by frontend
 pub use plex_api::fetch_library_content;
@@ -18,6 +19,8 @@ pub use plex_api::fetch_tv_shows;
 pub use plex_api::fetch_show_episodes;
 pub use plex_api::search_content;
 pub use plex_api::sanitize_filename_cmd;
+pub use path_map::test_mapping;
+// video_rename module is already declared above
 
 #[derive(Serialize)]
 pub struct PlexServerDto {
@@ -200,7 +203,6 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
                     return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&cached_data)));
                 }
                 Err(e) => {
-                    eprintln!("Failed to read cached image: {}", e);
                 }
             }
         }
@@ -266,7 +268,6 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
             base_url.clone()
         };
 
-        println!("Trying image URL {}: {}", i + 1, url_with_token);
 
         let mut request = client.get(&url_with_token);
 
@@ -294,19 +295,16 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
                     if let Some(ref cache_dir) = cache_dir {
                         let cache_file = cache_dir.join(format!("{}.jpg", cache_key));
                         if let Err(e) = fs::write(&cache_file, &image_data) {
-                            eprintln!("Failed to cache image: {}", e);
                         }
                     }
 
                     return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&image_data)));
                 } else {
                     last_error = Some(format!("Image request failed with status: {}", response.status()));
-                    println!("Attempt {} failed: {}", i + 1, response.status());
                 }
             }
             Err(e) => {
                 last_error = Some(format!("Failed to fetch image: {}", e));
-                println!("Attempt {} error: {}", i + 1, e);
             }
         }
     }
@@ -343,6 +341,8 @@ pub fn run() {
             subtitle::preview_renames,
             subtitle::apply_renames,
             subtitle::undo_last_rename,
+            video_rename::preview_video_renames,
+            video_rename::apply_video_renames,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

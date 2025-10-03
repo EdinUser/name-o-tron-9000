@@ -151,7 +151,7 @@ fn convert_subtitle_to_utf8(input_path: &str, output_path: &str, backup_path: &s
     Ok(())
 }
 
-fn find_subtitle_files(video_path: &str) -> Vec<SubtitleFile> {
+pub fn find_subtitle_files(video_path: &str) -> Vec<SubtitleFile> {
     let video_dir = Path::new(video_path).parent()
         .unwrap_or_else(|| Path::new(video_path))
         .to_string_lossy()
@@ -593,7 +593,6 @@ pub async fn undo_last_rename() -> Result<ApplyResult, String> {
     // Remove the log file after successful undo
     if operations_failed == 0 {
         if let Err(e) = fs::remove_file(&most_recent_log) {
-            eprintln!("Warning: Failed to remove rollback log: {}", e);
         }
     }
 
