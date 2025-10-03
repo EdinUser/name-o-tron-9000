@@ -145,19 +145,24 @@ export default function Home({onSelectServer}: Props) {
 
         loginPromise.current = new Promise<string | null>((resolve) => {
             let cancelled = false;
+            let pollCount = 0;
             const poll = async () => {
                 if (cancelled) return;
+                pollCount++;
                 try {
                     const res = await invoke<{ status: string; token?: string }>("plex_login_status");
                     const st = String(res.status || "idle");
+
                     if (st === "authorized") {
                         const tok = (res as any).token ? String((res as any).token) : null;
                         setLoginStatus("authorized");
                         setLoginToken(tok);
                         if (tok) {
-                            const pref = settings.general.authPersistence || "none";
+                            // Always save to localStorage for immediate API use
+                            try { localStorage.setItem("plexToken", tok); } catch { /* ignore */ }
+
+                            const pref = settings.general.authPersistence || "secure"; // Default to secure
                             if (pref === "file") {
-                                try { localStorage.setItem("plexToken", tok); } catch { /* ignore */ }
                                 try { await invoke("save_settings", { settings: { auth: { plexToken: tok } } }); } catch { /* ignore */ }
                             } else if (pref === "secure") {
                                 try { await invoke("secure_save_token", { token: tok }); } catch { /* ignore */ }
@@ -178,9 +183,15 @@ export default function Home({onSelectServer}: Props) {
                     resolve(null);
                     return;
                 }
-                setTimeout(poll, 1200);
+
+                // Continue polling if still pending
+                if (!cancelled) {
+                    setTimeout(poll, 1200);
+                }
             };
-            setTimeout(poll, 800);
+
+            console.log("Starting login polling...");
+            setTimeout(poll, 500); // Start polling sooner
             // best-effort cleanup when component unmounts
             (ensurePlexLogin as any)._cancel = () => { cancelled = true; };
         });
@@ -213,13 +224,30 @@ export default function Home({onSelectServer}: Props) {
     useEffect(() => {
         try { getCurrentWindow().setTitle("Name-o-Tron 9000 — Home"); } catch {}
         try {
-            const pref = settings.general.authPersistence || "none";
-            if (pref === "file") {
-                const tok = localStorage.getItem("plexToken");
-                if (tok) {
-                    setLoginToken(tok);
-                    setLoginStatus("authorized");
-                }
+            // Always try localStorage first for immediate availability
+            const tok = localStorage.getItem("plexToken");
+            if (tok) {
+                setLoginToken(tok);
+                setLoginStatus("authorized");
+                return;
+            }
+
+            // If not in localStorage, try secure storage if that's the preference
+            const pref = settings.general.authPersistence || "secure";
+            if (pref === "secure") {
+                (async () => {
+                    try {
+                        const secureTok = await invoke<string | null>("secure_get_token");
+                        if (secureTok) {
+                            setLoginToken(secureTok);
+                            setLoginStatus("authorized");
+                            // Also save to localStorage for consistency
+                            try { localStorage.setItem("plexToken", secureTok); } catch {}
+                        }
+                    } catch (e) {
+                        console.warn("Failed to load token from secure storage:", e);
+                    }
+                })();
             }
         } catch { /* ignore */ }
         (async () => {
