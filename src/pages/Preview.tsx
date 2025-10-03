@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import type {PlexLibrary, PlexServer} from "../types/plex";
-import {IconArrowBack, IconBolt, IconHome, IconInfo, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch, IconStatusGood, IconStatusWarning, IconStatusError} from "../components/icons";
+import {IconArrowBack, IconBolt, IconHome, IconInfo, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch, IconStatusGood, IconStatusWarning, IconStatusError, IconSun, IconMoon} from "../components/icons";
 import PathMappingModal from "../components/PathMappingModal";
 import TemplateHelpModal from "../components/TemplateHelpModal";
 import PlexPopoverCard from "../components/PlexPopoverCard";
@@ -8,6 +8,7 @@ import Toggle from "../components/Toggle";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import {useSettings} from "../state/settings";
+import {useTheme} from "../state/theme";
 import {renderTemplate, detectEditionFromPathWithPriority, type DetectedEdition, extractImdbId, extractTvdbId, extractTmdbId, mapEditionTokenToTitle} from "../utils/template";
 
 type Props = {
@@ -1080,6 +1081,7 @@ async function computeMusicProposal(m: MusicItem, template: string, settings: an
 
 export default function Preview({server, library, onBack}: Props) {
     const { settings, updateSettings, settingsVersion } = useSettings();
+    const { resolvedTheme, toggleTheme } = useTheme();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [rows, setRows] = useState<PreviewRow[]>([]);
@@ -1183,16 +1185,17 @@ export default function Preview({server, library, onBack}: Props) {
         }
     }, [server.address, server.machineIdentifier, library.roots]);
 
+    // Load raw data from Plex API (minimal dependencies)
     useEffect(() => {
-        async function load() {
+        async function loadRawData() {
             setLoading(true);
             setError(null);
             try {
                 let token: string | null = null;
                 try { token = localStorage.getItem("plexToken"); } catch {}
-                
-                const list: PreviewRow[] = [];
-                
+
+                const rawItems: Array<MovieItem | EpisodeItem | MusicItem> = [];
+
                 if (library.type === "movie") {
                     // Fetch movie items using the existing command
                     const data = await invoke<SectionResponse>("fetch_library_content", {
@@ -1214,12 +1217,6 @@ export default function Preview({server, library, onBack}: Props) {
                         if (!file) continue;
                         const movieRatingKey = String(item.ratingKey ?? item.key ?? file);
 
-                        // Extract collection information directly from movie metadata
-                        const collections = item.Collection || item.collection || [];
-                        const collectionName = Array.isArray(collections) && collections.length > 0
-                            ? (collections[0]?.tag || collections[0])
-                            : "";
-
                         const m: MovieItem = {
                             type: "movie",
                             ratingKey: movieRatingKey,
@@ -1237,10 +1234,7 @@ export default function Preview({server, library, onBack}: Props) {
                             summary: String(item.summary ?? ""),
                             thumb: String(item.thumb ?? ""),
                         };
-                        const tpl = settings.templates.movie || template;
-                        const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
-                        row.metadata = m; // Store original metadata for popover
-                        list.push(row);
+                        rawItems.push(m);
                     }
                 } else if (library.type === "artist") {
                     // Fetch music tracks using the fetch_library_content command (music tracks are under Metadata)
@@ -1276,10 +1270,7 @@ export default function Preview({server, library, onBack}: Props) {
                             genre: String(item.genre ?? ""),
                             thumb: String(item.thumb ?? ""),
                         };
-                        const tpl = settings.templates.music || template;
-                        const row = await computeMusicProposal(m, tpl, settings);
-                        row.metadata = m; // Store original metadata for popover
-                        list.push(row);
+                        rawItems.push(m);
                     }
                 } else if (library.type === "show") {
                     // For TV shows, check if a specific show was selected or if we have current show state
@@ -1322,11 +1313,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 parentIndex: item.parentIndex ? Number(item.parentIndex) : parsed.season,
                                 thumb: String(item.thumb ?? ""),
                             };
-                            const tpl = settings.templates.episode || template;
-                            const useSeasonFolders = !!settings.tv.seasonFolders;
-                            const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings);
-                            proposal.metadata = e; // Store original metadata for popover
-                            list.push(proposal);
+                            rawItems.push(e);
                         }
                         // Clear the initial show after loading if it was from window
                         if (initialShow) {
@@ -1347,48 +1334,9 @@ export default function Preview({server, library, onBack}: Props) {
                     return;
                 }
 
-                // Process subtitle operations for all files
-                try {
-                    const filePaths = list.map(row => row.filePath);
-                    if (filePaths.length > 0) {
-                        const previewResult = await invoke<any>("preview_video_renames", {
-                            libraryId: library.key,
-                            scope: filePaths,
-                            settings: settings,
-                        });
-
-                        // Add subtitle operations to the corresponding preview rows
-                        if (previewResult.subtitle_operations && previewResult.subtitle_operations.length > 0) {
-                            const subtitleOpsByFile = new Map<string, any[]>();
-                            for (const op of previewResult.subtitle_operations) {
-                                const videoPath = op.original_path.substring(0, op.original_path.lastIndexOf('/'));
-                                if (!subtitleOpsByFile.has(videoPath)) {
-                                    subtitleOpsByFile.set(videoPath, []);
-                                }
-                                subtitleOpsByFile.get(videoPath)!.push(op);
-                            }
-
-                            // Update rows with subtitle operations
-                            list.forEach(row => {
-                                const videoDir = row.filePath.substring(0, row.filePath.lastIndexOf('/'));
-                                const subtitleOps = subtitleOpsByFile.get(videoDir) || [];
-                                if (subtitleOps.length > 0) {
-                                    row.subtitleOperations = subtitleOps.map(op => ({
-                                        originalPath: op.original_path,
-                                        proposedPath: op.new_path,
-                                        operationType: op.operation_type,
-                                        warningFlags: op.warning_flags || [],
-                                    }));
-                                }
-                            });
-                        }
-                    }
-                } catch (subtitleError) {
-                    // Continue without subtitle operations
-                }
-
-                setRows(list);
-                setSelectedIds(new Set(list.filter(r => r.status !== "error").map(r => r.id)));
+                // Store raw items for later proposal computation
+                (window as any).__rawItems = rawItems;
+                setRawItems(rawItems);
             } catch (e: any) {
                 setError(e?.message ?? String(e));
             } finally {
@@ -1396,8 +1344,94 @@ export default function Preview({server, library, onBack}: Props) {
             }
         }
 
-        load();
-    }, [server.address, library.key, library.type, template, reloadTick, settingsVersion,
+        loadRawData();
+    }, [server.address, library.key, library.type, reloadTick, moviesPaging.start, moviesPaging.size, episodesPaging.start, episodesPaging.size, currentShow?.ratingKey]);
+
+    // State for raw items
+    const [rawItems, setRawItems] = useState<Array<MovieItem | EpisodeItem | MusicItem>>([]);
+
+    // Compute proposals from raw items when settings change
+    useEffect(() => {
+        async function computeProposals() {
+            if (rawItems.length === 0) return;
+
+            const list: PreviewRow[] = [];
+
+            for (const item of rawItems) {
+                if (item.type === "movie") {
+                    const m = item as MovieItem;
+                    // Extract collection information from the raw item
+                    const collections = (m as any).Collection || (m as any).collection || [];
+                    const collectionName = Array.isArray(collections) && collections.length > 0
+                        ? (collections[0]?.tag || collections[0])
+                        : "";
+
+                    const tpl = settings.templates.movie || template;
+                    const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
+                    row.metadata = m; // Store original metadata for popover
+                    list.push(row);
+                } else if (item.type === "music") {
+                    const m = item as MusicItem;
+                    const tpl = settings.templates.music || template;
+                    const row = await computeMusicProposal(m, tpl, settings);
+                    row.metadata = m; // Store original metadata for popover
+                    list.push(row);
+                } else if (item.type === "episode") {
+                    const e = item as EpisodeItem;
+                    const tpl = settings.templates.episode || template;
+                    const useSeasonFolders = !!settings.tv.seasonFolders;
+                    const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings);
+                    proposal.metadata = e; // Store original metadata for popover
+                    list.push(proposal);
+                }
+            }
+
+            // Process subtitle operations for all files
+            try {
+                const filePaths = list.map(row => row.filePath);
+                if (filePaths.length > 0) {
+                    const previewResult = await invoke<any>("preview_video_renames", {
+                        libraryId: library.key,
+                        scope: filePaths,
+                        settings: settings,
+                    });
+
+                    // Add subtitle operations to the corresponding preview rows
+                    if (previewResult.subtitle_operations && previewResult.subtitle_operations.length > 0) {
+                        const subtitleOpsByFile = new Map<string, any[]>();
+                        for (const op of previewResult.subtitle_operations) {
+                            const videoPath = op.original_path.substring(0, op.original_path.lastIndexOf('/'));
+                            if (!subtitleOpsByFile.has(videoPath)) {
+                                subtitleOpsByFile.set(videoPath, []);
+                            }
+                            subtitleOpsByFile.get(videoPath)!.push(op);
+                        }
+
+                        // Update rows with subtitle operations
+                        list.forEach(row => {
+                            const videoDir = row.filePath.substring(0, row.filePath.lastIndexOf('/'));
+                            const subtitleOps = subtitleOpsByFile.get(videoDir) || [];
+                            if (subtitleOps.length > 0) {
+                                row.subtitleOperations = subtitleOps.map(op => ({
+                                    originalPath: op.original_path,
+                                    proposedPath: op.new_path,
+                                    operationType: op.operation_type,
+                                    warningFlags: op.warning_flags || [],
+                                }));
+                            }
+                        });
+                    }
+                }
+            } catch (subtitleError) {
+                // Continue without subtitle operations
+            }
+
+            setRows(list);
+            setSelectedIds(new Set(list.filter(r => r.status !== "error").map(r => r.id)));
+        }
+
+        computeProposals();
+    }, [rawItems, settingsVersion,
         settings.movies.collections.enabled,
         settings.movies.collections.mode,
         settings.movies.collections.naming,
@@ -1411,6 +1445,7 @@ export default function Preview({server, library, onBack}: Props) {
         settings.general.encoding.highlightNonLatin,
         settings.templates.movie,
         settings.templates.episode,
+        settings.templates.music,
         settings.movies.editions.mode,
         settings.movies.editions.createFromFilenames,
         settings.movies.editions.createMultipleTags,
@@ -1425,7 +1460,8 @@ export default function Preview({server, library, onBack}: Props) {
         settings.general.conflictHandling,
         settings.general.safety.pathLengthCheck,
         settings.general.safety.reservedNamesCheck,
-        settings.general.safety.permissionsCheck
+        settings.general.safety.permissionsCheck,
+        template
     ]);
 
 
@@ -1800,8 +1836,8 @@ export default function Preview({server, library, onBack}: Props) {
     }, []);
 
     return (
-        <main className="min-h-screen bg-neutral-900 text-neutral-100">
-            <header className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-900/80 backdrop-blur">
+        <main className="min-h-screen bg-neutral-900 text-neutral-100" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+            <header className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-900/80 backdrop-blur" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                 <div className="mx-auto flex min-w-[1000px] items-center justify-between px-6 py-3">
                     <div className="flex items-center gap-2 text-sm text-neutral-300">
                         <button onClick={onBack} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
@@ -1824,10 +1860,6 @@ export default function Preview({server, library, onBack}: Props) {
                         </button>
                         <button onClick={undoLastRename} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             ↶ Undo
-                        </button>
-                        <button title="Reload library" onClick={() => setReloadTick(t => t + 1)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
-                            <IconRefresh className="h-5 w-5"/>
-                            Reload
                         </button>
                         <input
                             value={template}
@@ -1885,6 +1917,9 @@ export default function Preview({server, library, onBack}: Props) {
                             <IconSettings className="h-5 w-5"/>
                             Settings
                         </button>
+                        <button onClick={toggleTheme} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+                            {resolvedTheme === 'dark' ? <IconSun className="h-5 w-5"/> : <IconMoon className="h-5 w-5"/>}
+                        </button>
                     </div>
 
                 </div>
@@ -1902,6 +1937,12 @@ export default function Preview({server, library, onBack}: Props) {
                         )}
                     </div>
                     <div className="flex items-center gap-2">
+                        {/* Reload button */}
+                        <button title="Reload library" onClick={() => setReloadTick(t => t + 1)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+                            <IconRefresh className="h-5 w-5"/>
+                            Reload
+                        </button>
+
                         {/* Load more buttons */}
                         {library.type === "movie" && !moviesPaging.exhausted && (
                             <div className="flex items-center gap-1">
@@ -2146,12 +2187,12 @@ export default function Preview({server, library, onBack}: Props) {
                             <>
                                 <div
                                     key={r.id}
-                                    className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40"
+                                    className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40 dark:hover:bg-neutral-800/40 light:hover:bg-neutral-50/40"
                                     style={{gridTemplateColumns: gridTemplate}}
                                 >
                                     <Toggle checked={selectedIds.has(r.id)} onChange={() => toggle(r.id)}/>
                                     <div
-                                        className="truncate cursor-pointer hover:bg-neutral-700/50 rounded px-1 py-0.5 transition-colors"
+                                        className="truncate cursor-pointer hover:bg-neutral-700/50 dark:hover:bg-neutral-700/50 light:hover:bg-neutral-100/50 rounded px-1 py-0.5 transition-colors"
                                         title={r.filePath}
                                         onMouseEnter={(e) => handleMouseEnter(e, r)}
                                         onMouseLeave={handleMouseLeave}
@@ -2176,7 +2217,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 {r.subtitleOperations && r.subtitleOperations.length > 0 && (
                                     <div className="ml-7 border-l-2 border-neutral-700 pl-3">
                                         {r.subtitleOperations.map((subOp, idx) => (
-                                            <div key={idx} className="grid items-center gap-2 px-3 py-1 text-sm text-neutral-400 hover:bg-neutral-800/20" style={{gridTemplateColumns: gridTemplate}}>
+                                            <div key={idx} className="grid items-center gap-2 px-3 py-1 text-sm text-neutral-400 hover:bg-neutral-800/20 dark:hover:bg-neutral-800/20 light:hover:bg-neutral-50/40" style={{gridTemplateColumns: gridTemplate}}>
                                                 <div className="text-xs">📝</div>
                                                 <div className="truncate text-xs" title={subOp.originalPath}>
                                                     {subOp.originalPath.split('/').pop()}

@@ -1,17 +1,97 @@
 @import "tailwindcss";
 
 /* Minimal globals + dark fallback (works even if Tailwind fails) */
-html, body, #root { 
+html, body, #root {
   height: 100%;
   min-width: 1300px;
 }
-body { 
-  @apply antialiased; 
-  background-color: #0a0a0a; 
-  color: #e5e7eb;
+
+/* Theme-aware styles */
+html.dark {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #151515;
+  --bg-tertiary: #1f2937;
+  --text-primary: #e5e7eb;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --border-color: #374151;
+  --accent-color: #06b6d4; /* Keep cyan for dark mode - better contrast */
+}
+
+html.light {
+  --bg-primary: #ffffff;
+  --bg-secondary: #e8eaed;
+  --bg-tertiary: #f8fafc;
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --border-color: #d1d5db;
+  --accent-color: #d88900;
+}
+
+/* Override cyan colors for light mode */
+html.light .bg-cyan-500 { background-color: var(--accent-color); }
+html.light .bg-cyan-400 { background-color: #b45309; }
+html.light .bg-cyan-600 { background-color: #9a3412; }
+html.light .border-cyan-500 { border-color: var(--accent-color); }
+html.light .border-cyan-800 { border-color: #9a3412; }
+html.light .text-cyan-200 { color: #f59e0b; }
+html.light .bg-cyan-900\/20 { background-color: #fed7aa20; }
+html.light .bg-cyan-500\/10 { background-color: #fed7aa10; }
+html.light .bg-cyan-500\/80 { background-color: #fed7aa80; }
+html.light .ring-cyan-500\/50 { --tw-ring-color: #fed7aa50; }
+
+/* Improve table/list backgrounds in light mode */
+html.light .bg-neutral-800\/40 { background-color: #f1f5f9; }
+html.light .bg-neutral-800\/30 { background-color: #f8fafc; }
+html.light .bg-neutral-800\/60 { background-color: #e2e8f0; }
+html.light .bg-neutral-900\/60 { background-color: #cbd5e1; }
+html.light .border-neutral-800 { border-color: #cbd5e1; }
+html.light .border-neutral-700 { border-color: #94a3b8; }
+
+body {
+  @apply antialiased;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   min-width: 1300px;
   overflow-x: auto;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* Accent color utility classes */
+.accent-bg { background-color: var(--accent-color); }
+.accent-bg-hover:hover { background-color: var(--accent-color); }
+.accent-border { border-color: var(--accent-color); }
+.accent-text { color: var(--accent-color); }
+
+/* Override Tailwind classes to use theme variables */
+html.dark .bg-neutral-900 { background-color: var(--bg-tertiary); }
+html.dark .bg-neutral-900\/80 { background-color: #151515cc; }
+html.dark .bg-neutral-900\/60 { background-color: #15151599; }
+html.dark .bg-neutral-900\/50 { background-color: #15151580; }
+html.dark .bg-neutral-800 { background-color: var(--bg-secondary); }
+html.dark .bg-neutral-700 { background-color: #374151; }
+html.dark .text-neutral-100 { color: var(--text-primary); }
+html.dark .text-neutral-200 { color: var(--text-secondary); }
+html.dark .text-neutral-300 { color: var(--text-muted); }
+html.dark .text-neutral-400 { color: #9ca3af; }
+html.dark .text-neutral-500 { color: #6b7280; }
+html.dark .border-neutral-700 { border-color: var(--border-color); }
+html.dark .border-neutral-800 { border-color: #374151; }
+
+html.light .bg-neutral-900 { background-color: var(--bg-secondary); }
+html.light .bg-neutral-900\/80 { background-color: #e8eaedcc; }
+html.light .bg-neutral-900\/60 { background-color: #e8eaed99; }
+html.light .bg-neutral-900\/50 { background-color: #e8eaed80; }
+html.light .bg-neutral-800 { background-color: var(--bg-tertiary); }
+html.light .bg-neutral-700 { background-color: #d1d5db; }
+html.light .text-neutral-100 { color: var(--text-primary); }
+html.light .text-neutral-200 { color: var(--text-secondary); }
+html.light .text-neutral-300 { color: var(--text-muted); }
+html.light .text-neutral-400 { color: #9ca3af; }
+html.light .text-neutral-500 { color: #6b7280; }
+html.light .border-neutral-700 { border-color: var(--border-color); }
+html.light .border-neutral-800 { border-color: #d1d5db; }
 
 /* Animated logo stroke-draw + fill timing (scoped via svg.active) */
 svg .svg-elem-1 { stroke-dashoffset: 504.7549133300781px; stroke-dasharray: 504.7549133300781px; fill: transparent; transition: stroke-dashoffset 1s cubic-bezier(0.47, 0, 0.745, 0.715) 0s, fill 0.7s cubic-bezier(0.47, 0, 0.745, 0.715) 0.8s; }
