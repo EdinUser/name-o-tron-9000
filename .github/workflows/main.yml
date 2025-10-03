@@ -51,6 +51,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Run tests (both frontend and backend)
+      - name: Run tests
+        run: |
+          # Run frontend tests (TypeScript checking)
+          npm run test:ci
+          # Run Rust backend tests
+          cd src-tauri && cargo test
+
       # Build + Package Tauri
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
