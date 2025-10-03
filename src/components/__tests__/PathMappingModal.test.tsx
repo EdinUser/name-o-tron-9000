@@ -80,7 +80,7 @@ describe('PathMappingModal', () => {
       expect(screen.getByText('/media/Movies')).toBeInTheDocument()
     })
 
-    const input = screen.getAllByPlaceholderText(/e\.g\., Z:\\Series or \/mnt\/nas\/Series/)[0]
+    const input = screen.getAllByPlaceholderText('e.g., Z:\\\\Series or /mnt/nas/Series')[0]
     await user.clear(input)
     await user.type(input, '/mnt/movies')
 
@@ -146,15 +146,16 @@ describe('PathMappingModal', () => {
     render(<PathMappingModal {...defaultProps} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Test')).toBeInTheDocument()
+      expect(screen.getAllByText('Test')).toHaveLength(3) // Header + 2 buttons
     })
 
     // First enter a path
-    const input = screen.getAllByPlaceholderText(/e\.g\., Z:\\Series or \/mnt\/nas\/Series/)[0]
+    const input = screen.getAllByPlaceholderText('e.g., Z:\\\\Series or /mnt/nas/Series')[0]
     await user.type(input, '/test/path')
 
-    // Then test it
-    await user.click(screen.getByText('Test'))
+    // Then test it - need to be more specific since there are multiple "Test" texts
+    const testButtons = screen.getAllByRole('button', { name: 'Test' })
+    await user.click(testButtons[0]) // Click the first Test button
 
     await waitFor(() => {
       expect(screen.getByText('OK')).toBeInTheDocument()
@@ -181,14 +182,15 @@ describe('PathMappingModal', () => {
     render(<PathMappingModal {...defaultProps} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Test')).toBeInTheDocument()
+      expect(screen.getAllByText('Test')).toHaveLength(3) // Header + 2 buttons
     })
 
     // Enter a path and test it
-    const input = screen.getAllByPlaceholderText(/e\.g\., Z:\\Series or \/mnt\/nas\/Series/)[0]
+    const input = screen.getAllByPlaceholderText('e.g., Z:\\\\Series or /mnt/nas/Series')[0]
     await user.type(input, '/nonexistent/path')
 
-    await user.click(screen.getByText('Test'))
+    const testButtons = screen.getAllByRole('button', { name: 'Test' })
+    await user.click(testButtons[0]) // Click the first Test button
 
     await waitFor(() => {
       expect(screen.getByText('Missing')).toBeInTheDocument()
@@ -215,7 +217,7 @@ describe('PathMappingModal', () => {
     })
 
     // Enter a path
-    const input = screen.getAllByPlaceholderText(/e\.g\., Z:\\Series or \/mnt\/nas\/Series/)[0]
+    const input = screen.getAllByPlaceholderText('e.g., Z:\\\\Series or /mnt/nas/Series')[0]
     await user.type(input, '/mnt/movies')
 
     // Save the mapping
@@ -258,7 +260,7 @@ describe('PathMappingModal', () => {
     })
 
     // Leave one path empty, enter path for the other
-    const inputs = screen.getAllByPlaceholderText(/e\.g\., Z:\\Series or \/mnt\/nas\/Series/)
+    const inputs = screen.getAllByPlaceholderText('e.g., Z:\\\\Series or /mnt/nas/Series')
     await user.type(inputs[0], '/mnt/movies')
     // Leave inputs[1] empty
 
@@ -298,7 +300,7 @@ describe('PathMappingModal', () => {
       expect(screen.getByText('Save')).toBeInTheDocument()
     })
 
-    const input = screen.getAllByPlaceholderText(/e\.g\., Z:\\Series or \/mnt\/nas\/Series/)[0]
+    const input = screen.getAllByPlaceholderText('e.g., Z:\\\\Series or /mnt/nas/Series')[0]
     await user.type(input, '/mnt/movies')
 
     await user.click(screen.getByText('Save'))

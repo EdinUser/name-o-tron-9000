@@ -75,7 +75,7 @@ describe('LibrarySelection', () => {
   })
 
   it('displays libraries after loading', async () => {
-    vi.mocked(invoke).mockResolvedValue([
+    const testLibraries = [
       {
         key: '1',
         type: 'movie',
@@ -88,7 +88,18 @@ describe('LibrarySelection', () => {
         title: 'TV Shows',
         roots: ['/media/TV Shows']
       }
-    ])
+    ]
+
+    // Mock both list_libraries and get_settings
+    vi.mocked(invoke).mockImplementation((command: string) => {
+      if (command === 'list_libraries') {
+        return Promise.resolve(testLibraries)
+      }
+      if (command === 'get_settings') {
+        return Promise.resolve({ pathMappings: [] })
+      }
+      return Promise.resolve([])
+    })
 
     render(
       <LibrarySelection
@@ -125,7 +136,25 @@ describe('LibrarySelection', () => {
 
   it('handles library selection', async () => {
     const user = userEvent.setup()
-    vi.mocked(invoke).mockResolvedValue(mockLibraries)
+
+    // Mock both list_libraries and get_settings to set up a mapping for Movies
+    vi.mocked(invoke).mockImplementation((command: string) => {
+      if (command === 'list_libraries') {
+        return Promise.resolve(mockLibraries)
+      }
+      if (command === 'get_settings') {
+        return Promise.resolve({
+          pathMappings: [
+            {
+              server_id: 'test-server-id',
+              plex_root: '/media/Movies',
+              local_root: '/mnt/movies'
+            }
+          ]
+        })
+      }
+      return Promise.resolve([])
+    })
 
     render(
       <LibrarySelection
@@ -139,19 +168,23 @@ describe('LibrarySelection', () => {
       expect(screen.getByText('Movies')).toBeInTheDocument()
     })
 
+    // Select the Movies radio button
     const radioButton = screen.getByRole('radio', { name: /movies/i })
     await user.click(radioButton)
 
-    // Find the Open button for the Movies library (first one)
-    const openButtons = screen.getAllByRole('button', { name: /open/i })
-    await user.click(openButtons[0])
+    // Click the Continue button (this should work even without individual Open buttons being enabled)
+    const continueButton = screen.getByRole('button', { name: /continue/i })
+    await user.click(continueButton)
 
     expect(mockOnSelectLibrary).toHaveBeenCalledWith(mockLibraries[0])
   })
 
   it('displays mapping status for libraries', async () => {
-    // Mock get_settings to return path mappings
+    // Mock both list_libraries and get_settings
     vi.mocked(invoke).mockImplementation((command: string) => {
+      if (command === 'list_libraries') {
+        return Promise.resolve(mockLibraries)
+      }
       if (command === 'get_settings') {
         return Promise.resolve({
           pathMappings: [
@@ -176,7 +209,7 @@ describe('LibrarySelection', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Mapped')).toBeInTheDocument()
-      expect(screen.getByText('Needs Mapping')).toBeInTheDocument()
+      expect(screen.getAllByText('Needs Mapping')).toHaveLength(2) // TV Shows and Music
     })
   })
 
@@ -274,8 +307,8 @@ describe('LibrarySelection', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('1 root(s)')).toBeInTheDocument() // Movies
-      expect(screen.getByText('2 root(s)')).toBeInTheDocument() // TV Shows
+      expect(screen.getByText('movie — Section 1 — 1 root(s)')).toBeInTheDocument() // Movies
+      expect(screen.getByText('show — Section 2 — 2 root(s)')).toBeInTheDocument() // TV Shows
     })
   })
 })
