@@ -1,8 +1,8 @@
 import React from 'react';
 import { renderHook, act } from '@testing-library/react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { SettingsProvider, useSettings } from '../settings';
-import { setupLocalStorageMock, resetLocalStorageMock, createDefaultSettings } from './test-utils/settings-setup';
+import { setupLocalStorageMock, resetLocalStorageMock } from './test-utils/settings-setup';
 
 setupLocalStorageMock();
 
@@ -43,7 +43,7 @@ describe('SettingsProvider and useSettings hook', () => {
         ...result.current.settings,
         general: {
           ...result.current.settings.general,
-          theme: 'light',
+          theme: 'light' as const,
         },
       };
       result.current.updateSettings(newSettings);
@@ -111,7 +111,7 @@ describe('SettingsProvider and useSettings hook', () => {
     act(() => {
       result.current.updateSettings({
         ...result.current.settings,
-        general: { ...result.current.settings.general, theme: 'light' }
+        general: { ...result.current.settings.general, theme: 'light' as const }
       });
     });
 
