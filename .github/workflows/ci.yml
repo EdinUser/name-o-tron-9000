@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        # Set this to the same minimum supported Rust version (MSRV) from Cargo.toml
+        toolchain: stable
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: "./src-tauri -> target"
+
+    - name: Install frontend dependencies
+      run: npm ci
+
+    - name: Install Tauri CLI
+      run: npm install -g @tauri-apps/cli
+
+    - name: Run frontend type checking
+      run: npm run test:ci
+
+    - name: Run frontend tests
+      run: npm run test:run
+
+    - name: Run Rust tests
+      working-directory: ./src-tauri
+      run: cargo test
+
+    - name: Run Rust tests (with integration tests)
+      working-directory: ./src-tauri
+      run: cargo test --test integration_tests
