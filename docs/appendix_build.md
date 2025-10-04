@@ -1,0 +1,227 @@
+# Building from Source
+
+This document provides detailed instructions for building Name-o-Tron 9000 from source code.
+
+## Development Environment
+
+### Prerequisites
+- **Node.js**: Version 18.0.0 or higher
+- **Rust**: Version 1.70.0 or higher
+- **System Dependencies**:
+  - **Windows**: Microsoft Visual C++ Build Tools, WebView2 runtime
+  - **macOS**: Xcode Command Line Tools (install via `xcode-select --install`)
+  - **Linux**: `build-essential`, `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`
+
+### Development Setup
+
+#### 1. Clone and Initialize
+```bash
+git clone <repository-url>
+cd name-o-tron-9000
+npm install
+```
+
+#### 2. Development Servers
+
+[mock_server.png]
+
+```bash
+# Terminal 1: Mock Plex server for testing
+npm run mock:plex
+
+# Terminal 2: Main application
+npm run tauri dev
+```
+
+#### 3. Available Scripts
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run tauri build` - Build cross-platform packages
+- `npm run mock:plex` - Start mock Plex server with test data
+- `npm run lint` - Run ESLint on frontend code
+- `npm run type-check` - Run TypeScript compiler checks
+
+### Building from Source
+
+#### Prerequisites
+- **Node.js**: Version 18.0.0 or higher
+- **Rust**: Version 1.70.0 or higher
+- **System Dependencies**:
+  - **Windows**: Microsoft Visual C++ Build Tools, WebView2 runtime
+  - **macOS**: Xcode Command Line Tools (install via `xcode-select --install`)
+  - **Linux**: `build-essential`, `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`
+
+#### Build Steps
+1. **Clone and setup**:
+   ```bash
+   git clone <repository-url>
+   cd name-o-tron-9000
+   npm install
+   ```
+
+2. **Development with mock server**:
+   ```bash
+   npm run mock:plex  # Terminal A - starts mock Plex server
+   npm run tauri dev  # Terminal B - starts the app
+   ```
+
+3. **Production build**:
+
+[build_process.png]
+
+   ```bash
+   npm run tauri build
+   ```
+
+#### Cross-Platform Builds
+```bash
+# Build for specific targets
+npm run tauri build -- --target x86_64-pc-windows-msvc
+npm run tauri build -- --target x86_64-apple-darwin
+npm run tauri build -- --target x86_64-unknown-linux-gnu
+```
+
+#### Package Formats
+- **Windows**: `.exe` installer, portable `.exe`
+- **macOS**: `.dmg` disk image with app bundle
+- **Linux**: AppImage (universal), `.deb` (Debian/Ubuntu), `.rpm` (Red Hat/Fedora)
+
+## Build System & Deployment
+
+### Build Configuration
+
+#### Frontend Build (`vite.config.ts`)
+```typescript
+export default defineConfig({
+  plugins: [react()],
+  base: './',
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    target: 'esnext'
+  }
+});
+```
+
+#### Backend Build (`src-tauri/Cargo.toml`)
+```toml
+[package]
+name = "name-o-tron-9000"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+tauri = { version = "1.5", features = ["fs", "path", "window"] }
+serde = { version = "1.0", features = ["derive"] }
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+# ... other dependencies
+```
+
+### Cross-Platform Builds
+
+#### Development Build
+```bash
+npm run tauri dev
+# Builds and runs the application in development mode
+```
+
+#### Production Builds
+```bash
+# Build for current platform
+npm run tauri build
+
+# Build for specific targets
+npm run tauri build -- --target x86_64-pc-windows-msvc
+npm run tauri build -- --target x86_64-apple-darwin
+npm run tauri build -- --target x86_64-unknown-linux-gnu
+```
+
+#### Package Formats
+- **Windows**: `.exe` installer, portable `.exe`
+- **macOS**: `.dmg` disk image with app bundle
+- **Linux**: AppImage (universal), `.deb` (Debian/Ubuntu), `.rpm` (Red Hat/Fedora)
+
+## Testing & Quality Assurance
+
+### Test Infrastructure
+
+#### Mock Plex Server
+- **Location**: `tests/mock-plex-server.cjs`
+- **Data**: Comprehensive test fixtures in `tests/` directory
+- **Libraries**: Movies, TV Shows, Music with realistic metadata
+
+#### Test Categories
+- **Unit Tests**: Individual function and component testing
+- **Integration Tests**: Full workflow testing with mock server
+- **E2E Tests**: Complete user journey validation
+
+### Quality Gates
+
+#### Code Quality
+- **TypeScript**: Strict mode enabled, comprehensive type coverage
+- **Rust**: Clippy lints, comprehensive error handling
+- **Frontend**: ESLint with React and accessibility rules
+
+#### Security
+- **Dependency Scanning**: Automated vulnerability scanning
+- **Code Review**: Required for all changes
+- **Secrets Management**: No hardcoded credentials or secrets
+
+## Deployment & Distribution
+
+### Release Process
+
+#### Version Management
+- **Semantic Versioning**: MAJOR.MINOR.PATCH format
+- **Release Branches**: `release/v*` branches for stabilization
+- **Tags**: Git tags for immutable release points
+
+#### Distribution Channels
+- **GitHub Releases**: Primary distribution channel with auto-update support
+- **Package Managers**: Chocolatey (Windows), Homebrew (macOS), Snap/Flatpak (Linux)
+- **Auto-Update**: Built-in updater for seamless upgrades
+
+### Support & Maintenance
+
+#### Log Collection
+- **Error Reporting**: Automatic error log submission (opt-in)
+- **Usage Analytics**: Anonymous usage statistics (opt-in)
+- **Crash Reporting**: Detailed crash logs for debugging
+
+#### Update Strategy
+- **Patch Releases**: Bug fixes and security updates
+- **Minor Releases**: New features and enhancements
+- **Major Releases**: Breaking changes and major features
+
+## Contributing to Development
+
+### Development Workflow
+
+#### Code Style Guidelines
+- **Rust**: Follow official Rust style guide, use `rustfmt`
+- **TypeScript**: ESLint configuration in `.eslintrc.js`
+- **Commits**: Conventional commit format for automated releases
+
+#### Testing Requirements
+- **New Features**: Must include unit tests
+- **Bug Fixes**: Must include regression tests
+- **UI Changes**: Must include accessibility testing
+
+#### Documentation Requirements
+- **Code Comments**: Document public APIs and complex logic
+- **User Docs**: Update user-facing documentation for new features
+- **Developer Docs**: Update `AGENTS.md` for significant changes
+
+### Advanced Development Topics
+
+#### Custom Build Configurations
+- **Feature Flags**: Runtime feature toggles for testing
+- **Build Variants**: Different builds for different use cases
+- **Plugin Architecture**: Extension points for custom functionality
+
+#### Performance Optimization
+- **Bundle Splitting**: Code splitting for faster load times
+- **Caching Strategy**: Intelligent caching for metadata and images
+- **Lazy Loading**: On-demand loading of heavy components
+
+For developer-focused information, see the [AGENTS.md](../AGENTS.md) file in the repository root. For user-focused guidance, refer to the main [user guide](index.md).

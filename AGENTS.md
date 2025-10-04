@@ -198,6 +198,34 @@ Agent practices:
 - **Header Optimization**: Reload button moved from crowded header to logical position above table
 - **Table Backgrounds**: Enhanced light mode table styling with pleasant blue-tinted grays instead of dull grays
 
+## CSS and Styling Guidelines
+
+**Core Philosophy:**
+- No emojis or "modern" design elements (gradients, shadows, animations, etc.)
+- Styling should lean technical but not be overly complex
+- Prioritize functionality and clarity over visual appeal
+
+**Design Principles:**
+- Use solid colors only - no gradients, patterns, or decorative elements
+- Maintain consistent spacing using a systematic approach (8px base unit)
+- Typography should be clean and readable with clear hierarchy
+- Color palette limited to essential functional colors (primary, secondary, success, warning, error)
+- No hover effects, transitions, or animations unless they serve a clear functional purpose
+- Focus states should be clearly visible but not flashy
+
+**Technical Implementation:**
+- Rely on CSS custom properties (variables) for consistent theming
+- Use logical CSS properties where appropriate (margin-inline, padding-block)
+- Maintain separate dark and light mode color schemes
+- Keep CSS organized by component/function rather than page
+- Avoid CSS-in-JS solutions unless absolutely necessary for component-specific styling
+
+**Color Usage:**
+- Dark mode: Cyan accent (#06b6d4) for primary actions and links
+- Light mode: Orange accent (#d88900) for primary actions and links
+- Status colors: Green for success, yellow for warnings, red for errors
+- Text should maintain high contrast ratios for accessibility
+
 Planning & messaging (for agent UIs):
 - Maintain a short plan; one step in progress
 - Group related shell actions under one brief preamble
