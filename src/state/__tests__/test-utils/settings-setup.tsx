@@ -26,12 +26,12 @@ export const resetLocalStorageMock = () => {
   localStorageMock.setItem.mockImplementation(() => {});
 };
 
-export const mockTauriBackend = (settings?: any) => {
+export const mockTauriBackend = (_settings?: any) => {
   // The invoke function is already mocked globally in the vi.mock call
   // We don't need to mock it again here
 };
 
-export const mockTauriError = (error: Error) => {
+export const mockTauriError = (_error: Error) => {
   // The invoke function is already mocked globally in the vi.mock call
   // We don't need to mock it again here
 };
