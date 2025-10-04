@@ -22,6 +22,40 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn(),
 }))
 
+// Mock web globals that jsdom needs for webidl-conversions and whatwg-url
+Object.defineProperty(globalThis, 'URL', {
+  value: class URL {
+    constructor(url: string) {
+      return { href: url, toString: () => url }
+    }
+    static createObjectURL() { return 'mocked-url' }
+    static revokeObjectURL() {}
+  },
+  writable: true,
+})
+
+Object.defineProperty(globalThis, 'URLSearchParams', {
+  value: class URLSearchParams {
+    constructor() { return { toString: () => '' } }
+  },
+  writable: true,
+})
+
+// Mock other web globals that might be needed
+Object.defineProperty(globalThis, 'Blob', {
+  value: class Blob {
+    constructor() {}
+  },
+  writable: true,
+})
+
+Object.defineProperty(globalThis, 'File', {
+  value: class File {
+    constructor() {}
+  },
+  writable: true,
+})
+
 // Test wrapper with providers
 export function renderWithProviders(component: ReactNode) {
   return render(
