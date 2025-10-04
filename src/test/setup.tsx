@@ -8,6 +8,7 @@ import type { ReactNode } from 'react'
 // Mock Tauri API calls for testing
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
+  convertFileSrc: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/api/window', () => ({

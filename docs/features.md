@@ -23,12 +23,24 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 - **🟥 Red**: Blocking errors that must be resolved (invalid characters, path length >255, permission issues)
 - **❌ Unmatched**: Files not found in Plex database
 
+### Status-Based Filtering
+- **Filter by Status**: Dropdown filter to show only specific status types (all, good, warning, error, unmatched)
+- **Quick Overview**: Focus on problematic items or review only compliant files
+- **Combined Search**: Status filtering works with search functionality for precise item selection
+
 [traffic_light.png]
 
 ### Batch Safety Guards
 - **Cannot proceed** with any selected red-flagged items
 - **Skip All Reds**: Automatically unselect problematic items
 - **Auto-Fix Reds**: Built-in sanitizers for common issues (invalid characters, long paths)
+
+### Manual Metadata Fixes
+- **Edit Metadata Modal**: Click the edit icon next to any item in preview to modify metadata
+- **Persistent Fixes**: Manual changes are saved and applied consistently across sessions
+- **Movie Fields**: Edit title, year, and edition information
+- **TV Episode Fields**: Edit show title, episode title, season, and episode numbers
+- **Template Integration**: Edited metadata flows through the template system for consistent naming
 
 ### Pre-Flight Validation
 - **Permission Checks**: Verify read/write access before operations
@@ -43,6 +55,9 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 - **Movie Templates**: `{title}[ ({year})]{ext}` with optional collections and editions
 - **TV Templates**: `{showTitle} - S{season:02}E{episode:02} - {title}{ext}` with multi-episode support
 - **Music Templates**: Artist/Album/Track formatting with disc subfolder support
+- **Conditional Groups**: Use `[ (optional text) ]` for content that appears only when placeholders have values
+- **Nested Optionals**: Support for complex conditional formatting with nested optional groups
+- **Template Help Modal**: Interactive examples and documentation for all template features
 
 ### Advanced Features
 - **Edition Detection**: Automatically detect Extended, IMAX, Director's Cut, etc. from filenames
@@ -110,3 +125,24 @@ For detailed guidance on setting up and troubleshooting path mappings, see [Path
 - **Pagination**: Efficient handling of large libraries (200 items per page)
 - **Real-time Updates**: Immediate preview recalculation when settings change
 - **Progress Indicators**: Visual feedback during long operations
+
+## Testing & Quality Assurance
+
+### Comprehensive Test Coverage
+- **Frontend Tests**: 33+ tests covering React components, state management, and error handling
+- **Backend Tests**: 15+ tests covering Rust backend, settings persistence, and deep merge logic
+- **Integration Tests**: Full workflow testing with mock Plex servers
+- **Error Scenarios**: Extensive coverage of edge cases, malformed data, and system failures
+
+### Test Categories
+- **Settings Load/Save**: localStorage integration, persistence, error recovery (12 tests)
+- **Deep Merge**: Complex nested object merging and array handling (7 tests)
+- **Manual Fixes**: CRUD operations for metadata overrides and cleanup (8 tests)
+- **Settings Provider**: React hooks, Tauri backend integration, state management (6 tests)
+- **Error Recovery**: localStorage failures, quota exceeded, corrupted data handling
+- **Type Safety**: Settings validation, migration, and version compatibility
+
+### Development Testing
+- **Mock Plex Server**: Comprehensive test fixtures for all media types
+- **Automated CI/CD**: TypeScript checks, linting, and test execution
+- **Cross-Platform**: Testing on Windows, macOS, and Linux environments

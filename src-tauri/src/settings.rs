@@ -55,6 +55,58 @@ pub fn get_settings(app: tauri::AppHandle) -> Result<Value, String> {
     serde_json::from_str::<Value>(&txt).map_err(|e| e.to_string())
 }
 
+// Test helper functions for unit testing
+pub mod test_helpers {
+    use super::*;
+    use std::path::Path;
+
+    pub fn get_settings_from_path(path: &Path) -> Result<Value, String> {
+        if !path.exists() {
+            return Ok(serde_json::json!({}));
+        }
+        let txt = fs::read_to_string(path).map_err(|e| e.to_string())?;
+        if txt.trim().is_empty() {
+            return Ok(serde_json::json!({}));
+        }
+        serde_json::from_str::<Value>(&txt).map_err(|e| e.to_string())
+    }
+
+    pub fn save_settings_to_path(path: &Path, settings: Value) -> Result<(), String> {
+        ensure_parent(path)?;
+
+        // Read existing settings (object) or start with empty object
+        let mut current = if path.exists() {
+            let txt = fs::read_to_string(path).map_err(|e| e.to_string())?;
+            serde_json::from_str::<Value>(&txt).unwrap_or_else(|_| serde_json::json!({}))
+        } else {
+            serde_json::json!({})
+        };
+
+        // Deep-merge: incoming keys override existing; nested objects merged recursively
+        fn deep_merge(dest: &mut Value, src: &Value) {
+            match (dest, src) {
+                (Value::Object(d), Value::Object(s)) => {
+                    for (k, v) in s.iter() {
+                        if let Some(existing) = d.get_mut(k) {
+                            deep_merge(existing, v);
+                        } else {
+                            d.insert(k.clone(), v.clone());
+                        }
+                    }
+                }
+                (d, s) => {
+                    *d = s.clone();
+                }
+            }
+        }
+
+        deep_merge(&mut current, &settings);
+
+        let txt = serde_json::to_string_pretty(&current).map_err(|e| e.to_string())?;
+        fs::write(path, txt).map_err(|e| e.to_string())
+    }
+}
+
 #[tauri::command]
 pub fn save_settings(app: tauri::AppHandle, settings: Value) -> Result<(), String> {
     let path = settings_path(&app)?;

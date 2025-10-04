@@ -25,7 +25,9 @@ This document outlines the future development direction for Name-o-Tron 9000, in
   - Path length optimization with intelligent truncation
   - Duplicate resolution with content-aware suffix suggestions
 - **Batch Error Analysis**: Group similar errors and provide bulk fix options
-- **Preview-Time Validation**: Enhanced real-time validation during preview
+- **✅ Preview-Time Validation**: Enhanced real-time validation during preview
+  - Status-based filtering (all, good, warning, error, unmatched)
+  - Combined search and status filtering for precise item selection
 
 #### Retry & Recovery Workflows
 - **Selective Retry**: Re-run only failed or skipped operations from previous batches
@@ -42,7 +44,9 @@ This document outlines the future development direction for Name-o-Tron 9000, in
 #### Enhanced Metadata Handling
 - **Custom Metadata Fields**: User-defined metadata for special use cases
 - **Metadata Validation**: Check Plex metadata quality before operations
-- **Bulk Metadata Editing**: Edit multiple items' metadata through the app
+- **✅ Bulk Metadata Editing**: Edit multiple items' metadata through the app (Individual item editing implemented)
+  - Manual metadata fixes for movies, TV episodes, and music
+  - Persistent fixes across sessions with template integration
 
 #### Advanced Template System
 - **Template Variables**: More placeholder options (director, studio, rating, etc.)

@@ -46,6 +46,7 @@ Name-o-Tron 9000 is designed specifically for Plex users who want to maintain pr
 - **Plex Integration**: Discover and authenticate with Plex Media Servers using automatic server discovery and PIN-based authentication
 - **Safety-First Design**: Traffic-light status system (Green/Yellow/Red) with comprehensive validation and batch guards
 - **Preview System**: Generate rename proposals with real filesystem validation before applying changes
+- **Manual Metadata Editing**: Edit metadata for individual items directly in the preview interface for customized naming
 - **Rollback Support**: Complete rollback logging with one-click undo functionality for all operations (see [Rollback & Recovery](features.md#rollback--recovery))
 - **Subtitle Handling**: Full subtitle detection, classification, renaming, and encoding conversion support
 - **Cross-Platform Path Mapping**: Robust path resolution for different operating systems and network configurations
@@ -119,6 +120,8 @@ Name-o-Tron 9000 is designed specifically for Plex users who want to maintain pr
          🟨 Yellow = warning (non-Latin, missing metadata, etc.)
          🟥 Red    = blocking (must skip/fix)
          ❌ Unmatched = not in Plex DB
+    - Manual editing: Click edit icon (✏️) to modify metadata for customized naming
+    - Status filtering: Filter by status type (all, good, warning, error, unmatched)
     - Options:
          [⚡ Proceed to Rename] (enabled only if no 🟥 selected)
          [❌ Skip All Reds] → unselects red-flagged items
