@@ -324,23 +324,54 @@ function padNumber(value: number, width: number): string {
 /**
  * Renders a template with placeholders like {title}, {year}, {season:02}.
  * Optional groups in [square brackets] are omitted if all placeholders inside resolve to empty/undefined.
+ * Supports nested optional groups through recursive processing.
  */
 export function renderTemplate(template: string, context: TemplateContext): string {
   if (!template) return "";
 
-  // First, process bracketed optional groups.
-  const withGroups = template.replace(/\[(.+?)\]/g, (_match, group) => {
-    // Resolve placeholders within the group to check if any have values
-    const resolved = group.replace(/\{([a-zA-Z0-9_]+)(?::(\d+))?\}/g, (_m: string, key: string, fmt: string) => {
-      const raw = context[key];
-      if (raw == null || raw === "") return "";
-      if (typeof raw === "number" && fmt) return padNumber(raw, parseInt(fmt, 10));
-      return String(raw);
+  // Helper function to process optional groups recursively
+  function processOptionalGroups(text: string): string {
+    // If no more brackets, return as-is
+    if (!text.includes('[') || !text.includes(']')) {
+      return text;
+    }
+
+    // Process top-level optional groups (non-nested)
+    const processed = text.replace(/\[([^\[\]]+?)\]/g, (_match, group) => {
+      // Resolve placeholders within the group to check if any have values
+      const resolved = group.replace(/\{([a-zA-Z0-9_]+)(?::(\d+))?\}/g, (_m: string, key: string, fmt: string) => {
+        const raw = context[key];
+        if (raw == null || raw === "") return "";
+        if (typeof raw === "number" && fmt) return padNumber(raw, parseInt(fmt, 10));
+        return String(raw);
+      });
+      // If the resolved group is empty or whitespace/punctuation only, drop the whole group
+      // Consider content to exist if there's more than just whitespace and punctuation
+      const trimmed = resolved.trim();
+      const hasContent = /[a-zA-Z0-9]/.test(trimmed) && trimmed.length > 0;
+
+      // Special case: if the result looks like "( - something)" or similar structural issues,
+      // try to clean it up by removing leading/trailing structural elements when they're orphaned
+      if (hasContent && (trimmed.startsWith('( - ') || trimmed.startsWith('(- '))) {
+        const cleaned = trimmed.replace(/^\(\s*-\s*/, '').replace(/\)$/, '');
+        if (cleaned && /[a-zA-Z0-9]/.test(cleaned.trim())) {
+          return ' - ' + cleaned;
+        }
+      }
+
+      return hasContent ? resolved : "";
     });
-    // If the resolved group is empty or whitespace/punctuation only, drop the whole group
-    const hasContent = /[a-zA-Z0-9]/.test(resolved);
-    return hasContent ? resolved : "";
-  });
+
+    // If the text changed, process again (handles nested groups)
+    if (processed !== text) {
+      return processOptionalGroups(processed);
+    }
+
+    return processed;
+  }
+
+  // Process all optional groups recursively
+  const withGroups = processOptionalGroups(template);
 
   // Then, replace simple placeholders.
   const replaced = withGroups.replace(/\{([a-zA-Z0-9_]+)(?::(\d+))?\}/g, (_m: string, key: string, fmt: string) => {

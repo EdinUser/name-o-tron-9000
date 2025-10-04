@@ -5,6 +5,7 @@ import Radio from "../components/Radio";
 import { invoke } from "@tauri-apps/api/core";
 import {useSettings, type Settings, type EncodingMode} from "../state/settings";
 import {useTheme} from "../state/theme";
+import { save } from '@tauri-apps/plugin-dialog';
 import {IconSun, IconMoon} from "../components/icons";
 import EditionParsersModal from "../components/EditionParsersModal";
 
@@ -63,6 +64,77 @@ export default function SettingsModal({onClose}: Props) {
             console.error("Failed to save settings:", error);
         } finally {
             setIsSaving(false);
+        }
+    }
+
+    async function exportSettings() {
+        try {
+            const settingsJson = JSON.stringify(localSettings, null, 2);
+
+            // Use Tauri's native save dialog
+            const filePath = await save({
+                defaultPath: 'name-o-tron-9000-settings.json',
+                filters: [{
+                    name: 'JSON',
+                    extensions: ['json']
+                }]
+            });
+
+            if (filePath) {
+                // Write the file using our new Tauri command
+                await invoke('write_text_file', {
+                    path: filePath,
+                    contents: settingsJson
+                });
+
+                alert("Settings exported successfully!");
+                console.log("Settings exported to file:", filePath);
+            }
+            // If user cancelled, filePath will be null - do nothing
+        } catch (error) {
+            console.error("Failed to export settings:", error);
+            alert("Failed to export settings. Please try again.");
+        }
+    }
+
+    async function importSettings() {
+        try {
+            // Create file input element
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.style.display = 'none';
+
+            // Handle file selection
+            input.onchange = async (event) => {
+                const file = (event.target as HTMLInputElement).files?.[0];
+                if (!file) return;
+
+                try {
+                    const text = await file.text();
+                    const importedSettings = JSON.parse(text);
+
+                    // Merge with current settings (shallow merge for safety)
+                    const mergedSettings = { ...localSettings, ...importedSettings };
+                    setLocalSettings(mergedSettings);
+                    setHasChanges(true);
+                    updateSettings(mergedSettings);
+
+                    alert("Settings imported successfully!");
+                    console.log("Settings imported successfully");
+                } catch (parseError) {
+                    alert("Failed to parse settings JSON. Please check the file format and try again.");
+                    console.error("Failed to parse imported settings:", parseError);
+                }
+            };
+
+            // Trigger file dialog
+            document.body.appendChild(input);
+            input.click();
+            document.body.removeChild(input);
+        } catch (error) {
+            console.error("Failed to import settings:", error);
+            alert("Failed to import settings. Please try again.");
         }
     }
 
@@ -272,7 +344,7 @@ export default function SettingsModal({onClose}: Props) {
                         </div>
 
                         <div className="flex-1 overflow-y-auto px-6 pb-6">
-                            {tab === "general" && <General s={localSettings} onChange={(v) => update("general", v)}/>}
+                            {tab === "general" && <General s={localSettings} onChange={(v) => update("general", v)} />}
                             {tab === "movies" && <Movies s={localSettings} onChange={(v) => update("movies", v)} onConfigureParsers={() => setIsEditionParsersModalOpen(true)}/>}
                             {tab === "tv" && <TV s={localSettings} onChange={(v) => update("tv", v)}/>}
                             {tab === "music" && <Music s={localSettings} onChange={(v) => update("music", v)}/>}
@@ -284,25 +356,43 @@ export default function SettingsModal({onClose}: Props) {
                                 <div className="text-sm text-neutral-400">
                                     {hasChanges ? "You have unsaved changes" : "Settings are up to date"}
                                 </div>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={(e) => handleClose(e)}
-                                        className="px-4 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
-                                        disabled={isSaving}
-                                    >
-                                        {hasChanges ? "Cancel" : "Close"}
-                                    </button>
-                                    <button
-                                        onClick={saveSettingsAndClose}
-                                        disabled={!hasChanges || isSaving}
-                                        className={`px-4 py-2 text-sm font-medium rounded ${
-                                            hasChanges && !isSaving
-                                                ? "bg-cyan-500 text-neutral-900 hover:bg-cyan-400"
-                                                : "bg-neutral-700 text-neutral-500 cursor-not-allowed"
-                                        }`}
-                                    >
-                                        {isSaving ? "Saving..." : "Save & Close"}
-                                    </button>
+                                <div className="flex gap-3 justify-between">
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={exportSettings}
+                                            className="px-3 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
+                                            title="Export settings to JSON file"
+                                        >
+                                            Export
+                                        </button>
+                                        <button
+                                            onClick={importSettings}
+                                            className="px-3 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
+                                            title="Import settings from JSON file"
+                                        >
+                                            Import
+                                        </button>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={(e) => handleClose(e)}
+                                            className="px-4 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
+                                            disabled={isSaving}
+                                        >
+                                            {hasChanges ? "Cancel" : "Close"}
+                                        </button>
+                                        <button
+                                            onClick={saveSettingsAndClose}
+                                            disabled={!hasChanges || isSaving}
+                                            className={`px-4 py-2 text-sm font-medium rounded ${
+                                                hasChanges && !isSaving
+                                                    ? "bg-cyan-500 text-neutral-900 hover:bg-cyan-400"
+                                                    : "bg-neutral-700 text-neutral-500 cursor-not-allowed"
+                                            }`}
+                                        >
+                                            {isSaving ? "Saving..." : "Save & Close"}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -395,6 +485,9 @@ function General({s, onChange}: { s: Settings; onChange: (v: Settings["general"]
     const set = (patch: Partial<typeof g>) => onChange({...g, ...patch});
     const setEncoding = (patch: Partial<typeof g.encoding>) => onChange({...g, encoding: {...g.encoding, ...patch}});
     const setPagination = (patch: Partial<typeof g.pagination>) => onChange({...g, pagination: {...g.pagination, ...patch}});
+
+
+
     async function clearSavedCreds() {
         try { await invoke("secure_clear_token"); } catch {}
         try { await invoke("save_settings", { settings: { auth: { plexToken: null } } }); } catch {}

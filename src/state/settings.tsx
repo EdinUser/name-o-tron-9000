@@ -123,6 +123,24 @@ export type PaginationSettings = {
   defaultMusicLimit: number;
 };
 
+export type ManualFix = {
+  /** Plex ratingKey this fix applies to */
+  ratingKey: string;
+  /** Type of media this fix applies to */
+  mediaType: "movie" | "episode" | "music";
+  /** Manual overrides for metadata fields */
+  overrides: {
+    title?: string;
+    year?: number;
+    season?: number;
+    episode?: number;
+    edition?: string;
+    editionTitle?: string;
+  };
+  /** When this fix was created (for cleanup of old fixes) */
+  createdAt: number;
+};
+
 export type Settings = {
   general: GeneralSettings;
   movies: MovieSettings;
@@ -130,6 +148,8 @@ export type Settings = {
   music: MusicSettings;
   misc: MiscSettings;
   templates: TemplateSettings;
+  /** Manual fixes for specific Plex items */
+  manualFixes: ManualFix[];
 };
 
 const defaultSettings: Settings = {
@@ -241,9 +261,55 @@ const defaultSettings: Settings = {
     episode: "{showTitle} - S{season:02}E{episode:02} - {title}{ext}",
     music: "{artist}/{album}/{trackNumber:02} - {track}{ext}",
   },
+  manualFixes: [],
 };
 
 const KEY = "nameotron.settings.v1";
+
+/**
+ * Get manual fix for a specific Plex item
+ */
+export function getManualFix(settings: Settings, ratingKey: string): ManualFix | undefined {
+  return settings.manualFixes.find(fix => fix.ratingKey === ratingKey);
+}
+
+/**
+ * Add or update a manual fix
+ */
+export function addOrUpdateManualFix(settings: Settings, fix: ManualFix): Settings {
+  const existingIndex = settings.manualFixes.findIndex(f => f.ratingKey === fix.ratingKey);
+
+  if (existingIndex >= 0) {
+    // Update existing fix
+    const updatedFixes = [...settings.manualFixes];
+    updatedFixes[existingIndex] = { ...fix, createdAt: Date.now() };
+    return { ...settings, manualFixes: updatedFixes };
+  } else {
+    // Add new fix
+    return { ...settings, manualFixes: [...settings.manualFixes, { ...fix, createdAt: Date.now() }] };
+  }
+}
+
+/**
+ * Remove a manual fix
+ */
+export function removeManualFix(settings: Settings, ratingKey: string): Settings {
+  return {
+    ...settings,
+    manualFixes: settings.manualFixes.filter(fix => fix.ratingKey !== ratingKey)
+  };
+}
+
+/**
+ * Clean up old manual fixes (older than 90 days)
+ */
+export function cleanupOldManualFixes(settings: Settings): Settings {
+  const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
+  return {
+    ...settings,
+    manualFixes: settings.manualFixes.filter(fix => fix.createdAt > ninetyDaysAgo)
+  };
+}
 
 export function loadSettings(): Settings {
   try {
