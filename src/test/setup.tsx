@@ -23,7 +23,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 }))
 
 // Mock web globals that jsdom needs for webidl-conversions and whatwg-url
-Object.defineProperty(global, 'URL', {
+Object.defineProperty(globalThis, 'URL', {
   value: class URL {
     constructor(url: string) {
       return { href: url, toString: () => url }
@@ -34,7 +34,7 @@ Object.defineProperty(global, 'URL', {
   writable: true,
 })
 
-Object.defineProperty(global, 'URLSearchParams', {
+Object.defineProperty(globalThis, 'URLSearchParams', {
   value: class URLSearchParams {
     constructor() { return { toString: () => '' } }
   },
@@ -42,14 +42,14 @@ Object.defineProperty(global, 'URLSearchParams', {
 })
 
 // Mock other web globals that might be needed
-Object.defineProperty(global, 'Blob', {
+Object.defineProperty(globalThis, 'Blob', {
   value: class Blob {
     constructor() {}
   },
   writable: true,
 })
 
-Object.defineProperty(global, 'File', {
+Object.defineProperty(globalThis, 'File', {
   value: class File {
     constructor() {}
   },
