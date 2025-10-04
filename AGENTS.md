@@ -473,6 +473,8 @@ Examples:
 
 ## Testing Recipes
 
+### Mock Server Testing
+
 Local mock server:
 - Start fixtures: `npm run mock:plex` (serves `tests/*.json` data)
 - Run app: `npm run tauri dev`
@@ -485,11 +487,66 @@ Common flows:
 - Preview: Open a library → items fetched with paging; search invokes `search_content` when local filter yields zero.
 - Posters: Hover a row; `PlexPopoverCard` calls `fetch_plex_image` and displays or falls back to placeholder.
 
+### Automated Test Suites
+
+#### Frontend Tests (Vitest)
+Comprehensive test coverage for React components and state management (33+ tests):
+
+```bash
+# Run all frontend tests
+npm test
+
+# Run tests in watch mode for development
+npm test -- --watch
+
+# Run specific test files
+npm test src/state/__tests__/settings-load-save.test.tsx
+npm test src/state/__tests__/settings-deep-merge.test.tsx
+npm test src/state/__tests__/settings-manual-fixes.test.tsx
+npm test src/state/__tests__/settings-provider.test.tsx
+
+# Run with coverage report
+npm run test:coverage
+```
+
+**Test Categories:**
+- **Settings Load/Save** (`settings-load-save.test.tsx`): localStorage integration, persistence, error recovery (12 tests)
+- **Deep Merge** (`settings-deep-merge.test.tsx`): Complex nested object merging and array handling (7 tests)
+- **Manual Fixes** (`settings-manual-fixes.test.tsx`): CRUD operations for metadata overrides and cleanup (8 tests)
+- **Settings Provider** (`settings-provider.test.tsx`): React hooks, Tauri backend integration, state management (6 tests)
+- **Error Handling**: localStorage failures, corrupted data, quota exceeded scenarios
+- **Type Safety**: Settings validation, migration, and version compatibility
+
+#### Backend Tests (Rust)
+Comprehensive test coverage for Rust backend functionality:
+
+```bash
+# Run all Rust tests
+cargo test
+
+# Run specific test files
+cargo test settings_tests
+
+# Run integration tests
+cargo test --test integration_tests
+
+# Run with verbose output
+cargo test -- --nocapture
+```
+
+**Test Categories:**
+- **Settings Persistence**: File I/O, JSON parsing, error handling
+- **Deep Merge Logic**: Complex nested object merging, array replacement, null value handling
+- **Concurrency Safety**: Thread-safe operations for settings access
+- **Edge Cases**: Directory creation, invalid input handling, malformed data recovery
+- **Integration Tests**: HTTP client behavior, Plex API mocking, network error handling
+
 Tips:
 - To simulate token persistence, set `general.authPersistence` to `secure` (keyring) or `file` (localStorage + settings).
 - Use settings modal to tweak templates and verify preview recalculations immediately.
 - Test subtitle operations by creating test files with various naming patterns (e.g., `Movie.eng.srt`, `2_English.srt`).
 - Verify rollback functionality by checking `~/.nameotron/logs/` for JSON logs after apply operations.
+- **Test Data**: Comprehensive test fixtures available in `tests/` directory with Movies, TV Shows, and Music libraries.
 
 ## Performance Notes
 

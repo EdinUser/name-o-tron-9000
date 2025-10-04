@@ -53,6 +53,10 @@ Throughout this document, settings options are marked with labels to help you un
 - **Auto-create rollback log** ✓
   - Enable one-click undo functionality
   - Stored in OS application data directory
+- **Manual metadata fixes** ✓
+  - Edit metadata for individual items through the preview interface
+  - Changes persist across sessions and affect template rendering
+  - Available for movies, TV episodes, and music
 
 ### Filename Encoding 🟢 Basic
 - **Keep Unicode** (•) - Recommended default

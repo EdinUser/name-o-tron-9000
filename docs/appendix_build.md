@@ -40,6 +40,9 @@ npm run tauri dev
 - `npm run mock:plex` - Start mock Plex server with test data
 - `npm run lint` - Run ESLint on frontend code
 - `npm run type-check` - Run TypeScript compiler checks
+- `npm test` - Run Vitest test suite
+- `npm run test:coverage` - Run tests with coverage report
+- `npm run test:ci` - Run TypeScript checks for CI
 
 ### Building from Source
 
@@ -123,6 +126,10 @@ reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
 ```bash
 npm run tauri dev
 # Builds and runs the application in development mode
+
+# With comprehensive testing
+npm run tauri dev &
+npm run mock:plex  # In separate terminal
 ```
 
 #### Production Builds
@@ -150,10 +157,27 @@ npm run tauri build -- --target x86_64-unknown-linux-gnu
 - **Data**: Comprehensive test fixtures in `tests/` directory
 - **Libraries**: Movies, TV Shows, Music with realistic metadata
 
+#### Automated Test Suites
+
+##### Frontend Tests (Vitest)
+Comprehensive React component and state management testing:
+- **Location**: `src/**/__tests__/*.test.tsx`
+- **Framework**: Vitest with React Testing Library
+- **Coverage**: Settings management, manual fixes, hooks, error handling
+- **Run**: `npm test` or `npm run test:coverage`
+
+##### Backend Tests (Rust)
+Comprehensive Rust backend functionality testing:
+- **Location**: `src-tauri/tests/*.rs`
+- **Framework**: Built-in Rust testing with cargo
+- **Coverage**: Settings persistence, deep merge, concurrency, integration
+- **Run**: `cargo test` or `cargo test --test <test_name>`
+
 #### Test Categories
 - **Unit Tests**: Individual function and component testing
 - **Integration Tests**: Full workflow testing with mock server
 - **E2E Tests**: Complete user journey validation
+- **Settings Tests**: Deep merge logic, persistence, error recovery
 
 ### Quality Gates
 

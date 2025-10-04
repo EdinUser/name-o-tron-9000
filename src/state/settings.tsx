@@ -370,7 +370,7 @@ export function useSettings() {
 }
 
 // Deep merge utility for nested objects
-function deepMerge(target: any, source: any): any {
+export function deepMerge(target: any, source: any): any {
   const result = { ...target };
   for (const key in source) {
     if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
@@ -412,8 +412,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const all = await invoke<any>("get_settings");
         console.log("Loaded settings from Tauri backend:", all);
         if (all && all.ui) {
-          // Properly deep merge current settings with Tauri settings (current takes precedence)
-          const mergedSettings = deepMerge(all.ui, settings);
+          // Properly deep merge Tauri settings with current settings (Tauri takes precedence for UI settings)
+          const mergedSettings = deepMerge(settings, all.ui);
           console.log("Merged settings:", mergedSettings);
           setSettings(mergedSettings);
           // Also save merged settings to localStorage for consistency
