@@ -125,6 +125,31 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
         </div>
 
         <div className="mt-6 pt-4 border-t border-neutral-700">
+          <h3 className="text-sm font-medium text-neutral-200 mb-2">Optional Groups (Conditional Naming)</h3>
+          <p className="text-neutral-300 text-sm mb-3">
+            Use <code className="bg-neutral-800 px-1 rounded">{"[square brackets]"}</code> for optional content.
+            If all placeholders inside the brackets are empty or undefined, the entire group is omitted.
+          </p>
+          <div className="space-y-2 text-sm mb-4">
+            <div className="bg-neutral-800 rounded p-2">
+              <span className="text-neutral-400">Optional Year:</span>{" "}
+              <code className="text-cyan-400">{"{title}[ ({year})]{ext}"}</code>
+              <div className="text-neutral-300 ml-2 mt-1">
+                → Inception (2010).mkv <span className="text-neutral-400">(with year)</span><br/>
+                → Inception.mkv <span className="text-neutral-400">(without year)</span>
+              </div>
+            </div>
+            <div className="bg-neutral-800 rounded p-2">
+              <span className="text-neutral-400">Nested Optional:</span>{" "}
+              <code className="text-cyan-400">{"{title}[ ({year}[ - {edition}])]{ext}"}</code>
+              <div className="text-neutral-300 ml-2 mt-1">
+                → Inception (2010 - Extended).mkv <span className="text-neutral-400">(all present)</span><br/>
+                → Inception (2010).mkv <span className="text-neutral-400">(year only)</span><br/>
+                → Inception - Extended.mkv <span className="text-neutral-400">(edition only)</span>
+              </div>
+            </div>
+          </div>
+
           <h3 className="text-sm font-medium text-neutral-200 mb-2">Example Templates</h3>
           <div className="space-y-2 text-sm">
             {fieldAvailability === "movies" && (
@@ -139,14 +164,26 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
                   <code className="text-cyan-400">{"{title}[ ({year})]{edition}{ext}"}</code>
                   <span className="text-neutral-300 ml-2">→ Inception (2010) Extended.mkv</span>
                 </div>
+                <div className="bg-neutral-800 rounded p-2">
+                  <span className="text-neutral-400">With Collection:</span>{" "}
+                  <code className="text-cyan-400">{"{title}[ ({year})][ ({collection})]{ext}"}</code>
+                  <span className="text-neutral-300 ml-2">→ Inception (2010) (Trilogy).mkv</span>
+                </div>
               </>
             )}
             {fieldAvailability === "episodes" && (
-              <div className="bg-neutral-800 rounded p-2">
-                <span className="text-neutral-400">Episodes:</span>{" "}
-                <code className="text-cyan-400">{"{showTitle} - S{season:02}E{episode:02} - {title}{ext}"}</code>
-                <span className="text-neutral-300 ml-2">→ Breaking Bad - S05E12 - Rabid Dog.mkv</span>
-              </div>
+              <>
+                <div className="bg-neutral-800 rounded p-2">
+                  <span className="text-neutral-400">Episodes:</span>{" "}
+                  <code className="text-cyan-400">{"{showTitle} - S{season:02}E{episode:02} - {title}{ext}"}</code>
+                  <span className="text-neutral-300 ml-2">→ Breaking Bad - S05E12 - Rabid Dog.mkv</span>
+                </div>
+                <div className="bg-neutral-800 rounded p-2">
+                  <span className="text-neutral-400">With Year:</span>{" "}
+                  <code className="text-cyan-400">{"{showTitle} - S{season:02}E{episode:02}[ ({year})] - {title}{ext}"}</code>
+                  <span className="text-neutral-300 ml-2">→ Breaking Bad - S05E12 (2013) - Rabid Dog.mkv</span>
+                </div>
+              </>
             )}
             {fieldAvailability === "music" && (
               <>
@@ -159,6 +196,11 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
                   <span className="text-neutral-400">Simple:</span>{" "}
                   <code className="text-cyan-400">{"{trackNumber:02} - {track}{ext}"}</code>
                   <span className="text-neutral-300 ml-2">→ 01 - Come Together.mp3</span>
+                </div>
+                <div className="bg-neutral-800 rounded p-2">
+                  <span className="text-neutral-400">With Disc:</span>{" "}
+                  <code className="text-cyan-400">{"{artist}/{album}[/Disc {disc}]/{trackNumber:02} - {track}{ext}"}</code>
+                  <span className="text-neutral-300 ml-2">→ The Beatles/Abbey Road/Disc 2/01 - Come Together.mp3</span>
                 </div>
               </>
             )}

@@ -1,13 +1,14 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import type {PlexLibrary, PlexServer} from "../types/plex";
-import {IconArrowBack, IconBolt, IconHome, IconInfo, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch, IconStatusGood, IconStatusWarning, IconStatusError, IconSun, IconMoon} from "../components/icons";
+import {IconArrowBack, IconBolt, IconEdit, IconHome, IconInfo, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch, IconStatusGood, IconStatusWarning, IconStatusError, IconSun, IconMoon} from "../components/icons";
+import Select from "../components/Select";
 import PathMappingModal from "../components/PathMappingModal";
 import TemplateHelpModal from "../components/TemplateHelpModal";
 import PlexPopoverCard from "../components/PlexPopoverCard";
 import Toggle from "../components/Toggle";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
-import {useSettings} from "../state/settings";
+import {useSettings, addOrUpdateManualFix} from "../state/settings";
 import {useTheme} from "../state/theme";
 import {renderTemplate, detectEditionFromPathWithPriority, type DetectedEdition, extractImdbId, extractTvdbId, extractTmdbId, mapEditionTokenToTitle} from "../utils/template";
 
@@ -305,6 +306,16 @@ function parseEpisodeInfo(filePath: string, fallbackTitle: string): { showTitle:
 
 async function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie: boolean, collectionsEnabled: boolean, collectionName: string, settings: any): Promise<PreviewRow> {
     const ext = extname(m.file) || ".mkv";
+
+    // Check for manual fix first
+    const manualFix = settings.manualFixes?.find((fix: any) => fix.ratingKey === m.ratingKey);
+    if (manualFix && manualFix.mediaType === "movie") {
+      // Apply manual overrides
+      if (manualFix.overrides.title) m.title = manualFix.overrides.title;
+      if (manualFix.overrides.year) m.year = manualFix.overrides.year;
+      if (manualFix.overrides.edition) m.edition = manualFix.overrides.edition;
+      if (manualFix.overrides.editionTitle) m.editionTitle = manualFix.overrides.editionTitle;
+    }
 
     // Get edition from Plex API or detect from file path
     let editionToken: string | undefined = m.edition || undefined;
@@ -729,6 +740,16 @@ function getOrganizedPath(title: string, year?: number, genre?: string): string 
 async function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolders: boolean, settings: any): Promise<PreviewRow> {
     const ext = extname(e.file) || ".mkv";
 
+    // Check for manual fix first
+    const manualFix = settings.manualFixes?.find((fix: any) => fix.ratingKey === e.ratingKey);
+    if (manualFix && manualFix.mediaType === "episode") {
+      // Apply manual overrides
+      if (manualFix.overrides.episodeTitle) e.title = manualFix.overrides.episodeTitle;
+      if (manualFix.overrides.showTitle) e.showTitle = manualFix.overrides.showTitle;
+      if (manualFix.overrides.season) e.season = manualFix.overrides.season;
+      if (manualFix.overrides.episode) e.index = manualFix.overrides.episode;
+    }
+
     // Extract IDs from GUID
     const imdbId = e.guid ? extractImdbId(e.guid) : null;
     const thetvdbId = e.guid ? extractTvdbId(e.guid) : null;
@@ -986,6 +1007,13 @@ async function computeEpisodeProposal(e: EpisodeItem, template: string, useSeaso
 async function computeMusicProposal(m: MusicItem, template: string, settings: any): Promise<PreviewRow> {
     const ext = extname(m.file) || ".mp3";
 
+    // Check for manual fix first
+    const manualFix = settings.manualFixes?.find((fix: any) => fix.ratingKey === m.ratingKey);
+    if (manualFix && manualFix.mediaType === "music") {
+      // Apply manual overrides
+      if (manualFix.overrides.track) m.track = manualFix.overrides.track;
+    }
+
     // Extract IDs from GUID if available
     const imdbId = m.guid ? extractImdbId(m.guid) : null;
     const thetvdbId = m.guid ? extractTvdbId(m.guid) : null;
@@ -1104,8 +1132,10 @@ export default function Preview({server, library, onBack}: Props) {
     const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
     const [showMapModal, setShowMapModal] = useState(false);
     const [showTemplateHelp, setShowTemplateHelp] = useState(false);
+    const [editingItem, setEditingItem] = useState<PreviewRow | null>(null);
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
+    const [statusFilter, setStatusFilter] = useState<string>("all"); // "all", "good", "warning", "error", "unmatched"
     const [currentShow, setCurrentShow] = useState<{ ratingKey: string; title: string } | null>(null);
     const [remoteResults, setRemoteResults] = useState<PreviewRow[]>([]);
     const [remoteQuery, setRemoteQuery] = useState<string>("");
@@ -1484,19 +1514,27 @@ export default function Preview({server, library, onBack}: Props) {
     }, [debouncedSearchQuery]);
 
     const filteredRows = useMemo(() => {
-        if (!debouncedSearchQuery.trim()) return rows;
+        let results = rows;
 
-        const query = debouncedSearchQuery.toLowerCase();
-        const libraryRoots = library.roots || [];
-        const results = rows.filter(r => {
-            const currentPath = shortenFilePath(r.filePath, libraryRoots).toLowerCase();
-            const proposedName = r.proposed.toLowerCase();
-            const fullPath = r.filePath.toLowerCase();
-            return currentPath.includes(query) || proposedName.includes(query) || fullPath.includes(query);
-        });
+        // Apply search filter if query exists
+        if (debouncedSearchQuery.trim()) {
+            const query = debouncedSearchQuery.toLowerCase();
+            const libraryRoots = library.roots || [];
+            results = results.filter(r => {
+                const currentPath = shortenFilePath(r.filePath, libraryRoots).toLowerCase();
+                const proposedName = r.proposed.toLowerCase();
+                const fullPath = r.filePath.toLowerCase();
+                return currentPath.includes(query) || proposedName.includes(query) || fullPath.includes(query);
+            });
+        }
+
+        // Apply status filter if not "all"
+        if (statusFilter !== "all") {
+            results = results.filter(r => r.status === statusFilter);
+        }
 
         return results;
-    }, [rows, debouncedSearchQuery, library.roots]);
+    }, [rows, debouncedSearchQuery, statusFilter, library.roots]);
 
     // Trigger remote (API) search for all queries
     useEffect(() => {
@@ -1651,7 +1689,7 @@ export default function Preview({server, library, onBack}: Props) {
 
     // Final rows to display - combine local and remote results
     const displayRows = useMemo(() => {
-        if (!debouncedSearchQuery.trim()) return rows;
+        if (!debouncedSearchQuery.trim()) return filteredRows;
 
         // Combine local filtered results with remote results
         let combined: PreviewRow[] = [];
@@ -1667,7 +1705,7 @@ export default function Preview({server, library, onBack}: Props) {
         }
 
         return combined;
-    }, [rows, filteredRows, remoteResults, debouncedSearchQuery, remoteQuery]);
+    }, [filteredRows, remoteResults, debouncedSearchQuery, remoteQuery]);
 
     const anyRedSelected = useMemo(() => displayRows.some(r => r.status === "error" && selectedIds.has(r.id)), [displayRows, selectedIds]);
     const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
@@ -2158,6 +2196,35 @@ export default function Preview({server, library, onBack}: Props) {
                                 </button>
                             )}
                         </div>
+
+                        {/* Status Filter Dropdown */}
+                        <Select
+                            value={statusFilter}
+                            onChange={setStatusFilter}
+                            options={[
+                                { value: "all", label: "All" },
+                                { value: "good", label: (
+                                    <div className="flex items-center gap-1">
+                                        <IconStatusGood className="w-3 h-3" />
+                                        Green
+                                    </div>
+                                )},
+                                { value: "warning", label: (
+                                    <div className="flex items-center gap-1">
+                                        <IconStatusWarning className="w-3 h-3" />
+                                        Yellow
+                                    </div>
+                                )},
+                                { value: "error", label: (
+                                    <div className="flex items-center gap-1">
+                                        <IconStatusError className="w-3 h-3" />
+                                        Red
+                                    </div>
+                                )},
+                                { value: "unmatched", label: "Unmatched" }
+                            ]}
+                            className="w-auto"
+                        />
                     </div>
                 </div>
 
@@ -2184,11 +2251,10 @@ export default function Preview({server, library, onBack}: Props) {
                             <div></div>
                         </div>
                         {pageRows.map((r) => (
-                            <>
-                                <div
-                                    key={r.id}
-                                    className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40 dark:hover:bg-neutral-800/40 light:hover:bg-neutral-50/40"
-                                    style={{gridTemplateColumns: gridTemplate}}
+                            <div
+                                key={r.id}
+                                className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40 dark:hover:bg-neutral-800/40 light:hover:bg-neutral-50/40"
+                                style={{gridTemplateColumns: gridTemplate}}
                                 >
                                     <Toggle checked={selectedIds.has(r.id)} onChange={() => toggle(r.id)}/>
                                     <div
@@ -2211,35 +2277,40 @@ export default function Preview({server, library, onBack}: Props) {
                                         </div>
                                         <div className="truncate" title={r.proposed}>{r.proposed}</div>
                                     </div>
-                                    <div></div>
+                                    <button
+                                        onClick={() => setEditingItem(r)}
+                                        className="p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded transition-colors"
+                                        title="Edit metadata"
+                                    >
+                                        <IconEdit className="w-4 h-4" />
+                                    </button>
+                                    {/* Subtitle operations */}
+                                    {r.subtitleOperations && r.subtitleOperations.length > 0 && (
+                                        <div className="ml-7 border-l-2 border-neutral-700 pl-3">
+                                            {r.subtitleOperations.map((subOp, idx) => (
+                                                <div key={idx} className="grid items-center gap-2 px-3 py-1 text-sm text-neutral-400 hover:bg-neutral-800/20 dark:hover:bg-neutral-800/20 light:hover:bg-neutral-50/40" style={{gridTemplateColumns: gridTemplate}}>
+                                                    <div className="text-xs">📝</div>
+                                                    <div className="truncate text-xs" title={subOp.originalPath}>
+                                                        {subOp.originalPath.split('/').pop()}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="relative cursor-help">
+                                                            {subOp.warningFlags.length > 0 && <span className="text-amber-300">⚠️</span>}
+                                                            <span className="text-cyan-400">→</span>
+                                                        </div>
+                                                        <div className="truncate text-xs" title={subOp.proposedPath}>
+                                                            {subOp.proposedPath.split('/').pop()}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-xs text-neutral-500">
+                                                        {subOp.operationType}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                                {/* Subtitle operations */}
-                                {r.subtitleOperations && r.subtitleOperations.length > 0 && (
-                                    <div className="ml-7 border-l-2 border-neutral-700 pl-3">
-                                        {r.subtitleOperations.map((subOp, idx) => (
-                                            <div key={idx} className="grid items-center gap-2 px-3 py-1 text-sm text-neutral-400 hover:bg-neutral-800/20 dark:hover:bg-neutral-800/20 light:hover:bg-neutral-50/40" style={{gridTemplateColumns: gridTemplate}}>
-                                                <div className="text-xs">📝</div>
-                                                <div className="truncate text-xs" title={subOp.originalPath}>
-                                                    {subOp.originalPath.split('/').pop()}
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="relative cursor-help">
-                                                        {subOp.warningFlags.length > 0 && <span className="text-amber-300">⚠️</span>}
-                                                        <span className="text-cyan-400">→</span>
-                                                    </div>
-                                                    <div className="truncate text-xs" title={subOp.proposedPath}>
-                                                        {subOp.proposedPath.split('/').pop()}
-                                                    </div>
-                                                </div>
-                                                <div className="text-xs text-neutral-500">
-                                                    {subOp.operationType}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
-                        ))}
+                            ))}
                         {displayRows.length === 0 && <p className="px-3 py-2 text-neutral-400">No items to preview.</p>}
                     </div>
                 )}
@@ -2267,8 +2338,8 @@ export default function Preview({server, library, onBack}: Props) {
                             <span>Rows per page</span>
                             <div className="inline-block">
                                 <select value={pageSize} onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value)); }}
-                                        className="appearance-none px-2 py-1 text-sm bg-neutral-900/70 border border-neutral-700/70 rounded text-neutral-200 focus:outline-none focus:ring-1 focus:ring-cyan-600/40 hover:bg-neutral-800/70 pr-7">
-                                    {[10, 25, 50, 100].map(n => <option key={n} value={n} className="bg-neutral-900 text-neutral-200">{n}</option>)}
+                                        className="appearance-none px-2 py-1 text-sm bg-neutral-800 border border-neutral-700 rounded text-neutral-200 focus:outline-none focus:ring-1 focus:ring-cyan-600/40 hover:bg-neutral-700 pr-7">
+                                    {[10, 25, 50, 100].map(n => <option key={n} value={n} className="bg-neutral-800 text-neutral-200">{n}</option>)}
                                 </select>
                                 <span className="pointer-events-none -ml-6 text-neutral-400">▾</span>
                             </div>
@@ -2298,6 +2369,196 @@ export default function Preview({server, library, onBack}: Props) {
                     libraryType={library.type as "movie" | "show" | "artist"}
                     onClose={() => setShowTemplateHelp(false)}
                 />
+            )}
+
+            {/* Edit Metadata Modal */}
+            {editingItem && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setEditingItem(null)}>
+                    <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-neutral-100">Edit Metadata</h3>
+                            <button
+                                onClick={() => setEditingItem(null)}
+                                className="text-neutral-400 hover:text-neutral-200"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                                    Current Path
+                                </label>
+                                <div className="text-sm text-neutral-400 bg-neutral-800 p-2 rounded">
+                                    {shortenFilePath(editingItem.filePath, library.roots || [])}
+                                </div>
+                            </div>
+
+                            {editingItem.kind === "movie" && editingItem.metadata && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                                            Title
+                                        </label>
+                                        <input
+                                            type="text"
+                                            defaultValue={(editingItem.metadata as MovieItem).title}
+                                            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                            id="edit-title"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                                            Year
+                                        </label>
+                                        <input
+                                            type="number"
+                                            defaultValue={(editingItem.metadata as MovieItem).year || ""}
+                                            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                            id="edit-year"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                                            Edition
+                                        </label>
+                                        <input
+                                            type="text"
+                                            defaultValue={(editingItem.metadata as MovieItem).editionTitle || ""}
+                                            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                            id="edit-edition"
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {editingItem.kind === "episode" && editingItem.metadata && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                                            Show Title
+                                        </label>
+                                        <input
+                                            type="text"
+                                            defaultValue={(editingItem.metadata as EpisodeItem).showTitle}
+                                            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                            id="edit-show-title"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                                            Episode Title
+                                        </label>
+                                        <input
+                                            type="text"
+                                            defaultValue={(editingItem.metadata as EpisodeItem).title}
+                                            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                            id="edit-episode-title"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-300 mb-2">
+                                                Season
+                                            </label>
+                                            <input
+                                                type="number"
+                                                defaultValue={(editingItem.metadata as EpisodeItem).season || ""}
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                                id="edit-season"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-300 mb-2">
+                                                Episode
+                                            </label>
+                                            <input
+                                                type="number"
+                                                defaultValue={(editingItem.metadata as EpisodeItem).index || ""}
+                                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                                id="edit-episode"
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {editingItem.kind === "music" && editingItem.metadata && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-300 mb-2">
+                                            Track Title
+                                        </label>
+                                        <input
+                                            type="text"
+                                            defaultValue={(editingItem.metadata as MusicItem).track}
+                                            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                            id="edit-track-title"
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button
+                                onClick={() => setEditingItem(null)}
+                                className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-200"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const overrides: any = {};
+
+                                    if (editingItem.kind === "movie") {
+                                        const title = (document.getElementById("edit-title") as HTMLInputElement)?.value;
+                                        const year = (document.getElementById("edit-year") as HTMLInputElement)?.value;
+                                        const edition = (document.getElementById("edit-edition") as HTMLInputElement)?.value;
+
+                                        if (title) overrides.title = title;
+                                        if (year) overrides.year = parseInt(year);
+                                        if (edition) overrides.editionTitle = edition;
+                                    } else if (editingItem.kind === "episode") {
+                                        const showTitle = (document.getElementById("edit-show-title") as HTMLInputElement)?.value;
+                                        const episodeTitle = (document.getElementById("edit-episode-title") as HTMLInputElement)?.value;
+                                        const season = (document.getElementById("edit-season") as HTMLInputElement)?.value;
+                                        const episode = (document.getElementById("edit-episode") as HTMLInputElement)?.value;
+
+                                        if (showTitle) overrides.showTitle = showTitle;
+                                        if (episodeTitle) overrides.episodeTitle = episodeTitle;
+                                        if (season) overrides.season = parseInt(season);
+                                        if (episode) overrides.episode = parseInt(episode);
+                                    } else if (editingItem.kind === "music") {
+                                        const title = (document.getElementById("edit-track-title") as HTMLInputElement)?.value;
+                                        if (title) overrides.track = title;
+                                    }
+
+                                    if (Object.keys(overrides).length > 0) {
+                                        const newFix = {
+                                            ratingKey: editingItem.id,
+                                            mediaType: editingItem.kind,
+                                            overrides,
+                                            createdAt: Date.now()
+                                        };
+
+                                        const updatedSettings = addOrUpdateManualFix(settings, newFix);
+                                        updateSettings(updatedSettings);
+
+                                        // Force refresh of preview to show updated proposal
+                                        setReloadTick(prev => prev + 1);
+                                    }
+
+                                    setEditingItem(null);
+                                }}
+                                className="px-4 py-2 text-sm bg-cyan-600 hover:bg-cyan-700 text-white rounded-md"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Plex metadata popover */}

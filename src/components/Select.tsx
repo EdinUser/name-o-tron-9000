@@ -23,10 +23,10 @@ export default function Select<T extends string | number>({ value, onChange, opt
           const parsed = (isNumber ? (Number(raw) as unknown as T) : (raw as unknown as T));
           onChange(parsed);
         }}
-        className="appearance-none px-2 py-1 text-sm bg-neutral-900/70 border border-neutral-700/70 rounded text-neutral-200 focus:outline-none focus:ring-1 focus:ring-cyan-600/40 hover:bg-neutral-800/70 pr-7 disabled:opacity-50"
+        className="appearance-none px-2 py-1 text-sm bg-neutral-800 border border-neutral-700 rounded text-neutral-200 focus:outline-none focus:ring-1 focus:ring-cyan-600/40 hover:bg-neutral-700 pr-7 disabled:opacity-50"
       >
         {options.map((opt) => (
-          <option key={String(opt.value)} value={String(opt.value)} className="bg-neutral-900 text-neutral-200">
+          <option key={String(opt.value)} value={String(opt.value)} className="bg-neutral-800 text-neutral-200">
             {opt.label}
           </option>
         ))}

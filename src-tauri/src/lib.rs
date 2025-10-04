@@ -188,6 +188,12 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
 }
 
 #[tauri::command]
+async fn write_text_file(path: String, contents: String) -> Result<(), String> {
+    use std::fs;
+    fs::write(&path, contents).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn fetch_plex_image(server_url: String, image_path: String, token: Option<String>) -> Result<String, String> {
     // Create a cache key from the server URL and image path
     let cache_key = format!("{}_{}", server_url.replace(['/', ':', '.'], "_"), image_path.replace(['/', '.'], "_"));
@@ -332,6 +338,7 @@ pub fn run() {
             plex_api::search_content,
             plex_api::sanitize_filename_cmd,
             fetch_plex_image,
+            write_text_file,
             path_map::test_mapping,
             settings::get_settings,
             settings::save_settings,
