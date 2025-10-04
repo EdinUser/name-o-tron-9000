@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { invoke } from '@tauri-apps/api/core'
 import LibrarySelection from '../LibrarySelection'
+import { renderWithProviders } from '../../test/setup.tsx'
 import type { PlexServer, PlexLibrary } from '../../types/plex'
 
 // Mock the invoke function
@@ -63,7 +64,7 @@ describe('LibrarySelection', () => {
       new Promise(resolve => setTimeout(() => resolve([]), 100))
     )
 
-    render(
+    renderWithProviders(
       <LibrarySelection
         server={mockServer}
         onBack={mockOnBack}
@@ -101,7 +102,7 @@ describe('LibrarySelection', () => {
       return Promise.resolve([])
     })
 
-    render(
+    renderWithProviders(
       <LibrarySelection
         server={mockServer}
         onBack={mockOnBack}
@@ -121,7 +122,7 @@ describe('LibrarySelection', () => {
   it('displays server information in header', async () => {
     vi.mocked(invoke).mockResolvedValue([])
 
-    render(
+    renderWithProviders(
       <LibrarySelection
         server={mockServer}
         onBack={mockOnBack}
@@ -156,7 +157,7 @@ describe('LibrarySelection', () => {
       return Promise.resolve([])
     })
 
-    render(
+    renderWithProviders(
       <LibrarySelection
         server={mockServer}
         onBack={mockOnBack}
@@ -199,7 +200,7 @@ describe('LibrarySelection', () => {
       return Promise.resolve([])
     })
 
-    render(
+    renderWithProviders(
       <LibrarySelection
         server={mockServer}
         onBack={mockOnBack}
@@ -216,7 +217,7 @@ describe('LibrarySelection', () => {
   it('shows error state when loading fails', async () => {
     vi.mocked(invoke).mockRejectedValue(new Error('Network error'))
 
-    render(
+    renderWithProviders(
       <LibrarySelection
         server={mockServer}
         onBack={mockOnBack}
@@ -233,7 +234,7 @@ describe('LibrarySelection', () => {
     const user = userEvent.setup()
     vi.mocked(invoke).mockResolvedValue([])
 
-    render(
+    renderWithProviders(
       <LibrarySelection
         server={mockServer}
         onBack={mockOnBack}
@@ -256,7 +257,7 @@ describe('LibrarySelection', () => {
   it('disables Open button for unmapped libraries', async () => {
     vi.mocked(invoke).mockResolvedValue(mockLibraries)
 
-    render(
+    renderWithProviders(
       <LibrarySelection
         server={mockServer}
         onBack={mockOnBack}
@@ -279,7 +280,7 @@ describe('LibrarySelection', () => {
     const user = userEvent.setup()
     vi.mocked(invoke).mockResolvedValue([])
 
-    render(
+    renderWithProviders(
       <LibrarySelection
         server={mockServer}
         onBack={mockOnBack}
@@ -298,7 +299,7 @@ describe('LibrarySelection', () => {
   it('displays correct root count for libraries', async () => {
     vi.mocked(invoke).mockResolvedValue(mockLibraries)
 
-    render(
+    renderWithProviders(
       <LibrarySelection
         server={mockServer}
         onBack={mockOnBack}
