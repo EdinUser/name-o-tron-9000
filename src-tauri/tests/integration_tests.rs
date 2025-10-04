@@ -333,13 +333,15 @@ async fn test_path_mapping_functionality() {
         plex_path,
         &[mapping],
         "test_server",
-        None,
+        Some("windows"),
     );
 
     assert!(resolved.is_some(), "Should resolve valid plex path");
     let resolved_path = resolved.unwrap();
     assert!(resolved_path.to_string_lossy().contains("/mnt/movies"));
-    assert!(resolved_path.to_string_lossy().contains("Inception (2010)"));
+    // On Windows, paths are normalized to lowercase, so check for both cases
+    assert!(resolved_path.to_string_lossy().contains("Inception (2010)") ||
+            resolved_path.to_string_lossy().contains("inception (2010)"));
 
     println!("Path mapping resolution test completed successfully");
 }
