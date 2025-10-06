@@ -258,6 +258,22 @@ function normalizeShowTitle(raw: string) {
     return raw.replace(/[._]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// Function to resolve relative Plex paths to absolute local paths
+function resolvePlexFilePath(relativePath: string, libraryFolder: string | null): string {
+    if (!libraryFolder) return relativePath;
+
+    // If it's already an absolute path, return as-is
+    if (relativePath.startsWith('/') || relativePath.match(/^[A-Za-z]:/)) {
+        return relativePath;
+    }
+
+    // Remove any leading slashes or backslashes from relative path
+    const cleanRelativePath = relativePath.replace(/^[/\\]+/, '');
+
+    // Combine library folder with relative path
+    return `${libraryFolder}/${cleanRelativePath}`.replace(/\\/g, '/');
+}
+
 function shortenFilePath(filePath: string, libraryRoots: string[]): string {
     if (!libraryRoots.length) return filePath;
 
@@ -304,7 +320,7 @@ function parseEpisodeInfo(filePath: string, fallbackTitle: string): { showTitle:
     return { showTitle, season, index };
 }
 
-async function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie: boolean, collectionsEnabled: boolean, collectionName: string, settings: any): Promise<PreviewRow> {
+async function computeMovieProposal(m: MovieItem, template: string, ownFolderPerMovie: boolean, collectionsEnabled: boolean, collectionName: string, settings: any, libraryFolder: string | null): Promise<PreviewRow> {
     const ext = extname(m.file) || ".mkv";
 
     // Check for manual fix first
@@ -734,10 +750,10 @@ function getOrganizedPath(title: string, year?: number, genre?: string): string 
         status = "warning";
         flags.push(">200 path");
     }
-    return {id: m.ratingKey, kind: "movie", filePath: m.file, proposed, status, flags};
+    return {id: m.ratingKey, kind: "movie", filePath: resolvePlexFilePath(m.file, libraryFolder), proposed, status, flags};
 }
 
-async function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolders: boolean, settings: any): Promise<PreviewRow> {
+async function computeEpisodeProposal(e: EpisodeItem, template: string, useSeasonFolders: boolean, settings: any, libraryFolder: string | null): Promise<PreviewRow> {
     const ext = extname(e.file) || ".mkv";
 
     // Check for manual fix first
@@ -1001,10 +1017,10 @@ async function computeEpisodeProposal(e: EpisodeItem, template: string, useSeaso
         status = "warning";
         flags.push(">200 path");
     }
-    return {id: e.ratingKey, kind: "episode", filePath: e.file, proposed, status, flags};
+    return {id: e.ratingKey, kind: "episode", filePath: resolvePlexFilePath(e.file, libraryFolder), proposed, status, flags};
 }
 
-async function computeMusicProposal(m: MusicItem, template: string, settings: any): Promise<PreviewRow> {
+async function computeMusicProposal(m: MusicItem, template: string, settings: any, libraryFolder: string | null): Promise<PreviewRow> {
     const ext = extname(m.file) || ".mp3";
 
     // Check for manual fix first
@@ -1104,7 +1120,7 @@ async function computeMusicProposal(m: MusicItem, template: string, settings: an
         flags.push(">200 path");
     }
 
-    return {id: m.ratingKey, kind: "music", filePath: m.file, proposed, status, flags};
+    return {id: m.ratingKey, kind: "music", filePath: resolvePlexFilePath(m.file, libraryFolder), proposed, status, flags};
 }
 
 export default function Preview({server, library, onBack}: Props) {
@@ -1193,6 +1209,7 @@ export default function Preview({server, library, onBack}: Props) {
     }, [server.address, server.machineIdentifier, library.key, library.roots]);
 
 
+
     // Refresh path mappings when modal is saved
     const refreshPathMappings = useCallback(async () => {
         try {
@@ -1252,7 +1269,7 @@ export default function Preview({server, library, onBack}: Props) {
                             ratingKey: movieRatingKey,
                             title: String(item.title ?? "Unknown"),
                             year: item.year ? Number(item.year) : undefined,
-                            file: String(file),
+                            file: resolvePlexFilePath(String(file), libraryFolder),
                             edition: String(item.edition ?? item.editionTitle ?? ""),
                             genre: String(item.genre ?? ""),
                             rating: String(item.contentRating ?? ""),
@@ -1295,7 +1312,7 @@ export default function Preview({server, library, onBack}: Props) {
                             track: String(item.title ?? "Unknown Track"),
                             trackNumber: item.index ? Number(item.index) : undefined,
                             disc: item.parentIndex ? Number(item.parentIndex) : undefined,
-                            file: String(file),
+                            file: resolvePlexFilePath(String(file), libraryFolder),
                             year: item.year ? Number(item.year) : undefined,
                             genre: String(item.genre ?? ""),
                             thumb: String(item.thumb ?? ""),
@@ -1336,7 +1353,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 title: String(item.title ?? "Episode"),
                                 season: parsed.season,
                                 index: parsed.index,
-                                file: String(file),
+                                file: resolvePlexFilePath(String(file), libraryFolder),
                                 year: item.year ? Number(item.year) : undefined,
                                 grandparentTitle: String(item.grandparentTitle ?? showToLoad.title),
                                 parentTitle: String(item.parentTitle ?? ""),
@@ -1397,20 +1414,20 @@ export default function Preview({server, library, onBack}: Props) {
                         : "";
 
                     const tpl = settings.templates.movie || template;
-                    const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
+                    const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder);
                     row.metadata = m; // Store original metadata for popover
                     list.push(row);
                 } else if (item.type === "music") {
                     const m = item as MusicItem;
                     const tpl = settings.templates.music || template;
-                    const row = await computeMusicProposal(m, tpl, settings);
+                    const row = await computeMusicProposal(m, tpl, settings, libraryFolder);
                     row.metadata = m; // Store original metadata for popover
                     list.push(row);
                 } else if (item.type === "episode") {
                     const e = item as EpisodeItem;
                     const tpl = settings.templates.episode || template;
                     const useSeasonFolders = !!settings.tv.seasonFolders;
-                    const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings);
+                    const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder);
                     proposal.metadata = e; // Store original metadata for popover
                     list.push(proposal);
                 }
@@ -1420,11 +1437,13 @@ export default function Preview({server, library, onBack}: Props) {
             try {
                 const filePaths = list.map(row => row.filePath);
                 if (filePaths.length > 0) {
-                    const previewResult = await invoke<any>("preview_video_renames", {
-                        libraryId: library.key,
+                const previewResult = await invoke<any>("preview_video_renames", {
+                    request: {
+                        library_id: library.key,
                         scope: filePaths,
                         settings: settings,
-                    });
+                    }
+                });
 
                     // Add subtitle operations to the corresponding preview rows
                     if (previewResult.subtitle_operations && previewResult.subtitle_operations.length > 0) {
@@ -1625,7 +1644,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 ratingKey: movieRatingKey,
                                 title: String(item.title || "Unknown"),
                                 year: item.year ? Number(item.year) : undefined,
-                                file: filePath, // Only use actual file paths, not API endpoints
+                                file: resolvePlexFilePath(filePath, libraryFolder), // Resolve to absolute local path
                                 edition: String(item.edition ?? item.editionTitle ?? ""),
                                 genre: String(item.genre ?? ""),
                                 rating: String(item.contentRating ?? ""),
@@ -1638,7 +1657,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.movie || template;
-                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
+                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder);
                             row.metadata = m; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -1659,7 +1678,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 title: String(item.title || "Episode"),
                                 season: seasonNum,
                                 index: epIndex,
-                                file: filePath, // Only use actual file paths, not API endpoints
+                                file: resolvePlexFilePath(filePath, libraryFolder), // Resolve to absolute local path
                                 year: item.year ? Number(item.year) : undefined,
                                 grandparentTitle: String(item.grandparentTitle ?? showTitle),
                                 parentTitle: String(item.parentTitle ?? ""),
@@ -1667,7 +1686,7 @@ export default function Preview({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.episode || template;
-                            const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
+                            const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder);
                             row.metadata = e; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -1761,8 +1780,10 @@ export default function Preview({server, library, onBack}: Props) {
             if (operations.length === 0) return;
 
             const result = await invoke<any>("apply_video_renames", {
-                operations,
-                settings,
+                request: {
+                    operations,
+                    _settings: settings,
+                }
             });
 
             if (result.success) {
@@ -2018,7 +2039,7 @@ export default function Preview({server, library, onBack}: Props) {
                                                     ratingKey: movieRatingKey,
                                                     title: String(item.title ?? "Unknown"),
                                                     year: item.year ? Number(item.year) : undefined,
-                                                    file: String(file),
+                                                    file: resolvePlexFilePath(String(file), libraryFolder),
                                                     edition: String(item.edition ?? item.editionTitle ?? ""),
                                                     genre: String(item.genre ?? ""),
                                                     rating: String(item.contentRating ?? ""),
@@ -2031,7 +2052,7 @@ export default function Preview({server, library, onBack}: Props) {
                                                     thumb: String(item.thumb ?? ""),
                                                 };
                                                 const tpl = settings.templates.movie || template;
-                                                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings);
+                                                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder);
                                                 row.metadata = m; // Store original metadata for popover
                                                 more.push(row);
                                             }
@@ -2088,13 +2109,13 @@ export default function Preview({server, library, onBack}: Props) {
                                                     track: String(item.title ?? "Unknown Track"),
                                                     trackNumber: item.index ? Number(item.index) : undefined,
                                                     disc: item.parentIndex ? Number(item.parentIndex) : undefined,
-                                                    file: String(file),
+                                                    file: resolvePlexFilePath(String(file), libraryFolder),
                                                     year: item.year ? Number(item.year) : undefined,
                                                     genre: String(item.genre ?? ""),
                                                     thumb: String(item.thumb ?? ""),
                                                 };
                                                 const tpl = settings.templates.music || template;
-                                                const row = await computeMusicProposal(m, tpl, settings);
+                                                const row = await computeMusicProposal(m, tpl, settings, libraryFolder);
                                                 row.metadata = m; // Store original metadata for popover
                                                 more.push(row);
                                             }
@@ -2148,7 +2169,7 @@ export default function Preview({server, library, onBack}: Props) {
                                                         title: String(item.title ?? "Episode"),
                                                         season: parsed.season,
                                                         index: parsed.index,
-                                                        file: String(file),
+                                                        file: resolvePlexFilePath(String(file), libraryFolder),
                                                         year: item.year ? Number(item.year) : undefined,
                                                         grandparentTitle: String(item.grandparentTitle ?? currentShow.title),
                                                         parentTitle: String(item.parentTitle ?? ""),
@@ -2156,7 +2177,7 @@ export default function Preview({server, library, onBack}: Props) {
                                                         thumb: String(item.thumb ?? ""),
                                                     };
                                                     const tpl = settings.templates.episode || template;
-                                                    const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings);
+                                                    const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder);
                                                     row.metadata = e; // Store original metadata for popover
                                                     more.push(row);
                                                 }
