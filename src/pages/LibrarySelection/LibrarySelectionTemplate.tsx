@@ -1,78 +1,45 @@
-import {useEffect, useState} from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import {invoke} from "@tauri-apps/api/core";
-import { useTheme } from "../state/theme";
-import type {PlexLibrary, PlexServer} from "../types/plex";
-import {IconArrowBack, IconArrowForward, IconHome, IconInfo, IconOpenInNew, IconServer, IconSettings, IconBadgeCheck, IconBadgeAlert, IconSun, IconMoon} from "../components/icons";
-import PathMappingModal from "../components/PathMappingModal";
+// Components
+import {IconArrowBack, IconArrowForward, IconBadgeAlert, IconBadgeCheck, IconHome, IconInfo, IconOpenInNew, IconServer, IconSettings, IconSun, IconMoon} from "../../components/icons";
+import PathMappingModal from "../../components/PathMappingModal";
+
+// Types
+import type {PlexLibrary, PlexServer} from "../../types/plex";
 
 type Props = {
     server: PlexServer;
+    loading: boolean;
+    error: string | null;
+    libraries: PlexLibrary[];
+    selectedIdx: number | null;
+    selected: PlexLibrary | null;
+    mapped: Record<string, boolean>;
+    showMapModal: boolean;
+    resolvedTheme: string;
     onBack: () => void;
     onSelectLibrary: (library: PlexLibrary) => void;
+    onSetSelectedIdx: (idx: number) => void;
+    onSetShowMapModal: (show: boolean) => void;
+    onToggleTheme: () => void;
+    onRefreshMappingStatus: () => void;
 };
 
-
-export default function LibrarySelection({server, onBack, onSelectLibrary}: Props) {
-    const { resolvedTheme, toggleTheme } = useTheme();
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [libraries, setLibraries] = useState<PlexLibrary[]>([]);
-    const [allLibraries, setAllLibraries] = useState<PlexLibrary[]>([]);
-    const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-    const [mapped, setMapped] = useState<Record<string, boolean>>({});
-    const [showMapModal, setShowMapModal] = useState(false);
-
-    useEffect(() => { try { getCurrentWindow().setTitle("Name-o-Tron 9000 — Libraries"); } catch {} }, []);
-
-    useEffect(() => {
-        async function load() {
-            setLoading(true);
-            setError(null);
-            try {
-                let token: string | null = null;
-                try { token = localStorage.getItem("plexToken"); } catch {}
-
-                const libs = await invoke<Array<{key: string; type: string; title: string; roots?: string[]}>>("list_libraries", {
-                    server: server.address,
-                    token: token ?? null,
-                });
-                const all: PlexLibrary[] = (libs || []).map(d => ({ key: String(d.key), type: String(d.type) as any, title: String(d.title), roots: Array.isArray((d as any).roots) ? (d as any).roots : [] }));
-                setAllLibraries(all);
-                await refreshMappingStatus(all);
-                setLibraries(all);
-                setSelectedIdx(all.length ? 0 : null);
-            } catch (e: any) {
-                setError(e?.message ?? String(e));
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        load();
-    }, [server.address]);
-
-    const selected = selectedIdx != null ? libraries[selectedIdx] : null;
-
-    async function refreshMappingStatus(all: PlexLibrary[] | null = allLibraries) {
-        if (!all) return;
-        try {
-            const settings = await invoke<{ pathMappings?: { server_id: string; plex_root: string; local_root: string }[] }>("get_settings");
-            const serverId = server.machineIdentifier || server.address;
-            const mappedRoots = new Set((settings.pathMappings || []).filter(m => m.server_id === serverId).map(m => m.plex_root));
-            const status: Record<string, boolean> = {};
-            for (const lib of all) {
-                const roots = lib.roots || [];
-                status[lib.key] = roots.length > 0 && roots.some(r => mappedRoots.has(r));
-            }
-            setMapped(status);
-        } catch {
-            const status: Record<string, boolean> = {};
-            for (const lib of all) status[lib.key] = false;
-            setMapped(status);
-        }
-    }
-
+export default function LibrarySelectionTemplate({
+    server,
+    loading,
+    error,
+    libraries,
+    selectedIdx,
+    selected,
+    mapped,
+    showMapModal,
+    resolvedTheme,
+    onBack,
+    onSelectLibrary,
+    onSetSelectedIdx,
+    onSetShowMapModal,
+    onToggleTheme,
+    onRefreshMappingStatus,
+}: Props) {
     return (
         <main className="min-h-screen bg-neutral-900 text-neutral-100" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
             <header className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-900/80 backdrop-blur" style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -101,7 +68,7 @@ export default function LibrarySelection({server, onBack, onSelectLibrary}: Prop
                             <IconSettings className="h-5 w-5"/>
                             Settings
                         </button>
-                        <button onClick={toggleTheme} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+                        <button onClick={onToggleTheme} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             {resolvedTheme === 'dark' ? <IconSun className="h-5 w-5"/> : <IconMoon className="h-5 w-5"/>}
                         </button>
                     </div>
@@ -120,7 +87,7 @@ export default function LibrarySelection({server, onBack, onSelectLibrary}: Prop
                             <IconServer className="h-5 w-5 text-cyan-300"/>
                             <h2 className="text-lg font-semibold">Libraries</h2>
                         </div>
-                        <button onClick={() => setShowMapModal(true)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">Map Paths</button>
+                        <button onClick={() => onSetShowMapModal(true)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">Map Paths</button>
                     </div>
                     {libraries.length === 0 && !loading && !error && (
                         <div className="text-neutral-400">No libraries found.</div>
@@ -131,7 +98,7 @@ export default function LibrarySelection({server, onBack, onSelectLibrary}: Prop
                                 <li key={`${lib.key}-${i}`} className={`rounded-lg border border-neutral-800 bg-neutral-800/40 px-4 py-3 hover:border-neutral-700 ${selectedIdx === i ? "ring-1 ring-cyan-500/50" : ""}`}>
                                     <div className="flex items-center justify-between">
                                         <label className="flex cursor-pointer items-center gap-3">
-                                            <input type="radio" name="library" checked={selectedIdx === i} onChange={() => setSelectedIdx(i)} className="h-4 w-4 accent-cyan-500"/>
+                                            <input type="radio" name="library" checked={selectedIdx === i} onChange={() => onSetSelectedIdx(i)} className="h-4 w-4 accent-cyan-500"/>
                                             <div>
                                                 <div className="font-medium flex items-center gap-2">
                                                     <span>{lib.title}</span>
@@ -168,8 +135,8 @@ export default function LibrarySelection({server, onBack, onSelectLibrary}: Prop
                 <PathMappingModal
                     serverId={server.machineIdentifier || server.address}
                     plexRoots={[...new Set(libraries.flatMap(l => l.roots || []))]}
-                    onClose={() => setShowMapModal(false)}
-                    onSaved={() => refreshMappingStatus(libraries)}
+                    onClose={() => onSetShowMapModal(false)}
+                    onSaved={() => onRefreshMappingStatus()}
                 />
             )}
         </main>

@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { invoke } from '@tauri-apps/api/core'
-import LibrarySelection from '../LibrarySelection'
-import { renderWithProviders } from '../../test/setup.tsx'
+import LibrarySelectionContainer from '../LibrarySelection/LibrarySelectionContainer'
+import { renderWithProviders } from '../../test/setup'
 import type { PlexServer, PlexLibrary } from '../../types/plex'
 
 // Mock the invoke function
@@ -50,7 +50,7 @@ const mockServer: PlexServer = {
   owned: true
 }
 
-describe('LibrarySelection', () => {
+describe('LibrarySelectionContainer', () => {
   const mockOnBack = vi.fn()
   const mockOnSelectLibrary = vi.fn()
 
@@ -65,7 +65,7 @@ describe('LibrarySelection', () => {
     )
 
     renderWithProviders(
-      <LibrarySelection
+      <LibrarySelectionContainer
         server={mockServer}
         onBack={mockOnBack}
         onSelectLibrary={mockOnSelectLibrary}
@@ -103,7 +103,7 @@ describe('LibrarySelection', () => {
     })
 
     renderWithProviders(
-      <LibrarySelection
+      <LibrarySelectionContainer
         server={mockServer}
         onBack={mockOnBack}
         onSelectLibrary={mockOnSelectLibrary}
@@ -123,7 +123,7 @@ describe('LibrarySelection', () => {
     vi.mocked(invoke).mockResolvedValue([])
 
     renderWithProviders(
-      <LibrarySelection
+      <LibrarySelectionContainer
         server={mockServer}
         onBack={mockOnBack}
         onSelectLibrary={mockOnSelectLibrary}
@@ -158,7 +158,7 @@ describe('LibrarySelection', () => {
     })
 
     renderWithProviders(
-      <LibrarySelection
+      <LibrarySelectionContainer
         server={mockServer}
         onBack={mockOnBack}
         onSelectLibrary={mockOnSelectLibrary}
@@ -201,7 +201,7 @@ describe('LibrarySelection', () => {
     })
 
     renderWithProviders(
-      <LibrarySelection
+      <LibrarySelectionContainer
         server={mockServer}
         onBack={mockOnBack}
         onSelectLibrary={mockOnSelectLibrary}
@@ -218,7 +218,7 @@ describe('LibrarySelection', () => {
     vi.mocked(invoke).mockRejectedValue(new Error('Network error'))
 
     renderWithProviders(
-      <LibrarySelection
+      <LibrarySelectionContainer
         server={mockServer}
         onBack={mockOnBack}
         onSelectLibrary={mockOnSelectLibrary}
@@ -235,7 +235,7 @@ describe('LibrarySelection', () => {
     vi.mocked(invoke).mockResolvedValue([])
 
     renderWithProviders(
-      <LibrarySelection
+      <LibrarySelectionContainer
         server={mockServer}
         onBack={mockOnBack}
         onSelectLibrary={mockOnSelectLibrary}
@@ -258,7 +258,7 @@ describe('LibrarySelection', () => {
     vi.mocked(invoke).mockResolvedValue(mockLibraries)
 
     renderWithProviders(
-      <LibrarySelection
+      <LibrarySelectionContainer
         server={mockServer}
         onBack={mockOnBack}
         onSelectLibrary={mockOnSelectLibrary}
@@ -281,7 +281,7 @@ describe('LibrarySelection', () => {
     vi.mocked(invoke).mockResolvedValue([])
 
     renderWithProviders(
-      <LibrarySelection
+      <LibrarySelectionContainer
         server={mockServer}
         onBack={mockOnBack}
         onSelectLibrary={mockOnSelectLibrary}
@@ -300,7 +300,7 @@ describe('LibrarySelection', () => {
     vi.mocked(invoke).mockResolvedValue(mockLibraries)
 
     renderWithProviders(
-      <LibrarySelection
+      <LibrarySelectionContainer
         server={mockServer}
         onBack={mockOnBack}
         onSelectLibrary={mockOnSelectLibrary}

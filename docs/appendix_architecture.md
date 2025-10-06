@@ -8,8 +8,13 @@ This document provides detailed technical information about the system architect
 ```
 Name-o-Tron 9000/
 ├── Frontend (React/TypeScript)
-│   ├── Pages: Home, LibrarySelection, ShowSelection, Preview, Settings
-│   ├── Components: Custom UI elements, modals, and interactive widgets
+│   ├── Pages (Container/Presentational Pattern):
+│   │   ├── Home/ (HomeContainer.tsx + HomeTemplate.tsx)
+│   │   ├── LibrarySelection/ (LibrarySelectionContainer.tsx + LibrarySelectionTemplate.tsx)
+│   │   ├── ShowSelection/ (ShowSelectionContainer.tsx + ShowSelectionTemplate.tsx)
+│   │   ├── Preview/ (PreviewContainer.tsx + PreviewTemplate.tsx)
+│   │   └── Settings/ (SettingsContainer.tsx + SettingsTemplate.tsx)
+│   ├── Components: Reusable UI elements, modals, and interactive widgets
 │   └── State Management: Settings persistence and UI state
 ├── Backend (Rust/Tauri)
 │   ├── Core Modules:
@@ -30,6 +35,35 @@ Name-o-Tron 9000/
 - **Backend Runtime**: Rust with Tauri framework for cross-platform desktop apps
 - **Build System**: Vite for frontend bundling, Cargo for Rust compilation
 - **IPC Layer**: Tauri's command system for secure frontend-backend communication
+- **Component Architecture**: Container/Presentational pattern for separation of concerns
+
+### Component Architecture: Container/Presentational Pattern
+
+The frontend uses a **Container/Presentational** component pattern to achieve better separation of concerns:
+
+#### Container Components (`*Container.tsx`)
+- **Purpose**: Handle all business logic, state management, and side effects
+- **Responsibilities**:
+  - State management (useState, useEffect, useMemo)
+  - API calls and data fetching
+  - Event handlers and user interactions
+  - Business logic and data transformations
+  - Pass processed data as props to Template components
+
+#### Presentational Components (`*Template.tsx`)
+- **Purpose**: Pure UI rendering with no business logic
+- **Responsibilities**:
+  - Receive data and event handlers as props only
+  - Render JSX based on props
+  - No hooks, state, or side effects
+  - Pure functions for better testability and reusability
+
+#### Benefits of This Pattern
+- **Separation of Concerns**: Logic vs presentation clearly separated
+- **Testability**: Templates are pure functions, easy to unit test
+- **Reusability**: Templates can be reused with different data sources
+- **Maintainability**: Changes to logic don't affect presentation and vice versa
+- **Performance**: Better optimization opportunities with React.memo
 
 ## Project Structure Deep Dive
 
@@ -41,11 +75,34 @@ src/
 │   ├── Select.tsx      # Custom dropdown component
 │   ├── Radio.tsx       # Custom radio button groups
 │   └── PlexPopoverCard.tsx # Metadata hover cards
-├── pages/              # Main application screens
-│   ├── Home.tsx        # Server discovery and authentication
-│   ├── LibrarySelection.tsx # Library browsing
-│   ├── Preview.tsx     # Rename preview and execution
-│   └── Settings.tsx    # Configuration management
+├── pages/              # Main application screens (Container/Presentational Pattern)
+│   ├── Home/           # Server discovery and authentication
+│   │   ├── HomeContainer.tsx    # State management, hooks, business logic
+│   │   └── HomeTemplate.tsx     # Pure presentational component (JSX only)
+│   ├── LibrarySelection/        # Library browsing
+│   │   ├── LibrarySelectionContainer.tsx    # State management, hooks, business logic
+│   │   └── LibrarySelectionTemplate.tsx     # Pure presentational component (JSX only)
+│   ├── ShowSelection/  # TV show selection
+│   │   ├── ShowSelectionContainer.tsx       # State management, hooks, business logic
+│   │   └── ShowSelectionTemplate.tsx        # Pure presentational component (JSX only)
+│   ├── Preview/        # Rename preview and execution
+│   │   ├── PreviewContainer.tsx             # State management, hooks, business logic
+│   │   ├── PreviewTemplate.tsx              # Pure presentational component (JSX only)
+│   │   ├── types.ts    # TypeScript type definitions
+│   │   ├── constants.ts # Preview-related constants
+│   │   ├── utils.ts     # Preview utility functions
+│   │   ├── movieProposal.ts     # Movie rename proposal logic
+│   │   ├── episodeProposal.ts   # TV episode rename proposal logic
+│   │   └── musicProposal.ts     # Music track rename proposal logic
+│   └── Settings/       # Configuration management
+│       ├── SettingsContainer.tsx           # State management, hooks, business logic
+│       ├── SettingsTemplate.tsx            # Pure presentational component (JSX only)
+│       ├── types.ts    # Settings-related type definitions
+│       ├── General.tsx  # General settings tab component
+│       ├── Movies.tsx   # Movie settings tab component
+│       ├── TV.tsx       # TV settings tab component
+│       ├── Music.tsx    # Music settings tab component
+│       └── Misc.tsx     # Miscellaneous settings tab component
 ├── state/              # Application state management
 │   ├── settings.tsx    # Settings persistence and defaults
 │   └── theme.tsx       # Theme management

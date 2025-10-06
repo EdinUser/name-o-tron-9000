@@ -1,11 +1,11 @@
 import type { MusicItem, PreviewRow } from "./types";
 import {
-    extname,
     basename,
-    normalizeUnicode,
+    extname,
     hasNonLatin,
+    normalizeUnicode,
     resolvePlexFilePath,
-    sanitizeProposal
+    sanitizeProposal,
 } from "./utils";
 import { extractImdbId, extractTvdbId, extractTmdbId } from "../../utils/template";
 

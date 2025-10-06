@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import Home from "./pages/Home";
-import LibrarySelection from "./pages/LibrarySelection";
-import ShowSelection from "./pages/ShowSelection";
-import Preview from "./pages/Preview";
-import SettingsModal from "./pages/Settings";
+import HomeContainer from "./pages/Home/HomeContainer";
+import LibrarySelectionContainer from "./pages/LibrarySelection/LibrarySelectionContainer";
+import ShowSelectionContainer from "./pages/ShowSelection/ShowSelectionContainer";
+import PreviewContainer from "./pages/Preview/PreviewContainer";
+import SettingsContainer from "./pages/Settings/SettingsContainer";
 import { SettingsProvider } from "./state/settings";
 import { ThemeProvider } from "./state/theme";
 import type { PlexLibrary, PlexServer } from "./types/plex";
@@ -31,7 +31,7 @@ function App() {
   const renderCurrentScreen = () => {
     if (screen === "home") {
       return (
-        <Home
+        <HomeContainer
           onSelectServer={(s) => {
             setServer(s);
             setScreen("libraries");
@@ -43,7 +43,7 @@ function App() {
 
     if (screen === "libraries" && server) {
       return (
-        <LibrarySelection
+        <LibrarySelectionContainer
           server={server}
           onBack={() => setScreen("home")}
           onSelectLibrary={(lib) => {
@@ -61,7 +61,7 @@ function App() {
 
     if (screen === "shows" && server && library) {
       return (
-        <ShowSelection
+        <ShowSelectionContainer
           server={server}
           library={library}
           onBack={() => setScreen("libraries")}
@@ -77,7 +77,7 @@ function App() {
 
     if (screen === "preview" && server && library) {
       return (
-        <Preview
+        <PreviewContainer
           server={server}
           library={library}
           onBack={() => setScreen(previewFrom === "shows" ? "shows" : "libraries")}
@@ -87,7 +87,7 @@ function App() {
 
     // Fallback to home if screen state is invalid
     return (
-      <Home onSelectServer={(s) => { setServer(s); setScreen("libraries"); }} />
+      <HomeContainer onSelectServer={(s) => { setServer(s); setScreen("libraries"); }} />
     );
   };
 
@@ -95,7 +95,7 @@ function App() {
     <SettingsProvider>
       <ThemeProvider>
         {renderCurrentScreen()}
-        {settingsModalOpen && <SettingsModal onClose={() => setSettingsModalOpen(false)} />}
+        {settingsModalOpen && <SettingsContainer onClose={() => setSettingsModalOpen(false)} />}
       </ThemeProvider>
     </SettingsProvider>
   );
