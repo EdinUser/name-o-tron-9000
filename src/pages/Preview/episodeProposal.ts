@@ -1,13 +1,13 @@
 import { VIDEO_EXTS } from "./constants";
 import type { EpisodeItem, PreviewRow } from "./types";
 import {
-    extname,
     basename,
-    normalizeUnicode,
+    extname,
     hasNonLatin,
-    safeFolderName,
+    normalizeUnicode,
     resolvePlexFilePath,
-    sanitizeProposal
+    safeFolderName,
+    sanitizeProposal,
 } from "./utils";
 import { extractImdbId, extractTvdbId, extractTmdbId } from "../../utils/template";
 

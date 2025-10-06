@@ -1,16 +1,16 @@
 import { VIDEO_EXTS, EDITION_PRIORITY } from "./constants";
 import type { MovieItem, PreviewRow } from "./types";
 import {
-    extname,
     basename,
-    getHighestPriorityEdition,
-    sortEditionsByPriority,
-    normalizeUnicode,
-    hasNonLatin,
-    safeFolderName,
+    extname,
     formatCollectionFolderName,
+    getHighestPriorityEdition,
+    hasNonLatin,
+    normalizeUnicode,
     resolvePlexFilePath,
-    sanitizeProposal
+    safeFolderName,
+    sanitizeProposal,
+    sortEditionsByPriority,
 } from "./utils";
 import { extractImdbId, extractTvdbId, extractTmdbId, mapEditionTokenToTitle } from "../../utils/template";
 

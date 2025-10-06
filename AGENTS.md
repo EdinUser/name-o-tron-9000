@@ -16,7 +16,7 @@ Relevant specs are in:
 **As of the current codebase scan, Name-o-Tron 9000 is substantially more complete than initially planned:**
 
 ### ✅ FULLY IMPLEMENTED (Frontend + Backend)
-- **Complete UI Framework**: All 5 pages implemented (Home, Library Selection, Show Selection, Preview, Settings)
+- **Complete UI Framework**: All 5 pages implemented using Container/Presentational pattern (Home, Library Selection, Show Selection, Preview, Settings)
 - **Plex Integration**: Full API integration with server discovery (SSDP multicast), PIN authentication, and metadata fetching
 - **Safety Systems**: Traffic-light status system (🟩/🟨/🟥/❌) with comprehensive validation and batch guards
 - **Settings Management**: All 5 tabs fully implemented with every setting option from specifications, using consistent custom Radio and Select components
@@ -47,7 +47,10 @@ Key goals:
 
 ## Architecture
 - **Frontend (React/TypeScript) in `src/`**
-  - **Pages**: Home (discovery/auth), LibrarySelection, ShowSelection, Preview, Settings (5 tabs)
+  - **Pages (Container/Presentational Pattern)**: Home, LibrarySelection, ShowSelection, Preview, Settings (5 screens)
+    - Each page split into `*Container.tsx` (state, hooks, logic) and `*Template.tsx` (pure JSX)
+    - Container components handle all business logic and state management
+    - Template components are pure presentational components (no hooks, no side effects)
   - **Components**: Custom SVG icons, PathMappingModal, LibraryMappingPanel, TemplateHelpModal, EditionParsersModal, PlexPopoverCard (metadata hover card), Select (shared styled dropdown)
   - **State Management**: Settings persistence (localStorage + Tauri backend)
   - **Utils**: Template rendering engine with placeholder support (see `docs/name-templating.md`); edition detection heuristics and ID extraction helpers
@@ -148,8 +151,10 @@ Default stance:
   - `lib.rs` - Tauri command bindings and main application logic
 
 - **React Frontend**: organized in `src/`
-  - `pages/` - All 5 screen implementations (Home, LibrarySelection, ShowSelection, Preview, Settings)
-  - `components/` - Reusable UI components (icons, modals, panels)
+  - `pages/` - All 5 screen implementations using Container/Presentational pattern:
+    - Each page folder contains `*Container.tsx` (logic/state) + `*Template.tsx` (pure JSX)
+    - `Home/`, `LibrarySelection/`, `ShowSelection/`, `Preview/`, `Settings/`
+  - `components/` - Reusable UI components (icons, modals, panels, shared Select/Radio components)
   - `state/` - Settings state management with TypeScript types
   - `types/` - TypeScript type definitions for Plex data structures
   - `utils/` - Utility functions (template rendering, validation)
@@ -304,7 +309,7 @@ Planned (not implemented yet):
 
 ## Preview Status Matrix
 
-Current Preview rules (from `src/pages/Preview.tsx`) determining status per proposed filename:
+Current Preview rules (from `src/pages/Preview/PreviewContainer.tsx` and supporting modules) determining status per proposed filename:
 
 - 🟥 Red
   - Contains invalid characters: any of `\ / : * ? " < > |` in basename

@@ -1,18 +1,12 @@
 import React, {useEffect, useState, useCallback} from "react";
 import { invoke } from "@tauri-apps/api/core";
-import {useSettings, type Settings} from "../state/settings";
-import {useTheme} from "../state/theme";
+import {useSettings, type Settings} from "../../state/settings";
+import {useTheme} from "../../state/theme";
 import { save } from '@tauri-apps/plugin-dialog';
-import {IconSun, IconMoon} from "../components/icons";
-import EditionParsersModal from "../components/EditionParsersModal";
-import { type Props, type TabKey } from "./Settings/types";
-import { General } from "./Settings/General";
-import { Movies } from "./Settings/Movies";
-import { TV } from "./Settings/TV";
-import { Music } from "./Settings/Music";
-import { Misc } from "./Settings/Misc";
+import { type Props, type TabKey } from "./types";
+import SettingsTemplate from "./SettingsTemplate";
 
-export default function SettingsModal({onClose}: Props) {
+export default function SettingsContainer({onClose}: Props) {
     const { settings, updateSettings } = useSettings();
     const { resolvedTheme, toggleTheme } = useTheme();
     const [tab, setTab] = useState<TabKey>(() => {
@@ -307,156 +301,28 @@ export default function SettingsModal({onClose}: Props) {
     }, [handleClose]); // Run when handleClose changes
 
     return (
-        <>
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ zIndex: 9999, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-                <div
-                    className="settings-modal-content bg-neutral-900 border border-neutral-700 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl"
-                    style={{
-                        backgroundColor: 'var(--bg-secondary)',
-                        transform: modalPosition.x !== 0 || modalPosition.y !== 0 ? `translate(${modalPosition.x}px, ${modalPosition.y}px)` : undefined,
-                        cursor: isDragging ? 'grabbing' : 'default'
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseUp={handleMouseUp}
-                >
-                    <div
-                        className="settings-header flex items-center justify-between p-6 border-b border-neutral-800 cursor-grab active:cursor-grabbing"
-                        onMouseDown={handleMouseDown}
-                        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-                    >
-                        <h1 className="text-xl font-semibold text-neutral-100">Settings</h1>
-                        <div className="flex items-center gap-2">
-                            <button onClick={toggleTheme} className="text-neutral-400 hover:text-neutral-200 transition-colors" title="Toggle theme">
-                                {resolvedTheme === 'dark' ? <IconSun className="h-5 w-5"/> : <IconMoon className="h-5 w-5"/>}
-                            </button>
-                            <button onClick={(e) => handleClose(e)} className="text-neutral-400 hover:text-neutral-200 transition-colors" title="Close (unsaved changes will be lost)">
-                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-6 w-6">
-                                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                <div className="flex flex-col max-h-[calc(90vh-140px)]">
-                        <div className="px-6 pt-4">
-                            <Tabs tab={tab} setTab={setTab}/>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto px-6 pb-6">
-                            {tab === "general" && <General s={localSettings} onChange={(v) => update("general", v)} />}
-                            {tab === "movies" && <Movies s={localSettings} onChange={(v) => update("movies", v)} onConfigureParsers={() => setIsEditionParsersModalOpen(true)}/>}
-                            {tab === "tv" && <TV s={localSettings} onChange={(v) => update("tv", v)}/>}
-                            {tab === "music" && <Music s={localSettings} onChange={(v) => update("music", v)}/>}
-                            {tab === "misc" && <Misc s={localSettings} onChange={(v) => update("misc", v)}/>}
-                        </div>
-
-                        <div className="px-6 pb-6 border-t border-neutral-800">
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm text-neutral-400">
-                                    {hasChanges ? "You have unsaved changes" : "Settings are up to date"}
-                                </div>
-                                <div className="flex gap-3 justify-between">
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={exportSettings}
-                                            className="px-3 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
-                                            title="Export settings to JSON file"
-                                        >
-                                            Export
-                                        </button>
-                                        <button
-                                            onClick={importSettings}
-                                            className="px-3 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
-                                            title="Import settings from JSON file"
-                                        >
-                                            Import
-                                        </button>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={(e) => handleClose(e)}
-                                            className="px-4 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
-                                            disabled={isSaving}
-                                        >
-                                            {hasChanges ? "Cancel" : "Close"}
-                                        </button>
-                                        <button
-                                            onClick={saveSettingsAndClose}
-                                            disabled={!hasChanges || isSaving}
-                                            className={`px-4 py-2 text-sm font-medium rounded ${
-                                                hasChanges && !isSaving
-                                                    ? "bg-cyan-500 text-neutral-900 hover:bg-cyan-400"
-                                                    : "bg-neutral-700 text-neutral-500 cursor-not-allowed"
-                                            }`}
-                                        >
-                                            {isSaving ? "Saving..." : "Save & Close"}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Custom confirm dialog for unsaved changes */}
-            {showConfirmDialog && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center" style={{ zIndex: 10000 }} onClick={handleCancelClose}>
-                    <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-6 shadow-2xl max-w-md w-full mx-4" style={{ backgroundColor: 'var(--bg-secondary)' }} onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-8 h-8 bg-amber-500/20 rounded-full flex items-center justify-center">
-                                <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                </svg>
-                            </div>
-                            <h3 className="text-lg font-semibold text-neutral-100">Unsaved Changes</h3>
-                        </div>
-                        <p className="text-neutral-300 mb-6">
-                            You have unsaved changes. Are you sure you want to close without saving?
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                onClick={handleCancelClose}
-                                className="px-4 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleConfirmClose}
-                                className="px-4 py-2 text-sm bg-red-600 text-white hover:bg-red-700 rounded"
-                            >
-                                Close Without Saving
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <EditionParsersModal
-                isOpen={isEditionParsersModalOpen}
-                onClose={() => setIsEditionParsersModalOpen(false)}
-                parsers={localSettings.movies.editions.parsers}
-                onChange={(parsers) => update("movies", {...localSettings.movies, editions: {...localSettings.movies.editions, parsers}})}
-            />
-        </>
+        <SettingsTemplate
+            tab={tab}
+            localSettings={localSettings}
+            hasChanges={hasChanges}
+            isSaving={isSaving}
+            isEditionParsersModalOpen={isEditionParsersModalOpen}
+            showConfirmDialog={showConfirmDialog}
+            isDragging={isDragging}
+            modalPosition={modalPosition}
+            resolvedTheme={resolvedTheme}
+            onSetTab={setTab}
+            onUpdate={update}
+            onSaveSettingsAndClose={saveSettingsAndClose}
+            onExportSettings={exportSettings}
+            onImportSettings={importSettings}
+            onHandleClose={handleClose}
+            onHandleConfirmClose={handleConfirmClose}
+            onHandleCancelClose={handleCancelClose}
+            onHandleMouseDown={handleMouseDown}
+            onHandleMouseUp={handleMouseUp}
+            onSetIsEditionParsersModalOpen={setIsEditionParsersModalOpen}
+            onToggleTheme={toggleTheme}
+        />
     );
 }
-
-function Tabs({tab, setTab}: { tab: TabKey; setTab: (t: TabKey) => void }) {
-    const items: { key: TabKey; label: string }[] = [
-        {key: "general", label: "General"},
-        {key: "movies", label: "Movies"},
-        {key: "tv", label: "TV Shows"},
-        {key: "music", label: "Music"},
-        {key: "misc", label: "Misc"},
-    ];
-    return (
-        <div className="flex flex-wrap justify-center gap-2">
-            {items.map((it) => (
-                <button key={it.key} onClick={() => setTab(it.key)} className={`rounded-md border px-3 py-1.5 text-sm ${tab === it.key ? "border-cyan-500 bg-cyan-500/10" : "border-neutral-700 bg-neutral-800 hover:bg-neutral-700"}`}>{it.label}</button>
-            ))}
-        </div>
-    );
-}
-
-
