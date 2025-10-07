@@ -12,6 +12,7 @@ import {
     resolvePlexFilePath,
     shortenFilePath
 } from "./utils";
+import { generateServerId } from "../../utils/cache";
 import PreviewTemplate from "./PreviewTemplate";
 
 // Functions are now imported from separate modules
@@ -39,6 +40,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                      library.type === "show" ? settings.templates.episode :
                      settings.templates.music;
     const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
+    const [mappings, setMappings] = useState<Array<{ server_id: string; plex_root: string; local_root: string }>>([]);
+    const [serverId, setServerId] = useState<string>("");
     const [showMapModal, setShowMapModal] = useState(false);
     const [showTemplateHelp, setShowTemplateHelp] = useState(false);
     const [editingItem, setEditingItem] = useState<PreviewRow | null>(null);
@@ -83,8 +86,11 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 const mappings = settings.pathMappings || [];
 
                 // Find the mapped folder for this library
-                const serverId = server.machineIdentifier || server.address;
+                const serverId = generateServerId(server);
                 const libraryRoots = library.roots || [];
+
+                setMappings(mappings);
+                setServerId(serverId);
 
                 for (const root of libraryRoots) {
                     const mapping = mappings.find(m => m.server_id === serverId && m.plex_root === root);
@@ -95,6 +101,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 }
             } catch (error) {
                 setLibraryFolder(null);
+                setMappings([]);
+                setServerId("");
             }
         }
 
@@ -113,6 +121,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             const serverId = server.machineIdentifier || server.address;
             const libraryRoots = library.roots || [];
 
+            setMappings(mappings);
+            setServerId(serverId);
+
             for (const root of libraryRoots) {
                 const mapping = mappings.find(m => m.server_id === serverId && m.plex_root === root);
                 if (mapping) {
@@ -122,6 +133,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             }
         } catch (error) {
             setLibraryFolder(null);
+            setMappings([]);
+            setServerId("");
         }
     }, [server.address, server.machineIdentifier, library.roots]);
 
@@ -307,20 +320,20 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         : "";
 
                     const tpl = settings.templates.movie || template;
-                    const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder);
+                    const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], mappings, serverId);
                     row.metadata = m; // Store original metadata for popover
                     list.push(row);
                 } else if (item.type === "music") {
                     const m = item as MusicItem;
                     const tpl = settings.templates.music || template;
-                    const row = await computeMusicProposal(m, tpl, settings, libraryFolder);
+                    const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || [], mappings, serverId);
                     row.metadata = m; // Store original metadata for popover
                     list.push(row);
                 } else if (item.type === "episode") {
                     const e = item as EpisodeItem;
                     const tpl = settings.templates.episode || template;
                     const useSeasonFolders = !!settings.tv.seasonFolders;
-                    const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder);
+                    const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder, library.roots || [], mappings, serverId);
                     proposal.metadata = e; // Store original metadata for popover
                     list.push(proposal);
                 }
@@ -550,7 +563,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.movie || template;
-                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder);
+                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], mappings, serverId);
                             row.metadata = m; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -579,7 +592,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.episode || template;
-                            const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder);
+                            const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || [], mappings, serverId);
                             row.metadata = e; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -834,7 +847,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     thumb: String(item.thumb ?? ""),
                 };
                 const tpl = settings.templates.movie || template;
-                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder);
+                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], mappings, serverId);
                 row.metadata = m; // Store original metadata for popover
                 more.push(row);
             }
@@ -882,7 +895,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     thumb: String(item.thumb ?? ""),
                 };
                 const tpl = settings.templates.music || template;
-                const row = await computeMusicProposal(m, tpl, settings, libraryFolder);
+                const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || [], mappings, serverId);
                 row.metadata = m; // Store original metadata for popover
                 more.push(row);
             }
@@ -929,7 +942,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         thumb: String(item.thumb ?? ""),
                     };
                     const tpl = settings.templates.episode || template;
-                    const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder);
+                    const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || [], mappings, serverId);
                     row.metadata = e; // Store original metadata for popover
                     more.push(row);
                 }

@@ -160,6 +160,34 @@ export function shortenFilePath(filePath: string, libraryRoots: string[]): strin
     return filePath;
 }
 
+export function getItemRootFolder(filePath: string, libraryRoots: string[]): string | null {
+    if (!libraryRoots.length) return null;
+
+    // Normalize paths for comparison (handle both forward and backward slashes)
+    const normalizedFilePath = filePath.replace(/\\/g, '/');
+
+    // Find the longest matching library root
+    let bestMatch = '';
+    let bestMatchLength = 0;
+
+    for (const root of libraryRoots) {
+        const normalizedRoot = root.replace(/\\/g, '/').replace(/\/$/, '');
+        if (normalizedFilePath.startsWith(normalizedRoot + '/') && normalizedRoot.length > bestMatchLength) {
+            bestMatch = normalizedRoot;
+            bestMatchLength = normalizedRoot.length;
+        }
+    }
+
+    return bestMatch || null;
+}
+
+export function isItemMapped(filePath: string, libraryRoots: string[], mappings: Array<{ server_id: string; plex_root: string; local_root: string }>, serverId: string): boolean {
+    const itemRoot = getItemRootFolder(filePath, libraryRoots);
+    if (!itemRoot) return false;
+
+    return mappings.some(m => m.server_id === serverId && m.plex_root === itemRoot);
+}
+
 export function parseEpisodeInfo(filePath: string, fallbackTitle: string): { showTitle: string; season?: number; index?: number } {
     const file = basename(filePath).replace(/\.[^.]+$/, "");
     const seMatch = file.match(/S(\d{1,2})E(\d{1,2})/i);

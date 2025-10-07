@@ -676,23 +676,24 @@ pub async fn fetch_tv_shows(
     let paging = format!("X-Plex-Container-Start={}&X-Plex-Container-Size={}", start, size);
     let mut urls: Vec<String> = Vec::new();
     for b in &bases {
+        let details = "&includeDetails=1";
         if let Some(q) = query.as_ref().filter(|s| !s.trim().is_empty()) {
             let qenc = urlencoding::encode(q.trim());
             if let Some(t) = token.as_ref() {
                 let tok = urlencoding::encode(t);
-                urls.push(format!("{}/library/sections/{}/search?type=2&query={}&{}&X-Plex-Token={}", b, library_key, qenc, paging, tok));
-                urls.push(format!("{}/library/sections/{}/search?type=2&query={}&X-Plex-Token={}", b, library_key, qenc, tok));
+                urls.push(format!("{}/library/sections/{}/search?type=2&query={}&{}{}&X-Plex-Token={}", b, library_key, qenc, paging, details, tok));
+                urls.push(format!("{}/library/sections/{}/search?type=2&query={}{}&X-Plex-Token={}", b, library_key, qenc, details, tok));
             }
-            urls.push(format!("{}/library/sections/{}/search?type=2&query={}&{}", b, library_key, qenc, paging));
-            urls.push(format!("{}/library/sections/{}/search?type=2&query={}", b, library_key, qenc));
+            urls.push(format!("{}/library/sections/{}/search?type=2&query={}&{}{}", b, library_key, qenc, paging, details));
+            urls.push(format!("{}/library/sections/{}/search?type=2&query={}{}", b, library_key, qenc, details));
         } else {
             if let Some(t) = token.as_ref() {
                 let tok = urlencoding::encode(t);
-                urls.push(format!("{}/library/sections/{}/all?{}&type=2&X-Plex-Token={}", b, library_key, paging, tok));
-                urls.push(format!("{}/library/sections/{}/all?type=2&X-Plex-Token={}", b, library_key, tok));
+                urls.push(format!("{}/library/sections/{}/all?{}&type=2{}&X-Plex-Token={}", b, library_key, paging, details, tok));
+                urls.push(format!("{}/library/sections/{}/all?type=2{}&X-Plex-Token={}", b, library_key, details, tok));
             }
-            urls.push(format!("{}/library/sections/{}/all?{}&type=2", b, library_key, paging));
-            urls.push(format!("{}/library/sections/{}/all?type=2", b, library_key));
+            urls.push(format!("{}/library/sections/{}/all?{}&type=2{}", b, library_key, paging, details));
+            urls.push(format!("{}/library/sections/{}/all?type=2{}", b, library_key, details));
         }
     }
 
@@ -715,11 +716,8 @@ pub async fn fetch_tv_shows(
                     dirs.push(serde_json::Value::Object(obj.clone()));
                 } else if let Some(arr) = mc.get("Metadata").and_then(|m| m.as_array()) {
                     for it in arr {
-                        let title = it.get("title").cloned().unwrap_or(serde_json::Value::String(String::new()));
-                        let rk = it.get("ratingKey").cloned();
-                        let mut o = serde_json::json!({"title": title});
-                        if let Some(r) = rk { o["ratingKey"] = r; }
-                        dirs.push(o);
+                        // Preserve all metadata fields for TV shows
+                        dirs.push(it.clone());
                     }
                 }
                 let out = serde_json::json!({"MediaContainer": {"Directory": dirs}});

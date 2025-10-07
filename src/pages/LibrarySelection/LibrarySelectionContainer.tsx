@@ -4,6 +4,7 @@ import {invoke} from "@tauri-apps/api/core";
 import { useTheme } from "../../state/theme";
 import type {PlexLibrary, PlexServer} from "../../types/plex";
 import LibrarySelectionTemplate from "./LibrarySelectionTemplate";
+import { generateServerId } from "../../utils/cache";
 
 type Props = {
     server: PlexServer;
@@ -17,7 +18,6 @@ export default function LibrarySelectionContainer({server, onBack, onSelectLibra
     const [error, setError] = useState<string | null>(null);
     const [libraries, setLibraries] = useState<PlexLibrary[]>([]);
     const [allLibraries, setAllLibraries] = useState<PlexLibrary[]>([]);
-    const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
     const [mapped, setMapped] = useState<Record<string, boolean>>({});
     const [showMapModal, setShowMapModal] = useState(false);
 
@@ -39,7 +39,6 @@ export default function LibrarySelectionContainer({server, onBack, onSelectLibra
                 setAllLibraries(all);
                 await refreshMappingStatus(all);
                 setLibraries(all);
-                setSelectedIdx(all.length ? 0 : null);
             } catch (e: any) {
                 setError(e?.message ?? String(e));
             } finally {
@@ -50,13 +49,11 @@ export default function LibrarySelectionContainer({server, onBack, onSelectLibra
         load();
     }, [server.address]);
 
-    const selected = selectedIdx != null ? libraries[selectedIdx] : null;
-
     async function refreshMappingStatus(all: PlexLibrary[] | null = allLibraries) {
         if (!all) return;
         try {
             const settings = await invoke<{ pathMappings?: { server_id: string; plex_root: string; local_root: string }[] }>("get_settings");
-            const serverId = server.machineIdentifier || server.address;
+            const serverId = generateServerId(server);
             const mappedRoots = new Set((settings.pathMappings || []).filter(m => m.server_id === serverId).map(m => m.plex_root));
             const status: Record<string, boolean> = {};
             for (const lib of all) {
@@ -77,14 +74,11 @@ export default function LibrarySelectionContainer({server, onBack, onSelectLibra
             loading={loading}
             error={error}
             libraries={libraries}
-            selectedIdx={selectedIdx}
-            selected={selected}
             mapped={mapped}
             showMapModal={showMapModal}
             resolvedTheme={resolvedTheme}
             onBack={onBack}
             onSelectLibrary={onSelectLibrary}
-            onSetSelectedIdx={setSelectedIdx}
             onSetShowMapModal={setShowMapModal}
             onToggleTheme={toggleTheme}
             onRefreshMappingStatus={() => refreshMappingStatus(libraries)}
