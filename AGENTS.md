@@ -53,7 +53,7 @@ Key goals:
     - Template components are pure presentational components (no hooks, no side effects)
   - **Components**: Custom SVG icons, PathMappingModal, LibraryMappingPanel, TemplateHelpModal, EditionParsersModal, PlexPopoverCard (metadata hover card), Select (shared styled dropdown)
   - **State Management**: Settings persistence (localStorage + Tauri backend)
-  - **Utils**: Template rendering engine with placeholder support (see `docs/name-templating.md`); edition detection heuristics and ID extraction helpers
+  - **Utils**: Template rendering engine with placeholder support (see `docs/name-templating.md`); edition detection heuristics and ID extraction helpers; show mapping cache utilities (see `src/utils/cache.ts`)
   - **Search Behavior (Movies/TV in Preview)**
     - Debounced input (500ms) filters the already loaded rows immediately
     - If the debounced query yields zero local matches and initial load is idle, the app invokes a backend search using Plex `/hubs/search`
@@ -68,7 +68,7 @@ Key goals:
     - Accepts `X-Plex-Token` and includes it in both header and query string for robustness
     - Returns JSON when available and logs a trimmed raw response head when Plex replies in XML
     - Used by the Preview page when there are no local matches for a search query
-  - **settings.rs**: Settings persistence with deep merge functionality
+  - **settings.rs**: Settings persistence with deep merge functionality; show mapping cache management with checksum validation and automatic invalidation
   - **path_map.rs**: Cross-platform path mapping and resolution
   - **secure.rs**: System keyring integration for token storage
   - **lib.rs**: Tauri command bindings and SSDP discovery implementation; includes image fetching with caching
@@ -203,6 +203,22 @@ Agent practices:
 - **Header Optimization**: Reload button moved from crowded header to logical position above table
 - **Table Backgrounds**: Enhanced light mode table styling with pleasant blue-tinted grays instead of dull grays
 
+**Show Selection Enhancements**:
+- **Pagination Controls**: Shows are displayed with pagination (20 items per page by default) with prev/next navigation and page indicators
+- **Poster Display**: TV show entries include poster thumbnails with fallback handling and cached poster support
+- **Search Persistence**: Search queries and scroll positions are persisted in session storage for seamless navigation
+- **Mapping Status Indicators**: Visual indicators for unmapped shows (red badge) and shows being checked (yellow badge)
+- **Rich Metadata Display**: Shows display genre, studio, creators, and running years information in a structured format
+
+**Caching System**:
+- **Show Mapping Cache** (`src/utils/cache.ts`): Comprehensive caching system for TV show mapping status and metadata
+  - Per-server/library cache files stored in OS app data directory under `cache/show-mappings/`
+  - Checksum validation ensures cache invalidation when path mappings change
+  - Automatic cache building for new shows missing from cache
+  - Supports poster URL caching and metadata extraction (genre, studio, creators, running years)
+  - Provides utility functions for cache management, validation, and metadata extraction
+- **Cache Invalidation**: Automatic invalidation when path mappings are modified; manual cache clearing available via backend commands
+
 ## CSS and Styling Guidelines
 
 **Core Philosophy:**
@@ -296,6 +312,12 @@ Signatures reflect current Rust Tauri commands in `src-tauri/src/`.
 - `test_mapping(server_id, plex_root, local_root) -> { ok, exists, writable, details }`
 - `get_settings() -> any` / `save_settings(settings: any) -> void`
 - `secure_save_token(token: string) -> void` / `secure_get_token() -> string|null` / `secure_clear_token() -> void`
+- `load_show_mapping_cache(serverId, libraryId)` → cached show mapping data or null
+- `save_show_mapping_cache(serverId, libraryId, cache)` → void
+- `invalidate_show_mapping_cache(serverId, libraryId)` → void
+- `clear_all_show_mapping_caches()` → void
+- `generate_mappings_checksum_cmd(serverId, mappings)` → checksum string
+- `get_cache_directory_path()` → cache directory path string
 
 Notes:
 - All HTTP calls try both HTTP and HTTPS variants and may accept invalid certs for local PMS.
@@ -555,8 +577,10 @@ Tips:
 
 ## Performance Notes
 
-- Pagination defaults: movies `200`, shows `200`, music `200` (see `state/settings.tsx`).
+- Pagination defaults: movies `200`, shows `20`, music `200` (see `state/settings.tsx`); reduced show pagination for better initial load performance.
 - Preview page uses client‑side filtering with 500ms debounce; remote `/hubs/search` only if zero local matches.
 - Search default `limit=3` hubs per type for responsiveness.
 - HTTP clients disable connection pooling per host for finicky PMS and accept self‑signed certs; both HTTP/HTTPS tried.
 - Poster fetcher caches base64 JPEGs under OS cache dir to reduce repeated network calls.
+- **Show Mapping Cache**: TV show mapping status and metadata cached per server/library combination with checksum validation; automatically invalidated when path mappings change.
+- **Persistent Search Queries**: Show search queries and scroll positions persisted in session storage for better UX across navigation.

@@ -3,6 +3,7 @@ import {
     basename,
     extname,
     hasNonLatin,
+    isItemMapped,
     normalizeUnicode,
     resolvePlexFilePath,
     sanitizeProposal,
@@ -13,7 +14,10 @@ export async function computeMusicProposal(
     m: MusicItem,
     template: string,
     settings: any,
-    libraryFolder: string | null
+    libraryFolder: string | null,
+    libraryRoots: string[],
+    mappings: Array<{ server_id: string; plex_root: string; local_root: string }>,
+    serverId: string
 ): Promise<PreviewRow> {
     const ext = extname(m.file) || ".mp3";
 
@@ -120,6 +124,12 @@ export async function computeMusicProposal(
     } else if (proposed.length > 200 && status !== "error") {
         status = "warning";
         flags.push(">200 path");
+    }
+
+    // Check if item is mapped (not in a mapped folder)
+    if (!isItemMapped(m.file, libraryRoots, mappings, serverId)) {
+        status = "unmatched";
+        flags.push("unmapped");
     }
 
     return {

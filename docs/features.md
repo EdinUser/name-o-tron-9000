@@ -122,9 +122,11 @@ For detailed guidance on setting up and troubleshooting path mappings, see [Path
 
 ### Performance & Usability
 - **Debounced Search**: 500ms delay for responsive filtering
-- **Pagination**: Efficient handling of large libraries (200 items per page)
+- **Pagination**: Efficient handling of large libraries (20 items per page for TV shows, 200 for movies/music)
 - **Real-time Updates**: Immediate preview recalculation when settings change
 - **Progress Indicators**: Visual feedback during long operations
+- **TV Show Caching**: Automatic caching of TV show mapping status and metadata for improved browsing performance
+- **Search Persistence**: Search queries and scroll positions saved across sessions for seamless navigation
 
 ## Testing & Quality Assurance
 

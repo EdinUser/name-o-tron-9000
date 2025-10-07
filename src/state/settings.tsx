@@ -164,7 +164,7 @@ const defaultSettings: Settings = {
     safety: { pathLengthCheck: true, reservedNamesCheck: true, permissionsCheck: true },
     pagination: {
       defaultMovieLimit: 200,
-      defaultShowLimit: 200,
+      defaultShowLimit: 20,
       defaultMusicLimit: 200,
     },
     subtitles: {
@@ -318,6 +318,13 @@ export function loadSettings(): Settings {
       console.log("No saved settings found, using defaults");
       return defaultSettings;
     }
+
+    // Check if the raw data looks like valid JSON (starts with { or [)
+    if (!raw.trim().match(/^[{\[]/)) {
+      console.warn("Invalid settings format in localStorage, using defaults");
+      return defaultSettings;
+    }
+
     const parsed = JSON.parse(raw);
     const merged = deepMerge(defaultSettings, parsed);
     console.log("Loaded settings from localStorage:", merged);

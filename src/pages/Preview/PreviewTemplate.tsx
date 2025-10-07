@@ -5,6 +5,7 @@ import PathMappingModal from "../../components/PathMappingModal";
 import TemplateHelpModal from "../../components/TemplateHelpModal";
 import PlexPopoverCard from "../../components/PlexPopoverCard";
 import Toggle from "../../components/Toggle";
+import { generateServerId } from "../../utils/cache";
 
 // Types
 import type {PreviewRow, MovieItem, EpisodeItem, MusicItem} from "./types";
@@ -454,8 +455,8 @@ export default function PreviewTemplate({
             </section>
             {showMapModal && (
                 <PathMappingModal
-                    serverId={server.machineIdentifier || server.address}
-                    plexRoots={library.roots || []}
+                    serverId={generateServerId(server)}
+                    libraries={[{ ...library, roots: library.roots || [] }]}
                     onClose={() => onSetShowMapModal(false)}
                     onSaved={onRefreshPathMappings}
                 />

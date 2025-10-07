@@ -106,7 +106,7 @@ This guide provides practical advice for getting the most out of Name-o-Tron 900
 
 [tips_pagination.png]
 
-- **Pagination**: The app loads 200 items per page - use search to find specific content.
+- **Pagination**: The app loads 20 items per page for TV shows, 200 for movies/music - use search to find specific content.
 - **Search Behavior**: Debounced search (500ms) filters locally first, then queries Plex if no matches.
 - **Preview Recalculation**: Settings changes immediately recalculate the preview - use this for experimentation.
 
@@ -309,7 +309,7 @@ Beethoven - Complete Symphonies/
 
 **For extensive TV collections (100+ shows, 1000+ episodes):**
 
-1. **Pagination Strategy**: Use the app's built-in pagination (200 items/page) effectively
+1. **Pagination Strategy**: Use the app's built-in pagination (20 for TV shows, 200 for movies/music) effectively
 2. **Search Optimization**: Use specific show names to process one series at a time
 3. **Batch Size Management**: Process individual seasons rather than entire shows
 4. **Memory Management**: Restart the app periodically for large operations

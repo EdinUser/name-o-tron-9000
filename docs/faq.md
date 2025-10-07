@@ -225,7 +225,7 @@ Yes! Each media type has customizable templates:
 
 ### **The app is slow with my large library**
 **Optimization tips:**
-1. **Pagination**: App loads 200 items per page - use search to filter
+1. **Pagination**: App loads 20 items per page for TV shows, 200 for movies/music - use search to filter
 2. **Search strategy**: Local search for immediate results, Plex API search always active for comprehensive coverage
 3. **Batch processing**: Process large libraries in smaller chunks
 4. **Network optimization**: Ensure fast connection to Plex server

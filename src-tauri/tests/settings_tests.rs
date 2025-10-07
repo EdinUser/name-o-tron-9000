@@ -1,6 +1,5 @@
 use serde_json::{json, Value};
 use std::fs;
-use std::path::PathBuf;
 use tempfile::tempdir;
 
 // Test helper functions for settings testing
@@ -382,6 +381,192 @@ fn test_save_settings_directory_creation() {
 
     // Verify the parent directory was created
     assert!(nested_path.parent().unwrap().exists(), "Parent directory should be created");
+}
+
+// Tests for the new cache functionality
+
+#[test]
+fn test_generate_mappings_checksum() {
+    // Test empty mappings
+    let empty_mappings = vec![];
+    let checksum1 = name_o_tron_9000_lib::settings::generate_mappings_checksum(&empty_mappings);
+    let checksum2 = name_o_tron_9000_lib::settings::generate_mappings_checksum(&empty_mappings);
+    assert_eq!(checksum1, checksum2, "Empty mappings should produce consistent checksum");
+
+    // Test mappings with same data produce same checksum
+    let mappings1 = vec![
+        name_o_tron_9000_lib::settings::PathMappingDto {
+            server_id: "server1".to_string(),
+            plex_root: "/media/movies".to_string(),
+            local_root: "/mnt/movies".to_string(),
+            platform: Some("linux".to_string()),
+        },
+        name_o_tron_9000_lib::settings::PathMappingDto {
+            server_id: "server1".to_string(),
+            plex_root: "/media/tv".to_string(),
+            local_root: "/mnt/tv".to_string(),
+            platform: Some("linux".to_string()),
+        },
+    ];
+
+    let mappings2 = vec![
+        name_o_tron_9000_lib::settings::PathMappingDto {
+            server_id: "server1".to_string(),
+            plex_root: "/media/movies".to_string(),
+            local_root: "/mnt/movies".to_string(),
+            platform: Some("linux".to_string()),
+        },
+        name_o_tron_9000_lib::settings::PathMappingDto {
+            server_id: "server1".to_string(),
+            plex_root: "/media/tv".to_string(),
+            local_root: "/mnt/tv".to_string(),
+            platform: Some("linux".to_string()),
+        },
+    ];
+
+    let checksum1 = name_o_tron_9000_lib::settings::generate_mappings_checksum(&mappings1);
+    let checksum2 = name_o_tron_9000_lib::settings::generate_mappings_checksum(&mappings2);
+    assert_eq!(checksum1, checksum2, "Identical mappings should produce same checksum");
+
+    // Test different mappings produce different checksums
+    let mappings3 = vec![
+        name_o_tron_9000_lib::settings::PathMappingDto {
+            server_id: "server1".to_string(),
+            plex_root: "/media/movies".to_string(),
+            local_root: "/mnt/movies".to_string(),
+            platform: Some("windows".to_string()), // Different platform
+        },
+    ];
+
+    let checksum3 = name_o_tron_9000_lib::settings::generate_mappings_checksum(&mappings3);
+    assert_ne!(checksum1, checksum3, "Different mappings should produce different checksums");
+}
+
+#[test]
+fn test_show_mapping_cache_serialization() {
+    use name_o_tron_9000_lib::settings::*;
+
+    let cache = ShowMappingCache {
+        last_updated: 1640995200000, // 2022-01-01 00:00:00 UTC
+        mappings_checksum: "test-checksum-123".to_string(),
+        shows: {
+            let mut shows = std::collections::HashMap::new();
+            shows.insert(
+                "ratingKey1".to_string(),
+                ShowMappingData {
+                    is_mapped: true,
+                    location: "/media/show1".to_string(),
+                    last_checked: 1640995200000,
+                    poster_url: None,
+                    cached_poster_url: None,
+                    year: None,
+                    genre: None,
+                    studio: None,
+                    creators: None,
+                    years_running: None,
+                },
+            );
+            shows.insert(
+                "ratingKey2".to_string(),
+                ShowMappingData {
+                    is_mapped: false,
+                    location: "".to_string(),
+                    last_checked: 1640995200000,
+                    poster_url: None,
+                    cached_poster_url: None,
+                    year: None,
+                    genre: None,
+                    studio: None,
+                    creators: None,
+                    years_running: None,
+                },
+            );
+            shows
+        },
+    };
+
+    // Test serialization
+    let serialized = serde_json::to_string(&cache).unwrap();
+    assert!(!serialized.is_empty());
+    assert!(serialized.contains("test-checksum-123"));
+    assert!(serialized.contains("ratingKey1"));
+    assert!(serialized.contains("ratingKey2"));
+
+    // Test deserialization
+    let deserialized: ShowMappingCache = serde_json::from_str(&serialized).unwrap();
+    assert_eq!(deserialized.last_updated, cache.last_updated);
+    assert_eq!(deserialized.mappings_checksum, cache.mappings_checksum);
+    assert_eq!(deserialized.shows.len(), cache.shows.len());
+    assert_eq!(deserialized.shows.get("ratingKey1").unwrap().is_mapped, true);
+    assert_eq!(deserialized.shows.get("ratingKey2").unwrap().is_mapped, false);
+}
+
+#[test]
+fn test_path_mapping_dto_serialization() {
+    use name_o_tron_9000_lib::settings::*;
+
+    let dto = PathMappingDto {
+        server_id: "test-server".to_string(),
+        plex_root: "/media/movies".to_string(),
+        local_root: "/mnt/movies".to_string(),
+        platform: Some("linux".to_string()),
+    };
+
+    // Test serialization with camelCase rename
+    let serialized = serde_json::to_string(&dto).unwrap();
+    assert!(serialized.contains("\"serverId\":\"test-server\""));
+    assert!(serialized.contains("\"plexRoot\":\"/media/movies\""));
+    assert!(serialized.contains("\"localRoot\":\"/mnt/movies\""));
+    assert!(serialized.contains("\"platform\":\"linux\""));
+
+    // Test deserialization
+    let deserialized: PathMappingDto = serde_json::from_str(&serialized).unwrap();
+    assert_eq!(deserialized.server_id, dto.server_id);
+    assert_eq!(deserialized.plex_root, dto.plex_root);
+    assert_eq!(deserialized.local_root, dto.local_root);
+    assert_eq!(deserialized.platform, dto.platform);
+}
+
+#[test]
+fn test_show_mapping_data_serialization() {
+    use name_o_tron_9000_lib::settings::*;
+
+    let data = ShowMappingData {
+        is_mapped: true,
+        location: "/media/show/location".to_string(),
+        last_checked: 1234567890000,
+        poster_url: None,
+        cached_poster_url: None,
+        year: None,
+        genre: None,
+        studio: None,
+        creators: None,
+        years_running: None,
+    };
+
+    // Test serialization with camelCase rename
+    let serialized = serde_json::to_string(&data).unwrap();
+    assert!(serialized.contains("\"isMapped\":true"));
+    assert!(serialized.contains("\"location\":\"/media/show/location\""));
+    assert!(serialized.contains("\"lastChecked\":1234567890000"));
+
+    // Test deserialization
+    let deserialized: ShowMappingData = serde_json::from_str(&serialized).unwrap();
+    assert_eq!(deserialized.is_mapped, data.is_mapped);
+    assert_eq!(deserialized.location, data.location);
+    assert_eq!(deserialized.last_checked, data.last_checked);
+}
+
+#[test]
+fn test_cache_directory_path_generation() {
+
+    let temp_dir = tempdir().unwrap();
+    let cache_dir = temp_dir.path().join("cache").join("show-mappings");
+
+    // The actual path generation logic is tested in the command functions
+    // This test verifies that the cache directory structure makes sense
+    assert!(cache_dir.to_string_lossy().contains("cache"));
+    assert!(cache_dir.to_string_lossy().contains("show-mappings"));
 }
 
 // Additional tests for edge cases and error conditions

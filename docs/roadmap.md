@@ -56,7 +56,10 @@ This document outlines the future development direction for Name-o-Tron 9000, in
 #### Performance Optimizations
 - **Incremental Preview**: Only recalculate changed items during settings updates
 - **Background Processing**: Non-blocking preview generation for large libraries
-- **Smart Caching**: Intelligent caching of Plex metadata and file information
+- **✅ Smart Caching**: TV show mapping status and metadata caching (implemented)
+  - Per-server/library cache files with checksum validation
+  - Automatic invalidation when path mappings change
+  - Reduces API calls when browsing TV show libraries
 
 ### Lower Priority (Future Releases)
 

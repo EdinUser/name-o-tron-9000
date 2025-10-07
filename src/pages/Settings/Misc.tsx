@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import Select from "../../components/Select";
 import Toggle from "../../components/Toggle";
 import Radio from "../../components/Radio";
 import { type Settings } from "../../state/settings";
+import { clearAllShowMappingCaches, getCacheDirectoryPath } from "../../utils/cache";
 
 function Section({title, children}: { title: string; children: React.ReactNode }) {
     return (
@@ -25,6 +26,32 @@ function Row({label, children}: { label: string; children: React.ReactNode }) {
 export function Misc({s, onChange}: { s: Settings; onChange: (v: Settings["misc"]) => void }) {
     const m = s.misc;
     const set = (patch: Partial<typeof m>) => onChange({...m, ...patch});
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+    const handleResetCache = useCallback(async () => {
+        try {
+            console.log("🔄 Starting cache clearing process...");
+            await clearAllShowMappingCaches();
+            console.log("✅ Cache clearing completed successfully");
+            alert("Cache cleared successfully!");
+            setShowConfirmDialog(false);
+        } catch (error) {
+            console.error("❌ Cache clear error:", error);
+            alert("Failed to clear cache. Check console for details.");
+        }
+    }, []);
+
+    const handleShowCachePath = useCallback(async () => {
+        try {
+            const cachePath = await getCacheDirectoryPath();
+            console.log("📁 Cache directory path:", cachePath);
+            alert(`Cache directory: ${cachePath}`);
+        } catch (error) {
+            console.error("❌ Failed to get cache path:", error);
+            alert("Failed to get cache directory path");
+        }
+    }, []);
+
     return (
         <>
             <Section title="Unmatched Files">
@@ -208,6 +235,69 @@ export function Misc({s, onChange}: { s: Settings; onChange: (v: Settings["misc"
                     </div>
                 </div>
             </Section>
+
+            <Section title="Cache Management">
+                <div className="space-y-3">
+                    <div className="text-sm text-neutral-300">
+                        Clear cached data for TV show libraries. This will force the app to re-analyze show locations on next load.
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <div className="text-neutral-200">Reset cached libraries</div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowConfirmDialog(true)}
+                                className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                            >
+                                Reset Cache
+                            </button>
+                            <button
+                                onClick={handleShowCachePath}
+                                className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                Show Cache Path
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Section>
+
+            {/* Confirmation Dialog */}
+            {showConfirmDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+                    <div className="w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-900 p-6 shadow-xl">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20">
+                                <svg className="h-5 w-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-neutral-100">Reset Cache</h3>
+                                <p className="text-sm text-neutral-300">name-o-tron-9000</p>
+                            </div>
+                        </div>
+
+                        <p className="mb-6 text-neutral-200">
+                            Are you sure you want to reset all cached library data? This will require re-analyzing show locations on next load.
+                        </p>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowConfirmDialog(false)}
+                                className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleResetCache}
+                                className="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

@@ -21,7 +21,20 @@ describe('PathMappingModal', () => {
 
   const defaultProps = {
     serverId: 'test-server-id',
-    plexRoots: ['/media/Movies', '/media/TV Shows'],
+    libraries: [
+      {
+        key: 'movies',
+        title: 'Movies',
+        type: 'movie',
+        roots: ['/media/Movies']
+      },
+      {
+        key: 'tv',
+        title: 'TV Shows',
+        type: 'show',
+        roots: ['/media/TV Shows']
+      }
+    ],
     onClose: mockOnClose,
     onSaved: mockOnSaved
   }
@@ -30,23 +43,25 @@ describe('PathMappingModal', () => {
     vi.clearAllMocks()
   })
 
-  it('renders modal with plex roots', async () => {
+  it('renders modal with library titles and folders', async () => {
     vi.mocked(invoke).mockResolvedValue({ pathMappings: [] })
 
     render(<PathMappingModal {...defaultProps} />)
 
     expect(screen.getByText('Map Plex Paths')).toBeInTheDocument()
+    expect(screen.getByText('Movies (movie)')).toBeInTheDocument()
+    expect(screen.getByText('TV Shows (show)')).toBeInTheDocument()
     expect(screen.getByText('/media/Movies')).toBeInTheDocument()
     expect(screen.getByText('/media/TV Shows')).toBeInTheDocument()
   })
 
-  it('displays Pick buttons for each plex root', async () => {
+  it('displays Pick buttons for each plex folder', async () => {
     vi.mocked(invoke).mockResolvedValue({ pathMappings: [] })
 
     render(<PathMappingModal {...defaultProps} />)
 
     await waitFor(() => {
-      expect(screen.getAllByText('Pick…')).toHaveLength(2) // One for each root
+      expect(screen.getAllByText('Pick…')).toHaveLength(2) // One for each folder
     })
   })
 
@@ -146,7 +161,7 @@ describe('PathMappingModal', () => {
     render(<PathMappingModal {...defaultProps} />)
 
     await waitFor(() => {
-      expect(screen.getAllByText('Test')).toHaveLength(3) // Header + 2 buttons
+      expect(screen.getAllByText('Test')).toHaveLength(4) // 2 library headers + 2 test buttons
     })
 
     // First enter a path
@@ -182,7 +197,7 @@ describe('PathMappingModal', () => {
     render(<PathMappingModal {...defaultProps} />)
 
     await waitFor(() => {
-      expect(screen.getAllByText('Test')).toHaveLength(3) // Header + 2 buttons
+      expect(screen.getAllByText('Test')).toHaveLength(4) // 2 library headers + 2 test buttons
     })
 
     // Enter a path and test it
@@ -324,12 +339,12 @@ describe('PathMappingModal', () => {
     expect(mockOnClose).toHaveBeenCalled()
   })
 
-  it('shows no roots message when plexRoots is empty', async () => {
+  it('shows no libraries message when libraries is empty', async () => {
     vi.mocked(invoke).mockResolvedValue({ pathMappings: [] })
 
-    render(<PathMappingModal {...defaultProps} plexRoots={[]} />)
+    render(<PathMappingModal {...defaultProps} libraries={[]} />)
 
-    expect(screen.getByText('No library roots discovered. Try reloading libraries or ensure the Plex token is valid.')).toBeInTheDocument()
+    expect(screen.getByText('No libraries found. Try reloading libraries or ensure the Plex token is valid.')).toBeInTheDocument()
   })
 
   it('handles manual path entry via prompt fallback', async () => {

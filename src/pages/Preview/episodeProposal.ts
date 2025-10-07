@@ -4,6 +4,7 @@ import {
     basename,
     extname,
     hasNonLatin,
+    isItemMapped,
     normalizeUnicode,
     resolvePlexFilePath,
     safeFolderName,
@@ -16,7 +17,10 @@ export async function computeEpisodeProposal(
     template: string,
     useSeasonFolders: boolean,
     settings: any,
-    libraryFolder: string | null
+    libraryFolder: string | null,
+    libraryRoots: string[],
+    mappings: Array<{ server_id: string; plex_root: string; local_root: string }>,
+    serverId: string
 ): Promise<PreviewRow> {
     const ext = extname(e.file) || ".mkv";
 
@@ -286,6 +290,12 @@ export async function computeEpisodeProposal(
     } else if (proposed.length > 200 && status !== "error") {
         status = "warning";
         flags.push(">200 path");
+    }
+
+    // Check if item is mapped (not in a mapped folder)
+    if (!isItemMapped(e.file, libraryRoots, mappings, serverId)) {
+        status = "unmatched";
+        flags.push("unmapped");
     }
 
     return {

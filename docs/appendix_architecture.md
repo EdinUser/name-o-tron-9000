@@ -164,6 +164,10 @@ src-tauri/src/
 - **macOS**: `~/Library/Caches/name-o-tron-9000/`
 - **Linux**: `~/.cache/name-o-tron-9000/`
 
+**Cache Subdirectories:**
+- `thumbnails/`: Cached poster images for TV shows and movies
+- `show-mappings/`: TV show mapping status and metadata cache (per server/library)
+
 ### Data Formats
 
 #### Settings File (`settings.json`)
@@ -246,11 +250,13 @@ src-tauri/src/
 - **Base Application**: ~50MB RAM
 - **Large Libraries**: Additional 100-500MB for preview data
 - **Image Caching**: Thumbnail cache grows with usage (managed automatically)
+- **TV Show Caching**: Show mapping cache reduces repeated API calls for mapping status
 
 ### Network Performance
 - **Plex API**: Optimized with connection reuse and HTTP/2
 - **Image Fetching**: Cached locally to reduce repeated requests
 - **Search**: Debounced requests (500ms) to avoid API spam
+- **Show Metadata Caching**: Reduces API calls when browsing TV show libraries
 
 ### Filesystem Performance
 - **Batch Operations**: Processed in configurable batch sizes

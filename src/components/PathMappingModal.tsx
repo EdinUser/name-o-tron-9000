@@ -9,16 +9,26 @@ type Mapping = {
   details?: string;
 };
 
+type LibraryWithRoots = {
+  key: string;
+  title: string;
+  type: string;
+  roots: string[];
+};
+
 type Props = {
   serverId: string; // machineIdentifier or address fallback
-  plexRoots: string[];
+  libraries: LibraryWithRoots[];
   onClose: () => void;
   onSaved?: () => void;
 };
 
-export default function PathMappingModal({ serverId, plexRoots, onClose, onSaved }: Props) {
+export default function PathMappingModal({ serverId, libraries, onClose, onSaved }: Props) {
   const [mappings, setMappings] = useState<Record<string, Mapping>>({});
   const [saving, setSaving] = useState(false);
+
+  // Flatten all roots from all libraries
+  const allRoots = useMemo(() => libraries.flatMap(lib => lib.roots || []), [libraries]);
 
   // Load existing settings & seed rows for the provided roots
   useEffect(() => {
@@ -27,20 +37,20 @@ export default function PathMappingModal({ serverId, plexRoots, onClose, onSaved
         const s = await invoke<{ pathMappings?: { server_id: string; plex_root: string; local_root: string; platform?: string }[] }>("get_settings");
         const serverMaps = (s.pathMappings || []).filter(m => m.server_id === serverId);
         const initial: Record<string, Mapping> = {};
-        for (const r of plexRoots) {
+        for (const r of allRoots) {
           const hit = serverMaps.find(m => m.plex_root === r);
           initial[r] = { plex_root: r, local_root: hit?.local_root || "", status: "unknown" };
         }
         setMappings(initial);
       } catch {
         const initial: Record<string, Mapping> = {};
-        for (const r of plexRoots) initial[r] = { plex_root: r, local_root: "", status: "unknown" };
+        for (const r of allRoots) initial[r] = { plex_root: r, local_root: "", status: "unknown" };
         setMappings(initial);
       }
     })();
-  }, [serverId, plexRoots.join("|")]);
+  }, [serverId, allRoots.join("|")]);
 
-  const rows = useMemo(() => plexRoots.map(r => mappings[r] || { plex_root: r, local_root: "" }), [plexRoots, mappings]);
+  const rows = useMemo(() => allRoots.map(r => mappings[r] || { plex_root: r, local_root: "" }), [allRoots, mappings]);
 
   async function test(r: string) {
     const m = mappings[r];
@@ -79,13 +89,26 @@ export default function PathMappingModal({ serverId, plexRoots, onClose, onSaved
       const current = await invoke<{ pathMappings?: any[] }>("get_settings");
       const list = Array.isArray(current.pathMappings) ? current.pathMappings.slice() : [];
       // Remove existing for this server + roots, then add current
-      const rootsSet = new Set(plexRoots);
+      const rootsSet = new Set(allRoots);
       const filtered = list.filter((m: any) => !(m.server_id === serverId && rootsSet.has(m.plex_root)));
       const toAdd = rows
         .filter(r => r.local_root.trim().length > 0)
         .map(r => ({ server_id: serverId, plex_root: r.plex_root, local_root: r.local_root, platform: undefined }));
       const next = { pathMappings: [...filtered, ...toAdd] };
       await invoke("save_settings", { settings: next });
+
+      // Invalidate show mapping cache for all affected libraries
+      for (const library of libraries) {
+        try {
+          await invoke("invalidate_show_mapping_cache", {
+            serverId,
+            libraryId: library.key
+          });
+        } catch (error) {
+          console.warn(`Failed to invalidate cache for library ${library.key}:`, error);
+        }
+      }
+
       onSaved?.();
       onClose();
     } catch (e) {
@@ -118,47 +141,55 @@ export default function PathMappingModal({ serverId, plexRoots, onClose, onSaved
         </div>
 
         <div className="max-h-[50vh] overflow-auto rounded-md border border-neutral-800">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-neutral-900/90">
-              <tr className="text-left text-neutral-300">
-                <th className="px-3 py-2 font-medium">Plex Root</th>
-                <th className="px-3 py-2 font-medium">Local Path</th>
-                <th className="px-3 py-2 font-medium">Test</th>
-              </tr>
-            </thead>
-            <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-3 py-4 text-sm text-neutral-400">No library roots discovered. Try reloading libraries or ensure the Plex token is valid.</td>
-              </tr>
-            )}
-            {rows.map((r) => (
-              <tr key={r.plex_root} className="border-t border-neutral-800">
-                <td className="px-3 py-2 font-mono text-xs text-neutral-300">{r.plex_root}</td>
-                <td className="px-3 py-2">
-                  <input
-                    className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-cyan-500"
-                    placeholder="e.g., Z:\\Series or /mnt/nas/Series"
-                    value={mappings[r.plex_root]?.local_root || ""}
-                    onChange={(e) => setMappings(prev => ({ ...prev, [r.plex_root]: { ...prev[r.plex_root], plex_root: r.plex_root, local_root: e.target.value } }))}
-                  />
-                  {mappings[r.plex_root]?.details && (
-                    <div className="pt-1 text-xs text-neutral-500">{mappings[r.plex_root]?.details}</div>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => pickDir(r.plex_root)} className="rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs hover:bg-neutral-700">Pick…</button>
-                    <button onClick={() => test(r.plex_root)} className="rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs hover:bg-neutral-700">Test</button>
-                    {mappings[r.plex_root]?.status === "ok" && <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[11px] text-emerald-300">OK</span>}
-                    {mappings[r.plex_root]?.status === "missing" && <span className="rounded bg-red-500/20 px-2 py-0.5 text-[11px] text-red-300">Missing</span>}
-                    {mappings[r.plex_root]?.status === "not_writable" && <span className="rounded bg-yellow-500/20 px-2 py-0.5 text-[11px] text-yellow-300">Read-only</span>}
+          {libraries.length === 0 ? (
+            <div className="px-3 py-4 text-sm text-neutral-400">No libraries found. Try reloading libraries or ensure the Plex token is valid.</div>
+          ) : (
+            <div>
+              {libraries.map((library) => (
+                <div key={library.key} className="border-b border-neutral-800 last:border-b-0">
+                  <div className="bg-neutral-800/50 px-3 py-2 text-sm font-medium text-neutral-200 border-b border-neutral-700">
+                    {library.title} ({library.type})
                   </div>
-                </td>
-              </tr>
-            ))}
-            </tbody>
-          </table>
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-neutral-900/90">
+                      <tr className="text-left text-neutral-300">
+                        <th className="px-3 py-2 font-medium">Plex Folder</th>
+                        <th className="px-3 py-2 font-medium">Local Path</th>
+                        <th className="px-3 py-2 font-medium">Test</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {library.roots.map((root) => (
+                        <tr key={root} className="border-t border-neutral-800">
+                          <td className="px-3 py-2 font-mono text-xs text-neutral-300">{root}</td>
+                          <td className="px-3 py-2">
+                            <input
+                              className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm outline-none focus:border-cyan-500"
+                              placeholder="e.g., Z:\\Series or /mnt/nas/Series"
+                              value={mappings[root]?.local_root || ""}
+                              onChange={(e) => setMappings(prev => ({ ...prev, [root]: { ...prev[root], plex_root: root, local_root: e.target.value } }))}
+                            />
+                            {mappings[root]?.details && (
+                              <div className="pt-1 text-xs text-neutral-500">{mappings[root]?.details}</div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => pickDir(root)} className="rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs hover:bg-neutral-700">Pick…</button>
+                              <button onClick={() => test(root)} className="rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs hover:bg-neutral-700">Test</button>
+                              {mappings[root]?.status === "ok" && <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[11px] text-emerald-300">OK</span>}
+                              {mappings[root]?.status === "missing" && <span className="rounded bg-red-500/20 px-2 py-0.5 text-[11px] text-red-300">Missing</span>}
+                              {mappings[root]?.status === "not_writable" && <span className="rounded bg-yellow-500/20 px-2 py-0.5 text-[11px] text-yellow-300">Read-only</span>}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mt-3 flex justify-end gap-2">

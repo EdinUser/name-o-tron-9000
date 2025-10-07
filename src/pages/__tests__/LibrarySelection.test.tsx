@@ -169,13 +169,15 @@ describe('LibrarySelectionContainer', () => {
       expect(screen.getByText('Movies')).toBeInTheDocument()
     })
 
-    // Select the Movies radio button
-    const radioButton = screen.getByRole('radio', { name: /movies/i })
-    await user.click(radioButton)
-
-    // Click the Continue button (this should work even without individual Open buttons being enabled)
-    const continueButton = screen.getByRole('button', { name: /continue/i })
-    await user.click(continueButton)
+    // Click the Open button for Movies library
+    // Find the Movies library card and then find the Open button within it
+    const moviesLibraryCard = screen.getByText('Movies').closest('li')
+    const openButton = moviesLibraryCard?.querySelector('button')
+    expect(openButton).toBeInTheDocument()
+    expect(openButton?.textContent?.trim()).toBe('Open')
+    if (openButton) {
+      await user.click(openButton)
+    }
 
     expect(mockOnSelectLibrary).toHaveBeenCalledWith(mockLibraries[0])
   })
