@@ -82,6 +82,9 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
+  // Track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
   // Wrapper for setQuery
   const setQuery = (value: string) => {
     setQueryState(value);
@@ -92,7 +95,12 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
   const debounce = useRef<number | null>(null);
 
-  useEffect(() => { try { getCurrentWindow().setTitle("Name-o-Tron 9000 — Shows"); } catch {} }, []);
+  useEffect(() => {
+    try { getCurrentWindow().setTitle("Name-o-Tron 9000 — Shows"); } catch {}
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Load persisted search query on mount
   useEffect(() => {
@@ -207,12 +215,14 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   }, [mappings, serverId, library.roots, library.key, server.address, server.machineIdentifier]);
 
   async function load(reset = false) {
+    if (!isMountedRef.current) return;
+
     setLoading(true);
     setError(null);
     try {
       // Ensure serverId is valid before proceeding with cache operations
       if (!serverId || serverId === "" || serverId.includes("undefined")) {
-        setLoading(false);
+        if (isMountedRef.current) setLoading(false);
         return;
       }
 
@@ -235,9 +245,9 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
       const fetchedShows = resp?.MediaContainer?.Directory ?? [];
       if (fetchedShows.length === 0) {
-        if (reset) setShows([]);
+        if (reset && isMountedRef.current) setShows([]);
         paging.current.exhausted = true;
-        setLoading(false);
+        if (isMountedRef.current) setLoading(false);
         return;
       }
 
@@ -268,7 +278,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
         return key && !cachedKeys.has(key);
       });
 
-      if (newShows.length > 0) {
+      if (newShows.length > 0 && isMountedRef.current) {
         setBuildingCache(true);
 
         for (const show of newShows) {
@@ -341,7 +351,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
         safeCache.lastUpdated = Date.now();
         safeCache.mappingsChecksum = currentMappingsChecksum;
         await saveShowMappingCache(serverId, library.key, safeCache);
-        setBuildingCache(false);
+        if (isMountedRef.current) setBuildingCache(false);
       }
 
       // Avoid interim "Checking..." state; build final list directly once cache status is known
@@ -401,16 +411,18 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
 
       // Update shows with final mapping status after cache is built
-      if (reset) setShows(finalShows);
-      else setShows(prev => [...prev, ...finalShows]);
+      if (isMountedRef.current) {
+        if (reset) setShows(finalShows);
+        else setShows(prev => [...prev, ...finalShows]);
+      }
 
       if (finalShows.length === 0 || finalShows.length < paging.current.size) {
         paging.current.exhausted = true;
       }
     } catch (e: any) {
-      setError(e?.message ?? String(e));
+      if (isMountedRef.current) setError(e?.message ?? String(e));
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }
 
@@ -426,6 +438,9 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   useEffect(() => {
     if (debounce.current) window.clearTimeout(debounce.current);
     debounce.current = window.setTimeout(() => {
+      // Check if component is still mounted before proceeding
+      if (!isMountedRef.current) return;
+
       // If we have a search query and no results, try loading more shows first
       if (query.trim() && shows.length > 0) {
         const filtered = shows.filter(s =>
@@ -440,6 +455,14 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       // Always reload when query changes (including when it becomes empty)
       load(true);
     }, 350);
+
+    // Cleanup function to clear timeout on unmount
+    return () => {
+      if (debounce.current) {
+        window.clearTimeout(debounce.current);
+        debounce.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryState]);
 
