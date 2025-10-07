@@ -73,6 +73,8 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   const { settings } = useSettings();
   const [loading, setLoading] = useState(false);
   const [buildingCache, setBuildingCache] = useState(false);
+  // Tracks whether we've completed at least one load attempt
+  const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shows, setShows] = useState<TvShow[]>([]);
   const [mappings, setMappings] = useState<Array<{ server_id: string; plex_root: string; local_root: string }>>([]);
@@ -82,8 +84,11 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  // Track if component is mounted to prevent state updates after unmount
-  const isMountedRef = useRef(true);
+  // Track active request id to avoid race-condition UI flicker
+  // Bump this on every load() call to ignore stale responses
+  const activeRequestIdRef = useRef(0);
+  // Track number of in-flight load() calls
+  const inFlightCountRef = useRef(0);
 
   // Wrapper for setQuery
   const setQuery = (value: string) => {
@@ -97,8 +102,16 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
   useEffect(() => {
     try { getCurrentWindow().setTitle("Name-o-Tron 9000 — Shows"); } catch {}
+  }, []);
+
+  // Cleanup on unmount - only clear timeouts
+  useEffect(() => {
     return () => {
-      isMountedRef.current = false;
+      // Clear any pending timeouts on unmount
+      if (debounce.current) {
+        window.clearTimeout(debounce.current);
+        debounce.current = null;
+      }
     };
   }, []);
 
@@ -177,6 +190,11 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   useEffect(() => {
     async function loadMappings() {
       try {
+        // Check if invoke is available (Tauri backend)
+        if (typeof invoke === 'undefined') {
+          throw new Error("Tauri invoke function not available - are you running in Tauri mode? Try 'npm run tauri dev' instead of 'npm run dev'");
+        }
+
         const settings = await invoke<{ pathMappings?: { server_id: string; plex_root: string; local_root: string }[] }>("get_settings");
         const mappings = settings.pathMappings || [];
         setMappings(mappings);
@@ -185,11 +203,14 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
         const cleanServerId = generateServerId(server);
         setServerId(cleanServerId);
       } catch (error) {
+        // Set error state regardless of mount state - errors should always be visible
+        setError(`Failed to load path mappings: ${error}`);
         setMappings([]);
         setServerId("");
       }
     }
 
+    // Load mappings - errors are handled within loadMappings function
     loadMappings();
   }, [server.address, server.machineIdentifier]);
 
@@ -215,14 +236,16 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   }, [mappings, serverId, library.roots, library.key, server.address, server.machineIdentifier]);
 
   async function load(reset = false) {
-    if (!isMountedRef.current) return;
-
+    activeRequestIdRef.current += 1;
+    let shortCircuited = false;
+    inFlightCountRef.current += 1;
     setLoading(true);
     setError(null);
     try {
       // Ensure serverId is valid before proceeding with cache operations
       if (!serverId || serverId === "" || serverId.includes("undefined")) {
-        if (isMountedRef.current) setLoading(false);
+        // Stay in a loading state until serverId is ready; prevents initial "No shows" flicker
+        shortCircuited = true;
         return;
       }
 
@@ -245,16 +268,18 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
       const fetchedShows = resp?.MediaContainer?.Directory ?? [];
       if (fetchedShows.length === 0) {
-        if (reset && isMountedRef.current) setShows([]);
+        if (reset) setShows([]);
         paging.current.exhausted = true;
-        if (isMountedRef.current) setLoading(false);
+        setInitialized(true);
         return;
       }
 
       // Generate current mappings checksum for cache validation
+      console.log("[ShowSelection] Generating checksum for mappings");
       const currentMappingsChecksum = await generateMappingsChecksum(mappings, serverId);
 
       // Load existing cache
+      console.log("[ShowSelection] Loading cache for server:", serverId, "library:", library.key);
       const cache = await loadShowMappingCache(serverId, library.key);
 
       // Check if cache is valid
@@ -264,6 +289,9 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
       // If cache invalid, start from a fresh structure but preserve any existing entries to avoid data loss
       if (!cacheValid) {
+        // Clear the container immediately so the upcoming "Building cache…" message is clear
+        setShows([]);
+        setBuildingCache(true);
         updatedCache = {
           lastUpdated: Date.now(),
           mappingsChecksum: currentMappingsChecksum,
@@ -278,7 +306,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
         return key && !cachedKeys.has(key);
       });
 
-      if (newShows.length > 0 && isMountedRef.current) {
+      if (newShows.length > 0) {
         setBuildingCache(true);
 
         for (const show of newShows) {
@@ -351,7 +379,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
         safeCache.lastUpdated = Date.now();
         safeCache.mappingsChecksum = currentMappingsChecksum;
         await saveShowMappingCache(serverId, library.key, safeCache);
-        if (isMountedRef.current) setBuildingCache(false);
+        setBuildingCache(false);
       }
 
       // Avoid interim "Checking..." state; build final list directly once cache status is known
@@ -411,18 +439,24 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
 
       // Update shows with final mapping status after cache is built
-      if (isMountedRef.current) {
-        if (reset) setShows(finalShows);
-        else setShows(prev => [...prev, ...finalShows]);
-      }
+      console.log("[ShowSelection] Setting shows in UI:", finalShows.length, "shows");
+      if (reset) setShows(finalShows);
+      else setShows(prev => [...prev, ...finalShows]);
 
       if (finalShows.length === 0 || finalShows.length < paging.current.size) {
         paging.current.exhausted = true;
       }
+      setInitialized(true);
+      setBuildingCache(false);
     } catch (e: any) {
-      if (isMountedRef.current) setError(e?.message ?? String(e));
+      console.error("[ShowSelection] Load function failed:", e);
+      // Set error state regardless of mount state - errors should always be visible
+      setError(e?.message ?? String(e));
+      setInitialized(true);
     } finally {
-      if (isMountedRef.current) setLoading(false);
+      console.log("[ShowSelection] Load function completed");
+      inFlightCountRef.current = Math.max(0, inFlightCountRef.current - 1);
+      if (!shortCircuited && inFlightCountRef.current === 0) setLoading(false);
     }
   }
 
@@ -438,9 +472,6 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   useEffect(() => {
     if (debounce.current) window.clearTimeout(debounce.current);
     debounce.current = window.setTimeout(() => {
-      // Check if component is still mounted before proceeding
-      if (!isMountedRef.current) return;
-
       // If we have a search query and no results, try loading more shows first
       if (query.trim() && shows.length > 0) {
         const filtered = shows.filter(s =>
@@ -456,13 +487,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       load(true);
     }, 350);
 
-    // Cleanup function to clear timeout on unmount
-    return () => {
-      if (debounce.current) {
-        window.clearTimeout(debounce.current);
-        debounce.current = null;
-      }
-    };
+    // Note: Cleanup is handled by the dedicated unmount effect above
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryState]);
 
@@ -503,6 +528,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       library={library}
       loading={loading}
       buildingCache={buildingCache}
+      initialized={initialized}
       error={error}
       shows={shows}
       filteredShows={filteredShows}

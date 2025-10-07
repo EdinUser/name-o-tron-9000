@@ -21,6 +21,7 @@ type Props = {
   library: PlexLibrary;
   loading: boolean;
   buildingCache: boolean;
+  initialized?: boolean;
   error: string | null;
   shows: TvShow[];
   filteredShows: TvShow[];
@@ -43,6 +44,7 @@ export default function ShowSelectionTemplate({
   library,
   loading,
   buildingCache,
+  initialized = false,
   error,
   shows,
   filteredShows,
@@ -119,13 +121,17 @@ export default function ShowSelectionTemplate({
           </div>
         </div>
 
-        {(loading || buildingCache) && <p className="text-center text-neutral-400">
-          {buildingCache ? "Building cache…" : "Loading shows…"}
-        </p>}
+        {/* Keep header hint minimal; main spinner appears in the container below */}
         {error && <p className="text-center text-red-300">Error: {error}</p>}
 
         <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
-          {filteredShows.length === 0 && !loading && !buildingCache && !error && (
+          {(loading || buildingCache) && (
+            <div className="flex items-center justify-center py-8 text-neutral-400">
+              <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-neutral-500 border-t-transparent mr-2" />
+              {buildingCache ? "Building cache…" : "Loading shows…"}
+            </div>
+          )}
+          {filteredShows.length === 0 && initialized && !loading && !buildingCache && !error && (
             <p className="text-neutral-400">
               {shows.length === 0 ? "No shows found." : "No shows match your search."}
             </p>
