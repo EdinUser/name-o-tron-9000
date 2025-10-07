@@ -37,6 +37,11 @@ describe('cache utilities', () => {
         { server_id: 'server1', plex_root: '/media/tv', local_root: '/mnt/tv', platform: 'linux' },
       ];
 
+      const expectedCamelMappings = [
+        { serverId: 'server1', plexRoot: '/media/movies', localRoot: '/mnt/movies', platform: 'linux' },
+        { serverId: 'server1', plexRoot: '/media/tv', localRoot: '/mnt/tv', platform: 'linux' },
+      ];
+
       mockInvoke.mockResolvedValue('abc123');
 
       const checksum1 = await generateMappingsChecksum(mappings, 'server1');
@@ -46,7 +51,7 @@ describe('cache utilities', () => {
       expect(checksum2).toBe('abc123');
       expect(checksum1).toBe(checksum2);
       expect(mockInvoke).toHaveBeenCalledTimes(2);
-      expect(mockInvoke).toHaveBeenCalledWith('generate_mappings_checksum_cmd', { serverId: 'server1', mappings });
+      expect(mockInvoke).toHaveBeenCalledWith('generate_mappings_checksum_cmd', { serverId: 'server1', server_id: 'server1', mappings: expectedCamelMappings });
     });
 
     it('should generate different checksums for different mappings', async () => {
@@ -74,7 +79,7 @@ describe('cache utilities', () => {
       const checksum = await generateMappingsChecksum([], 'server1');
 
       expect(checksum).toBe('empty');
-      expect(mockInvoke).toHaveBeenCalledWith('generate_mappings_checksum_cmd', { serverId: 'server1', mappings: [] });
+      expect(mockInvoke).toHaveBeenCalledWith('generate_mappings_checksum_cmd', { serverId: 'server1', server_id: 'server1', mappings: [] });
     });
 
     it('should throw error when serverId is not provided', async () => {
@@ -105,7 +110,9 @@ describe('cache utilities', () => {
       expect(result).toEqual(mockCache);
       expect(mockInvoke).toHaveBeenCalledWith('load_show_mapping_cache', {
         serverId: 'server1',
-        libraryId: 'library1'
+        server_id: 'server1',
+        libraryId: 'library1',
+        library_id: 'library1'
       });
     });
 
@@ -142,7 +149,9 @@ describe('cache utilities', () => {
 
       expect(mockInvoke).toHaveBeenCalledWith('save_show_mapping_cache', {
         serverId: 'server1',
+        server_id: 'server1',
         libraryId: 'library1',
+        library_id: 'library1',
         cache: mockCache
       });
     });
@@ -169,7 +178,9 @@ describe('cache utilities', () => {
 
       expect(mockInvoke).toHaveBeenCalledWith('invalidate_show_mapping_cache', {
         serverId: 'server1',
-        libraryId: 'library1'
+        server_id: 'server1',
+        libraryId: 'library1',
+        library_id: 'library1'
       });
     });
 

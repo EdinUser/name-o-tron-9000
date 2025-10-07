@@ -209,14 +209,24 @@ describe('ShowSelection Integration Tests', () => {
     // Check that mapping status is displayed
     expect(screen.getByText('Unmapped')).toBeInTheDocument(); // The Office is unmapped
 
-    // Verify cache-related API calls were made
+    // Verify cache-related API calls were made (checksum generated after shows are loaded)
     expect(mockInvoke).toHaveBeenCalledWith('generate_mappings_checksum_cmd', {
       serverId: 'test-server-id',
-      mappings: mockMappings
+      server_id: 'test-server-id',
+      mappings: expect.arrayContaining([
+        expect.objectContaining({
+          serverId: 'test-server-id',
+          plexRoot: '/media/TV Shows',
+          localRoot: '/mnt/tv-shows',
+          platform: null
+        })
+      ])
     });
     expect(mockInvoke).toHaveBeenCalledWith('load_show_mapping_cache', {
       serverId: 'test-server-id',
-      libraryId: 'tv-library'
+      server_id: 'test-server-id',
+      libraryId: 'tv-library',
+      library_id: 'tv-library'
     });
   });
 
@@ -352,7 +362,9 @@ describe('ShowSelection Integration Tests', () => {
     }));
     expect(mockInvoke).toHaveBeenCalledWith('load_show_mapping_cache', {
       serverId: 'test-server-id',
-      libraryId: 'tv-library'
+      server_id: 'test-server-id',
+      libraryId: 'tv-library',
+      library_id: 'tv-library'
     });
 
     // The invalidate cache call happens when mappings change, but in our test

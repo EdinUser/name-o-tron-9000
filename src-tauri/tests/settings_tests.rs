@@ -1,6 +1,5 @@
 use serde_json::{json, Value};
 use std::fs;
-use std::path::PathBuf;
 use tempfile::tempdir;
 
 // Test helper functions for settings testing
@@ -458,6 +457,13 @@ fn test_show_mapping_cache_serialization() {
                     is_mapped: true,
                     location: "/media/show1".to_string(),
                     last_checked: 1640995200000,
+                    poster_url: None,
+                    cached_poster_url: None,
+                    year: None,
+                    genre: None,
+                    studio: None,
+                    creators: None,
+                    years_running: None,
                 },
             );
             shows.insert(
@@ -466,6 +472,13 @@ fn test_show_mapping_cache_serialization() {
                     is_mapped: false,
                     location: "".to_string(),
                     last_checked: 1640995200000,
+                    poster_url: None,
+                    cached_poster_url: None,
+                    year: None,
+                    genre: None,
+                    studio: None,
+                    creators: None,
+                    years_running: None,
                 },
             );
             shows
@@ -522,6 +535,13 @@ fn test_show_mapping_data_serialization() {
         is_mapped: true,
         location: "/media/show/location".to_string(),
         last_checked: 1234567890000,
+        poster_url: None,
+        cached_poster_url: None,
+        year: None,
+        genre: None,
+        studio: None,
+        creators: None,
+        years_running: None,
     };
 
     // Test serialization with camelCase rename
@@ -539,7 +559,6 @@ fn test_show_mapping_data_serialization() {
 
 #[test]
 fn test_cache_directory_path_generation() {
-    use name_o_tron_9000_lib::*;
 
     let temp_dir = tempdir().unwrap();
     let cache_dir = temp_dir.path().join("cache").join("show-mappings");
