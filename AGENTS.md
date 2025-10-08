@@ -205,7 +205,7 @@ Agent practices:
 
 **Show Selection Enhancements**:
 - **Pagination Controls**: Shows are displayed with pagination (20 items per page by default) with prev/next navigation and page indicators
-- **Poster Display**: TV show entries include poster thumbnails with fallback handling and cached poster support
+- **Poster Display**: TV show entries include poster thumbnails with fallback handling and lazy loading for only visible items
 - **Search Persistence**: Search queries and scroll positions are persisted in session storage for seamless navigation
 - **Mapping Status Indicators**: Visual indicators for unmapped shows (red badge) and shows being checked (yellow badge)
 - **Rich Metadata Display**: Shows display genre, studio, creators, and running years information in a structured format
@@ -215,8 +215,9 @@ Agent practices:
   - Per-server/library cache files stored in OS app data directory under `cache/show-mappings/`
   - Checksum validation ensures cache invalidation when path mappings change
   - Automatic cache building for new shows missing from cache
-  - Supports poster URL caching and metadata extraction (genre, studio, creators, running years)
+  - Metadata extraction (genre, studio, creators, running years) and utility functions for cache management
   - Provides utility functions for cache management, validation, and metadata extraction
+- **Image Cache**: Separate caching system for poster thumbnails with stable naming based on rating keys
 - **Cache Invalidation**: Automatic invalidation when path mappings are modified; manual cache clearing available via backend commands
 
 ## CSS and Styling Guidelines
@@ -309,6 +310,8 @@ Signatures reflect current Rust Tauri commands in `src-tauri/src/`.
   - Queries `/hubs/search`. Includes token in header + query; supports JSON or XML fallback.
 - `fetch_plex_image(serverUrl, imagePath, token?) -> string`
   - Returns a base64 `data:image/jpeg;base64,...`; caches under OS cache dir: `name-o-tron-9000/thumbnails/`.
+  - Uses stable cache keys based on rating keys when available (e.g., `{host}_rk_{ratingKey}.jpg`).
+  - Maintains backward compatibility with legacy cache keys for existing cached images.
 - `test_mapping(server_id, plex_root, local_root) -> { ok, exists, writable, details }`
 - `get_settings() -> any` / `save_settings(settings: any) -> void`
 - `secure_save_token(token: string) -> void` / `secure_get_token() -> string|null` / `secure_clear_token() -> void`
@@ -581,6 +584,6 @@ Tips:
 - Preview page uses client‑side filtering with 500ms debounce; remote `/hubs/search` only if zero local matches.
 - Search default `limit=3` hubs per type for responsiveness.
 - HTTP clients disable connection pooling per host for finicky PMS and accept self‑signed certs; both HTTP/HTTPS tried.
-- Poster fetcher caches base64 JPEGs under OS cache dir to reduce repeated network calls.
+- Poster fetcher caches base64 JPEGs under OS cache dir with stable naming based on rating keys to reduce repeated network calls and improve cache efficiency.
 - **Show Mapping Cache**: TV show mapping status and metadata cached per server/library combination with checksum validation; automatically invalidated when path mappings change.
 - **Persistent Search Queries**: Show search queries and scroll positions persisted in session storage for better UX across navigation.
