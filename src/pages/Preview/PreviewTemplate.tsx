@@ -356,7 +356,6 @@ export default function PreviewTemplate({
                                     <Toggle checked={selectedIds.has(r.id)} onChange={() => onToggle(r.id)}/>
                                     <div
                                         className="truncate cursor-pointer hover:bg-neutral-700/50 dark:hover:bg-neutral-700/50 light:hover:bg-neutral-100/50 rounded px-1 py-0.5 transition-colors"
-                                        title={r.filePath}
                                         onMouseEnter={(e) => onHandleMouseEnter(e, r)}
                                         onMouseLeave={onHandleMouseLeave}
                                     >

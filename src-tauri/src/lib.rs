@@ -195,21 +195,66 @@ async fn write_text_file(path: String, contents: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn fetch_plex_image(server_url: String, image_path: String, token: Option<String>) -> Result<String, String> {
-    // Create a cache key from the server URL and image path
-    let cache_key = format!("{}_{}", server_url.replace(['/', ':', '.'], "_"), image_path.replace(['/', '.'], "_"));
+    // Derive a stable cache filename:
+    // Prefer: <host>_rk_<ratingKey>.jpg when image_path looks like /library/metadata/<rk>/thumb/...
+    // Fallback (legacy): <server_url>_<image_path>.jpg with characters replaced.
+    let host_part = {
+        let mut s = server_url
+            .trim_start_matches("http://")
+            .trim_start_matches("https://")
+            .split('/')
+            .next()
+            .unwrap_or("")
+            .to_string();
+        // strip port for brevity
+        if let Some((h, _)) = s.split_once(':') { s = h.to_string(); }
+        s.replace(|c: char| !c.is_ascii_alphanumeric(), "_")
+    };
+
+    let rating_key_opt = image_path
+        .strip_prefix("/library/metadata/")
+        .and_then(|s| s.split('/').next())
+        .map(|s| s.to_string());
+
+    let stable_key = match rating_key_opt.as_ref() {
+        Some(rk) if !rk.is_empty() => format!("{}_rk_{}", host_part, rk),
+        _ => format!(
+            "{}_{}",
+            server_url.replace(['/', ':', '.'], "_"),
+            image_path.replace(['/', '.'], "_")
+        ),
+    };
+
+    // Legacy key used previously (server_url + image_path). Keep for backward compatibility.
+    let legacy_key = format!(
+        "{}_{}",
+        server_url.replace(['/', ':', '.'], "_"),
+        image_path.replace(['/', '.'], "_")
+    );
+
     let cache_dir = dirs::cache_dir()
         .map(|dir| dir.join("name-o-tron-9000").join("thumbnails"));
 
-    // Check if we have a cached version first (if cache dir exists)
+    // Check for an already cached file using either the new stable name or the legacy name
     if let Some(ref cache_dir) = cache_dir {
-        let cache_file = cache_dir.join(format!("{}.jpg", cache_key));
-        if cache_file.exists() {
-            match fs::read(&cache_file) {
-                Ok(cached_data) => {
-                    return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&cached_data)));
+        let stable_file = cache_dir.join(format!("{}.jpg", &stable_key));
+        let legacy_file = cache_dir.join(format!("{}.jpg", &legacy_key));
+
+        // Prefer the stable file
+        if stable_file.exists() {
+            if let Ok(cached_data) = fs::read(&stable_file) {
+                return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&cached_data)));
+            }
+        }
+        // Fallback to legacy file (and migrate to stable name for future hits)
+        if legacy_file.exists() {
+            if let Ok(cached_data) = fs::read(&legacy_file) {
+                // Try to migrate to new filename; ignore errors
+                if !stable_file.exists() {
+                    let _ = std::fs::create_dir_all(cache_dir);
+                    let _ = fs::write(&stable_file, &cached_data);
                 }
-                Err(e) => {
-                }
+                return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&cached_data)));
             }
         }
     }
@@ -297,11 +342,11 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
                 if response.status().is_success() {
                     let image_data = response.bytes().await.map_err(|e| format!("Failed to read image data: {}", e))?;
 
-                    // Cache the image for future use (if cache dir exists)
+                    // Cache the image for future use (ensure directory exists). Use stable filename.
                     if let Some(ref cache_dir) = cache_dir {
-                        let cache_file = cache_dir.join(format!("{}.jpg", cache_key));
-                        if let Err(e) = fs::write(&cache_file, &image_data) {
-                        }
+                        let _ = std::fs::create_dir_all(cache_dir);
+                        let cache_file = cache_dir.join(format!("{}.jpg", stable_key));
+                        let _ = fs::write(&cache_file, &image_data);
                     }
 
                     return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&image_data)));

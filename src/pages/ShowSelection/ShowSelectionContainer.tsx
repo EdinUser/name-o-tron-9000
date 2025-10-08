@@ -329,9 +329,6 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
             // Extract metadata from the show data (already available from fetch_tv_shows)
             const metadata = extractMetadataFromShow(show, server.address);
 
-            // Fetch cached poster for this show
-            const newCachedPosterUrl = await fetchCachedPoster(server.address, ratingKey, show.thumb);
-
             // Ensure cache object exists
             if (!updatedCache) {
               updatedCache = {
@@ -345,7 +342,6 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
               isMapped,
               location,
               lastChecked: Date.now(),
-              cachedPosterUrl: newCachedPosterUrl,
               ...metadata
             };
           } catch (episodeError) {
@@ -359,12 +355,10 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
               };
             }
             const rk = String(show.ratingKey ?? show.key ?? "");
-            const newCachedPosterUrl = await fetchCachedPoster(server.address, rk, show.thumb);
             updatedCache.shows[rk] = {
               isMapped: false,
               location: "",
-              lastChecked: Date.now(),
-              cachedPosterUrl: newCachedPosterUrl
+              lastChecked: Date.now()
             };
           }
         }

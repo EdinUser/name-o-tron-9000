@@ -278,6 +278,105 @@ describe('ShowSelection Integration Tests', () => {
     expect(screen.getByText('The Office')).toBeInTheDocument();
   });
 
+  it('does NOT persist base64 posters in saved cache (no cachedPosterUrl)', async () => {
+    // Capture payloads sent to save_show_mapping_cache
+    const savedPayloads: any[] = [];
+
+    mockInvoke.mockImplementation((command: string, args?: any) => {
+      switch (command) {
+        case 'get_settings':
+          return Promise.resolve({ pathMappings: mockMappings });
+        case 'fetch_tv_shows':
+          return Promise.resolve({ MediaContainer: { Directory: mockShows } });
+        case 'fetch_show_episodes':
+          return Promise.resolve(mockEpisodeData);
+        case 'fetch_plex_image':
+          // UI fetches posters for visible items; backend returns base64, but it must NOT be persisted
+          return Promise.resolve('data:image/jpeg;base64,fake-image-data');
+        case 'generate_mappings_checksum_cmd':
+          return Promise.resolve('brand-new-checksum');
+        case 'load_show_mapping_cache':
+          return Promise.resolve(null); // Force cache rebuild
+        case 'save_show_mapping_cache':
+          savedPayloads.push(args);
+          return Promise.resolve();
+        default:
+          return Promise.reject(new Error(`Unknown command: ${command}`));
+      }
+    });
+
+    renderWithProviders(
+      <ShowSelectionContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={mockOnBack}
+        onSelectShow={mockOnSelectShow}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+    });
+
+    // Ensure we saved cache at least once
+    expect(savedPayloads.length).toBeGreaterThan(0);
+    const last = savedPayloads[savedPayloads.length - 1];
+
+    // Cache payload should not contain cachedPosterUrl fields or base64 data
+    const cacheObj = last.cache;
+    const shows = cacheObj?.shows ?? {};
+    for (const key of Object.keys(shows)) {
+      const entry = shows[key];
+      expect(entry.cachedPosterUrl).toBeUndefined();
+      // Also verify no accidental base64 leakage via JSON stringification
+      expect(JSON.stringify(entry)).not.toContain('data:image/jpeg;base64');
+    }
+  });
+
+  it('fetches posters lazily for only rendered items', async () => {
+    // Count the number of poster fetches during initial page render
+    let posterFetchCount = 0;
+    mockInvoke.mockImplementation((command: string, _args?: any) => {
+      switch (command) {
+        case 'get_settings':
+          return Promise.resolve({ pathMappings: mockMappings });
+        case 'fetch_tv_shows':
+          return Promise.resolve({ MediaContainer: { Directory: mockShows } });
+        case 'fetch_show_episodes':
+          // Return episode for newly cached shows
+          return Promise.resolve(mockEpisodeData);
+        case 'fetch_plex_image':
+          posterFetchCount += 1;
+          return Promise.resolve('data:image/jpeg;base64,fake-image-data');
+        case 'generate_mappings_checksum_cmd':
+          return Promise.resolve('checksum-lazy');
+        case 'load_show_mapping_cache':
+          return Promise.resolve(null); // Treat as uncached to exercise full flow
+        case 'save_show_mapping_cache':
+          return Promise.resolve();
+        default:
+          return Promise.reject(new Error(`Unknown command: ${command}`));
+      }
+    });
+
+    renderWithProviders(
+      <ShowSelectionContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={mockOnBack}
+        onSelectShow={mockOnSelectShow}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+      expect(screen.getByText('The Office')).toBeInTheDocument();
+    });
+
+    // We only rendered two shows; verify we fetched two posters
+    expect(posterFetchCount).toBe(2);
+  });
+
   it('persists and restores search query', async () => {
     // Mock initial search query in sessionStorage
     sessionStorageMock.getItem.mockReturnValue('Breaking');
