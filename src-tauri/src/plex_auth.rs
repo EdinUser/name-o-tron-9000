@@ -172,20 +172,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_pin_success() {
-        let mock_server = MockServer::start().await;
-
-        // Mock the Plex PIN creation response
-        Mock::given(method("POST"))
-            .and(path("/api/v2/pins"))
-            .and(header("X-Plex-Client-Identifier", "test-client-id"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "id": 12345,
-                "code": "ABCD1234",
-                "expiresIn": 600
-            })))
-            .mount(&mock_server)
-            .await;
-
         let client = create_test_client();
         let client_id = "test-client-id";
 
@@ -300,18 +286,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_pin_polling_with_mock_server() {
-        let mock_server = MockServer::start().await;
-
-        // Mock successful PIN polling response
-        Mock::given(method("GET"))
-            .and(path("/api/v2/pins/12345"))
-            .and(header("X-Plex-Client-Identifier", "test-client-id"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "authToken": "test-auth-token-12345"
-            })))
-            .mount(&mock_server)
-            .await;
-
         let client = create_test_client();
         let client_id = "test-client-id";
         let pin_id = 12345;

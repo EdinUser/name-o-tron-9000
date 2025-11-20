@@ -324,7 +324,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
             });
 
             const location = extractLocationFromEpisode(episodeResp);
-            const isMapped = location ? isItemMapped(location, library.roots || [], mappings, serverId) : false;
+            const isMapped = location ? isItemMapped(location, library.roots || []) : false;
 
             // Extract metadata from the show data (already available from fetch_tv_shows)
             const metadata = extractMetadataFromShow(show, server.address);

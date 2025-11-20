@@ -13,7 +13,7 @@ import {
     sanitizeProposal,
     sortEditionsByPriority,
 } from "./utils";
-import { extractImdbId, extractTvdbId, extractTmdbId, mapEditionTokenToTitle } from "../../utils/template";
+import { extractImdbId, extractTvdbId, extractTmdbId, mapEditionTokenToTitle, detectEditionFromPathWithPriority, renderTemplate } from "../../utils/template";
 
 // Helper function to get sorting title (ignoring articles if configured)
 function getSortingTitle(title: string, alphaArticleHandling: string): string {
@@ -162,9 +162,7 @@ export async function computeMovieProposal(
     collectionName: string,
     settings: any,
     libraryFolder: string | null,
-    libraryRoots: string[],
-    mappings: Array<{ server_id: string; plex_root: string; local_root: string }>,
-    serverId: string
+    libraryRoots: string[]
 ): Promise<PreviewRow> {
     const ext = extname(m.file) || ".mkv";
 
@@ -184,7 +182,6 @@ export async function computeMovieProposal(
 
     // Detect from path (folders/filename) when enabled
     if (settings.movies.editions.createFromFilenames) {
-        const { detectEditionFromPathWithPriority } = await import("../../utils/template");
         const detected = detectEditionFromPathWithPriority(m.file, settings.movies.editions.parsers);
         if (detected) {
             editionToken = detected.token || editionToken;
@@ -288,7 +285,6 @@ export async function computeMovieProposal(
 
     let proposed = "";
     try {
-        const { renderTemplate } = await import("../../utils/template");
         proposed = renderTemplate(template, ctx);
     } catch (error) {
         console.error("Error rendering movie template:", error);
@@ -467,7 +463,7 @@ export async function computeMovieProposal(
     }
 
     // Check if item is mapped (not in a mapped folder)
-    if (!isItemMapped(m.file, libraryRoots, mappings, serverId)) {
+    if (!isItemMapped(m.file, libraryRoots)) {
         status = "unmatched";
         flags.push("unmapped");
     }
@@ -476,6 +472,7 @@ export async function computeMovieProposal(
         id: m.ratingKey,
         kind: "movie",
         filePath: resolvePlexFilePath(m.file, libraryFolder),
+        plexPath: m.plexPath || m.file, // Original Plex path
         proposed,
         status,
         flags

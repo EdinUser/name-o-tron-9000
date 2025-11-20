@@ -493,6 +493,210 @@ async fn test_list_libraries_network_timeout() {
     println!("Network timeout test completed");
 }
 
+#[tokio::test]
+async fn test_subtitle_processing_integration() {
+    // Test that subtitle processing works correctly with video renaming
+    // Create temporary directory with test files
+    let temp_dir = tempfile::tempdir().unwrap();
+    let series_dir = temp_dir.path().join("Band Of Brothers");
+    std::fs::create_dir(&series_dir).unwrap();
+
+    // Create test video and subtitle files
+    let video1_path = series_dir.join("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.mp4");
+    let subtitle1_path = series_dir.join("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.bul.srt");
+
+    std::fs::write(&video1_path, "fake video content").unwrap();
+    std::fs::write(&subtitle1_path, "1\r\n00:00:00,000 --> 00:00:05,000\r\nTest subtitle\r\n").unwrap();
+
+    let video_files = vec![
+        video1_path.to_string_lossy().to_string(),
+    ];
+
+    // Test subtitle file detection
+    for video_path in &video_files {
+        let subtitles = name_o_tron_9000_lib::subtitle::find_subtitle_files(video_path);
+        assert!(!subtitles.is_empty(), "Should find subtitle files for {}", video_path);
+
+        // Check that subtitle has correct properties
+        let subtitle = &subtitles[0];
+        assert_eq!(subtitle.subtitle_type, name_o_tron_9000_lib::subtitle::SubtitleType::Standard);
+        assert!(matches!(subtitle.classification, name_o_tron_9000_lib::subtitle::SubtitleClassification::VideoSubtitle(ref lang) if lang == "bul"));
+        assert_eq!(subtitle.needs_conversion, false); // Default state
+    }
+
+    println!("Subtitle processing integration test completed");
+}
+
+#[tokio::test]
+async fn test_subtitle_classification() {
+    // Test subtitle filename classification logic
+
+    let test_cases = vec![
+        ("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.bul.srt", "bul"),
+        ("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.eng.srt", "eng"),
+        ("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.forced.srt", "forced"),
+        ("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.sdh.srt", "sdh"),
+        ("2_English.srt", "English"), // Non-matching pattern
+        ("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.srt", ""), // No language suffix
+    ];
+
+    for (filename, expected_lang) in test_cases {
+        let video_basename = "Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG";
+        let classification = name_o_tron_9000_lib::subtitle::classify_subtitle_filename(filename, video_basename);
+
+        match classification {
+            name_o_tron_9000_lib::subtitle::SubtitleClassification::VideoSubtitle(lang) => {
+                if expected_lang.is_empty() {
+                    panic!("Expected Unknown classification for {}, got VideoSubtitle({})", filename, lang);
+                }
+                assert_eq!(lang, expected_lang, "Language classification failed for {}", filename);
+            }
+            name_o_tron_9000_lib::subtitle::SubtitleClassification::Unknown => {
+                if !expected_lang.is_empty() {
+                    panic!("Expected VideoSubtitle({}) for {}, got Unknown", expected_lang, filename);
+                }
+            }
+        }
+    }
+
+    println!("Subtitle classification test completed");
+}
+
+#[tokio::test]
+async fn test_subtitle_encoding_detection() {
+    // Test subtitle encoding detection functionality
+
+    // Create temporary subtitle files with different encodings
+    let temp_dir = tempfile::tempdir().unwrap();
+
+    // UTF-8 file with BOM
+    let utf8_file = temp_dir.path().join("utf8_with_bom.srt");
+    let utf8_content = "\u{FEFF}1\r\n00:00:00,000 --> 00:00:05,000\r\nHello World\r\n";
+    std::fs::write(&utf8_file, utf8_content).unwrap();
+
+    // Plain UTF-8 file
+    let plain_utf8_file = temp_dir.path().join("plain_utf8.srt");
+    let plain_content = "1\r\n00:00:00,000 --> 00:00:05,000\r\nHello World\r\n";
+    std::fs::write(&plain_utf8_file, plain_content).unwrap();
+
+    // Empty file
+    let empty_file = temp_dir.path().join("empty.srt");
+    std::fs::write(&empty_file, "").unwrap();
+
+    // Test encoding detection
+    let utf8_result = name_o_tron_9000_lib::subtitle::detect_subtitle_encoding(utf8_file.to_string_lossy().as_ref());
+    assert!(utf8_result.is_ok());
+    let (encoding, has_bom) = utf8_result.unwrap();
+    assert_eq!(encoding, "utf-8");
+    assert_eq!(has_bom, true);
+
+    let plain_utf8_result = name_o_tron_9000_lib::subtitle::detect_subtitle_encoding(plain_utf8_file.to_string_lossy().as_ref());
+    assert!(plain_utf8_result.is_ok());
+    let (encoding, has_bom) = plain_utf8_result.unwrap();
+    assert_eq!(encoding, "utf-8");
+    assert_eq!(has_bom, false);
+
+    let empty_result = name_o_tron_9000_lib::subtitle::detect_subtitle_encoding(empty_file.to_string_lossy().as_ref());
+    assert!(empty_result.is_ok());
+    let (encoding, _) = empty_result.unwrap();
+    assert_eq!(encoding, "empty");
+
+    println!("Subtitle encoding detection test completed");
+}
+
+#[tokio::test]
+async fn test_path_resolution_with_server_id_matching() {
+    // Test the improved server ID matching in path resolution
+
+    let mappings = vec![
+        name_o_tron_9000_lib::path_map::PathMapping {
+            server_id: "192.168.1.132".to_string(),
+            plex_root: "/share/CACHEDEV1_DATA/Series".to_string(),
+            local_root: "/mnt/Series".to_string(),
+            platform: None,
+        },
+    ];
+
+    // Test cases for different server ID formats
+    let test_cases = vec![
+        ("192.168.1.132", "/share/CACHEDEV1_DATA/Series/Band Of Brothers/Band.of.Brothers.S01E01.mp4"),
+        ("http://192.168.1.132:32400", "/share/CACHEDEV1_DATA/Series/Band Of Brothers/Band.of.Brothers.S01E01.mp4"),
+        ("192.168.1.132:32400", "/share/CACHEDEV1_DATA/Series/Band Of Brothers/Band.of.Brothers.S01E01.mp4"),
+    ];
+
+    for (server_id, plex_path) in test_cases {
+        let resolved = name_o_tron_9000_lib::path_map::resolve_plex_path(
+            plex_path,
+            &mappings,
+            server_id,
+            Some("linux"),
+        );
+
+        assert!(resolved.is_some(), "Should resolve path with server_id: {}", server_id);
+        let resolved_path = resolved.unwrap();
+        assert!(resolved_path.to_string_lossy().contains("/mnt/Series"));
+        assert!(resolved_path.to_string_lossy().contains("Band.of.Brothers.S01E01.mp4"));
+    }
+
+    println!("Path resolution with server ID matching test completed");
+}
+
+#[tokio::test]
+async fn test_is_already_local_path_detection() {
+    // Test the is_already_local_path function
+
+    let mappings = vec![
+        name_o_tron_9000_lib::path_map::PathMapping {
+            server_id: "192.168.1.132".to_string(),
+            plex_root: "/share/CACHEDEV1_DATA/Series".to_string(),
+            local_root: "/mnt/Series".to_string(),
+            platform: None,
+        },
+        name_o_tron_9000_lib::path_map::PathMapping {
+            server_id: "192.168.1.132".to_string(),
+            plex_root: "/share/CACHEDEV1_DATA/Movies".to_string(),
+            local_root: "/mnt/Movies".to_string(),
+            platform: None,
+        },
+    ];
+
+    // Test paths that should be detected as already local
+    let local_paths = vec![
+        "/mnt/Series/Band Of Brothers/Band.of.Brothers.S01E01.mp4",
+        "/mnt/Movies/Inception (2010)/Inception (2010).mkv",
+        "/mnt/Series/test.mp4",
+    ];
+
+    for path in local_paths {
+        let is_local = name_o_tron_9000_lib::path_map::is_already_local_path(
+            path,
+            &mappings,
+            "192.168.1.132",
+            Some("linux"),
+        );
+        assert!(is_local, "Should detect {} as already local path", path);
+    }
+
+    // Test paths that should NOT be detected as local
+    let non_local_paths = vec![
+        "/share/CACHEDEV1_DATA/Series/Band Of Brothers/Band.of.Brothers.S01E01.mp4",
+        "/other/path/movie.mp4",
+        "/tmp/test.mp4",
+    ];
+
+    for path in non_local_paths {
+        let is_local = name_o_tron_9000_lib::path_map::is_already_local_path(
+            path,
+            &mappings,
+            "192.168.1.132",
+            Some("linux"),
+        );
+        assert!(!is_local, "Should NOT detect {} as local path", path);
+    }
+
+    println!("Local path detection test completed");
+}
+
 // Note: Full Tauri AppHandle mocking would require more complex test setup
 // These integration tests focus on the basic HTTP functionality and network behavior
 // that the auth module depends on, without requiring the full Tauri runtime context.

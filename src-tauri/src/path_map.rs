@@ -9,7 +9,9 @@ pub struct PathMapping {
     pub platform: Option<String>,
 }
 
-// TODO: These utility functions are currently unused but may be needed for future path resolution features
+// Path resolution utilities for mapping Plex server paths to local filesystem paths
+// Note: The main path resolution is now handled in the frontend, but these utilities
+// are available for backend operations that need path mapping functionality
 
 fn norm_root(s: &str, case_insensitive: bool) -> String {
     let mut out = s.replace('\\', "/");
@@ -29,6 +31,26 @@ fn is_windows(platform: Option<&str>) -> bool {
     }
 }
 
+/// Check if a path is already resolved to a local filesystem path
+/// Returns true if the path starts with any local root in the mappings
+pub fn is_already_local_path(path: &str, mappings: &[PathMapping], server_id: &str, platform_hint: Option<&str>) -> bool {
+    let case_insensitive = is_windows(platform_hint);
+    let path_norm = norm_root(path, case_insensitive);
+
+    for m in mappings {
+        if m.server_id != server_id { continue; }
+        let ci = m.platform.as_deref().map(|p| p.eq_ignore_ascii_case("windows")).unwrap_or(case_insensitive);
+        let local_root_norm = norm_root(&m.local_root, ci);
+
+        // Check if path starts with this local root
+        if path_norm == local_root_norm || path_norm.starts_with(&(local_root_norm.clone() + "/")) {
+            return true;
+        }
+    }
+
+    false
+}
+
 pub fn resolve_plex_path(
     plex_path: &str,
     mappings: &[PathMapping],
@@ -37,6 +59,7 @@ pub fn resolve_plex_path(
 ) -> Option<PathBuf> {
     let case_insensitive = is_windows(platform_hint);
     let plex_norm = norm_root(plex_path, case_insensitive);
+
     let mut best: Option<&PathMapping> = None;
     let mut best_len = 0usize;
     for m in mappings {
@@ -50,10 +73,12 @@ pub fn resolve_plex_path(
             }
         }
     }
+
     let m = best?;
     let ci = m.platform.as_deref().map(|p| p.eq_ignore_ascii_case("windows")).unwrap_or(case_insensitive);
     let root = norm_root(&m.plex_root, ci);
     let rest = &plex_norm[root.len()..];
+
     // Build local path using OS separator rules.
     let local_root = PathBuf::from(&m.local_root);
     let rest_components = rest.trim_start_matches('/').split('/').filter(|s| !s.is_empty());
@@ -106,3 +131,4 @@ pub fn test_mapping(_server_id: String, _plex_root: String, local_root: String) 
     let ok = exists && writable;
     Ok(TestMappingResult { ok, exists, writable, details })
 }
+

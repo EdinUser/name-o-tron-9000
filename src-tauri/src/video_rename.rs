@@ -1323,13 +1323,101 @@ fn compute_episode_proposal(
     })
 }
 
+/// Extract the library root from a resolved local path
+/// Finds the longest matching local_root from mappings that the path starts with
+fn extract_library_root_from_path(resolved_path: &std::path::PathBuf, mappings: &[crate::path_map::PathMapping]) -> Option<std::path::PathBuf> {
+    let path_str = resolved_path.to_string_lossy();
+    let mut best_root: Option<&str> = None;
+    let mut best_len = 0;
+
+    for mapping in mappings {
+        let local_root = &mapping.local_root;
+        if path_str.starts_with(local_root) && local_root.len() > best_len {
+            best_root = Some(local_root);
+            best_len = local_root.len();
+        }
+    }
+
+    best_root.map(|root| std::path::PathBuf::from(root))
+}
+
 /// Main preview function that handles both video and subtitle operations
 #[command]
-pub async fn preview_video_renames(request: crate::subtitle::PreviewRenamesRequest) -> Result<crate::subtitle::PreviewResult, String> {
+pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtitle::PreviewRenamesRequest) -> Result<crate::subtitle::PreviewResult, String> {
+    eprintln!("🔍 DEBUG: preview_video_renames called with {} files", request.scope.len());
+
     let mut video_operations: Vec<crate::subtitle::RenameOperation> = Vec::new();
     let mut subtitle_operations: Vec<crate::subtitle::RenameOperation> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
     let mut blocking_errors: Vec<String> = Vec::new();
+
+    // Load path mappings from backend settings for subtitle path resolution
+    let mappings: Vec<crate::path_map::PathMapping> = match crate::settings::get_settings(app) {
+        Ok(settings) => {
+            let server_id = &request.server_id;
+
+            // Try to find mappings with current server_id format, or fallback to hostname-only
+            let hostname_only = if server_id.contains("://") {
+                // If current is full URL, extract hostname (e.g., 'http://192.168.1.132:32400' -> '192.168.1.132')
+                if let Some(host_part) = server_id.split("://").nth(1) {
+                    host_part.split(':').next().unwrap_or(server_id)
+                } else {
+                    server_id
+                }
+            } else {
+                server_id
+            };
+
+            let filtered_mappings: Vec<_> = settings
+                .get("pathMappings")
+                .and_then(|pm| pm.as_array())
+                .unwrap_or(&Vec::new())
+                .iter()
+                .filter_map(|m| {
+                    let obj = m.as_object()?;
+                    let mapping_server_id = obj.get("server_id")?.as_str()?;
+
+                    // Check if mapping matches either format:
+                    // 1. Exact match with current server_id
+                    // 2. Hostname match (for backward compatibility)
+                    let mapping_hostname = if mapping_server_id.contains("://") {
+                        if let Some(host_part) = mapping_server_id.split("://").nth(1) {
+                            host_part.split(':').next().unwrap_or(mapping_server_id)
+                        } else {
+                            mapping_server_id
+                        }
+                    } else {
+                        mapping_server_id
+                    };
+
+                    let exact_match = mapping_server_id == server_id;
+                    let hostname_match = mapping_hostname == hostname_only;
+
+                    if !exact_match && !hostname_match {
+                        return None;
+                    }
+
+                    let plex_root = obj.get("plex_root")?.as_str()?;
+                    let local_root = obj.get("local_root")?.as_str()?;
+                    let platform = obj.get("platform").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+                    Some(crate::path_map::PathMapping {
+                        server_id: mapping_server_id.to_string(),
+                        plex_root: plex_root.to_string(),
+                        local_root: local_root.to_string(),
+                        platform,
+                    })
+                })
+                .collect();
+
+            eprintln!("🔍 DEBUG: [preview] Found {} path mappings for server '{}'", filtered_mappings.len(), server_id);
+            filtered_mappings
+        }
+        Err(e) => {
+            eprintln!("❌ DEBUG: Failed to load settings for subtitle path mapping: {}", e);
+            Vec::new()
+        }
+    };
 
     // Parse settings
     let general_settings = request.settings.get("general").ok_or("Missing general settings")?;
@@ -1380,30 +1468,26 @@ pub async fn preview_video_renames(request: crate::subtitle::PreviewRenamesReque
                 tvdb_id: None,
             };
 
-            let op = match compute_movie_proposal(
+            // Try to compute a movie proposal, but do not abort subtitle processing on failure
+            if let Ok(movie_op) = compute_movie_proposal(
                 &movie,
                 &movie_template,
                 movie_settings,
             ) {
-                Ok(op) => op,
-                Err(e) => {
-                    blocking_errors.push(format!("Failed to compute movie proposal for {}: {}", movie.title, e));
-                    continue;
-                }
-            };
+                // Convert to shared RenameOperation
+                let operation = crate::subtitle::RenameOperation {
+                    operation_type: movie_op.operation_type,
+                    original_path: movie_op.original_path,
+                    new_path: movie_op.new_path,
+                    backup_path: movie_op.backup_path,
+                    operation_id: movie_op.operation_id,
+                };
 
-            // Convert to shared RenameOperation
-            let operation = crate::subtitle::RenameOperation {
-                operation_type: op.operation_type,
-                original_path: op.original_path,
-                new_path: op.new_path,
-                backup_path: op.backup_path,
-                operation_id: op.operation_id,
-            };
-
-            // The sanitization and validation is already handled in the proposal functions
-            // Just ensure the operation is valid
-            video_operations.push(operation);
+                // The sanitization and validation is already handled in the proposal functions
+                video_operations.push(operation);
+            } else {
+                blocking_errors.push(format!("Failed to compute movie proposal for {}", movie.title));
+            }
         } else {
             // TV episode minimal metadata from filename like "Show - S01E02 - Title.ext"
             let file_name = Path::new(file_path).file_name().unwrap_or_default().to_string_lossy();
@@ -1436,43 +1520,77 @@ pub async fn preview_video_renames(request: crate::subtitle::PreviewRenamesReque
                 index: episode_index,
             };
 
-            let op = match compute_episode_proposal(
+            // Try to compute an episode proposal, but do not abort subtitle processing on failure
+            if let Ok(episode_op) = compute_episode_proposal(
                 &ep,
                 &episode_template,
                 tv_settings,
             ) {
-                Ok(op) => op,
-                Err(e) => {
-                    blocking_errors.push(format!("Failed to compute episode proposal for {}: {}", ep.title, e));
-                    continue;
+                let operation = crate::subtitle::RenameOperation {
+                    operation_type: episode_op.operation_type,
+                    original_path: episode_op.original_path,
+                    new_path: episode_op.new_path,
+                    backup_path: episode_op.backup_path,
+                    operation_id: episode_op.operation_id,
+                };
+
+                if general_settings
+                    .get("safety")
+                    .and_then(|s| s.get("pathLengthCheck"))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true)
+                {
+                    if operation.new_path.len() > 255 {
+                        warnings.push(format!(
+                            "Path too long ({}): {}",
+                            operation.new_path.len(),
+                            operation.new_path
+                        ));
+                    }
                 }
-            };
 
-            let operation = crate::subtitle::RenameOperation {
-                operation_type: op.operation_type,
-                original_path: op.original_path,
-                new_path: op.new_path,
-                backup_path: op.backup_path,
-                operation_id: op.operation_id,
-            };
-
-            if general_settings.get("safety").and_then(|s| s.get("pathLengthCheck")).and_then(|v| v.as_bool()).unwrap_or(true) {
-                if operation.new_path.len() > 255 {
-                    warnings.push(format!("Path too long ({}): {}", operation.new_path.len(), operation.new_path));
+                if regex::Regex::new(r#"[\\/:*?"<>|]"#)
+                    .unwrap()
+                    .is_match(&operation.new_path)
+                {
+                    warnings.push(format!(
+                        "Invalid characters in proposed path: {}",
+                        operation.new_path
+                    ));
                 }
-            }
 
-            if regex::Regex::new(r#"[\\/:*?"<>|]"#).unwrap().is_match(&operation.new_path) {
-                warnings.push(format!("Invalid characters in proposed path: {}", operation.new_path));
+                video_operations.push(operation);
+            } else {
+                blocking_errors.push(format!("Failed to compute episode proposal for {}", ep.title));
             }
-
-            video_operations.push(operation);
         }
 
-        // Find subtitle files for this video
-        let subtitles = crate::subtitle::find_subtitle_files(file_path);
+        eprintln!("🔍 DEBUG: Starting subtitle processing for '{}'", file_path);
+
+        // Resolve video path to local filesystem path for subtitle discovery
+        let resolved_video_path = if crate::path_map::is_already_local_path(file_path, &mappings, &request.server_id, None) {
+            std::path::PathBuf::from(file_path)
+        } else if let Some(resolved) = crate::path_map::resolve_plex_path(file_path, &mappings, &request.server_id, None) {
+            resolved
+        } else {
+            std::path::PathBuf::from(file_path)
+        };
+
+        let local_video_path = resolved_video_path.to_string_lossy().to_string();
+        if local_video_path != *file_path {
+            eprintln!("🔍 DEBUG: Resolved video path for subtitles: '{}' -> '{}'", file_path, local_video_path);
+        }
+
+        // Find subtitle files for this (possibly resolved) video path
+        let subtitles = crate::subtitle::find_subtitle_files(&local_video_path);
+        if subtitles.is_empty() {
+            eprintln!("🔍 DEBUG: No subtitle files found for '{}'", local_video_path);
+        } else {
+            eprintln!("🔍 DEBUG: Found {} subtitle files for '{}'", subtitles.len(), local_video_path);
+        }
 
         for mut subtitle in subtitles {
+            eprintln!("🔍 DEBUG: Processing subtitle: '{}'", subtitle.original_path);
             // Apply subtitle-specific logic (existing code from subtitle.rs)
             let new_basename = Path::new(file_path)
                 .file_stem()
@@ -1511,9 +1629,13 @@ pub async fn preview_video_renames(request: crate::subtitle::PreviewRenamesReque
                 operation_id: format!("subtitle_{}", uuid::Uuid::new_v4()),
             };
 
+            eprintln!("🔍 DEBUG: Created subtitle operation: '{}' -> '{}'", operation.original_path, operation.new_path);
             subtitle_operations.push(operation);
         }
     }
+
+    eprintln!("🔍 DEBUG: Returning {} video operations and {} subtitle operations",
+        video_operations.len(), subtitle_operations.len());
 
     Ok(crate::subtitle::PreviewResult {
         video_operations,
@@ -1524,10 +1646,10 @@ pub async fn preview_video_renames(request: crate::subtitle::PreviewRenamesReque
 }
 
 #[command]
-pub async fn apply_video_renames(request: crate::subtitle::ApplyRenamesRequest) -> Result<crate::subtitle::ApplyResult, String> {
+pub async fn apply_video_renames(app: tauri::AppHandle, request: crate::subtitle::ApplyRenamesRequest) -> Result<crate::subtitle::ApplyResult, String> {
     // Apply both video and subtitle operations together
     use std::fs;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use chrono;
 
     let mut operations_applied = 0;
@@ -1535,8 +1657,113 @@ pub async fn apply_video_renames(request: crate::subtitle::ApplyRenamesRequest) 
     let mut errors = Vec::new();
     let mut all_operations = Vec::new();
 
-    // Combine video and subtitle operations (they're already combined in the request)
-    let operations = request.operations;
+    // Get path mappings from settings
+    let settings_result = crate::settings::get_settings(app);
+    let mappings: Vec<crate::path_map::PathMapping> = match settings_result {
+        Ok(settings) => {
+            let server_id = &request.server_id;
+
+            // Try to find mappings with current server_id format, or fallback to hostname-only
+            let hostname_only = if server_id.contains("://") {
+                // If current is full URL, extract hostname (e.g., 'http://192.168.1.132:32400' -> '192.168.1.132')
+                if let Some(host_part) = server_id.split("://").nth(1) {
+                    host_part.split(':').next().unwrap_or(server_id)
+                } else {
+                    server_id
+                }
+            } else {
+                server_id
+            };
+
+            let filtered_mappings: Vec<_> = settings
+                .get("pathMappings")
+                .and_then(|pm| pm.as_array())
+                .unwrap_or(&Vec::new())
+                .iter()
+                .filter_map(|m| {
+                    let obj = m.as_object()?;
+                    let mapping_server_id = obj.get("server_id")?.as_str()?;
+
+                    // Check if mapping matches either format:
+                    // 1. Exact match with current server_id
+                    // 2. Hostname match (for backward compatibility)
+                    let mapping_hostname = if mapping_server_id.contains("://") {
+                        // Extract hostname from URL (e.g., 'http://192.168.1.132:32400' -> '192.168.1.132')
+                        if let Some(host_part) = mapping_server_id.split("://").nth(1) {
+                            host_part.split(':').next().unwrap_or(mapping_server_id)
+                        } else {
+                            mapping_server_id
+                        }
+                    } else {
+                        mapping_server_id
+                    };
+
+                    let exact_match = mapping_server_id == server_id;
+                    let hostname_match = mapping_hostname == hostname_only;
+
+                    if !exact_match && !hostname_match {
+                        return None;
+                    }
+
+                    let plex_root = obj.get("plex_root")?.as_str()?;
+                    let local_root = obj.get("local_root")?.as_str()?;
+                    let platform = obj.get("platform").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+                    Some(crate::path_map::PathMapping {
+                        server_id: mapping_server_id.to_string(),
+                        plex_root: plex_root.to_string(),
+                        local_root: local_root.to_string(),
+                        platform,
+                    })
+                })
+                .collect();
+
+            eprintln!("🔍 DEBUG: Found {} mappings for server '{}'", filtered_mappings.len(), server_id);
+            filtered_mappings
+        }
+        Err(e) => return Err(format!("Failed to get settings: {}", e)),
+    };
+
+    // Resolve all paths in operations
+    let mut resolved_operations = Vec::new();
+    for operation in &request.operations {
+        // Resolve original path: use as-is if already local, otherwise resolve from Plex
+        let resolved_original = if crate::path_map::is_already_local_path(&operation.original_path, &mappings, &request.server_id, None) {
+            std::path::PathBuf::from(&operation.original_path)
+        } else {
+            crate::path_map::resolve_plex_path(&operation.original_path, &mappings, &request.server_id, None)
+                .ok_or_else(|| format!("Failed to resolve original path: {}", operation.original_path))?
+        };
+
+        // Resolve new path: use as-is if already local, try Plex resolution, or treat as relative to library root
+        let resolved_new = if crate::path_map::is_already_local_path(&operation.new_path, &mappings, &request.server_id, None) {
+            std::path::PathBuf::from(&operation.new_path)
+        } else if let Some(resolved) = crate::path_map::resolve_plex_path(&operation.new_path, &mappings, &request.server_id, None) {
+            resolved
+        } else {
+            // New path might be relative to the library root used for the original path
+            if let Some(library_root) = extract_library_root_from_path(&resolved_original, &mappings) {
+                library_root.join(&operation.new_path)
+            } else {
+                return Err(format!("Failed to resolve new path: {}", operation.new_path));
+            }
+        };
+
+        resolved_operations.push(crate::subtitle::RenameOperation {
+            operation_type: operation.operation_type.clone(),
+            original_path: resolved_original.to_string_lossy().to_string(),
+            new_path: resolved_new.to_string_lossy().to_string(),
+            backup_path: operation.backup_path.as_ref().map(|backup| {
+                crate::path_map::resolve_plex_path(backup, &mappings, &request.server_id, None)
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| backup.clone())
+            }),
+            operation_id: operation.operation_id.clone(),
+        });
+    }
+
+    // Use resolved operations
+    let operations = resolved_operations;
 
     // Create rollback log directory
     let log_dir = dirs::data_dir()
@@ -1548,18 +1775,33 @@ pub async fn apply_video_renames(request: crate::subtitle::ApplyRenamesRequest) 
     let log_path = log_dir.join(format!("rollback_{}.json", chrono::Utc::now().timestamp()));
 
     for operation in &operations {
-        match apply_single_video_operation(operation) {
+        eprintln!("🔍 DEBUG: Applying operation: '{}' (type: {}, id: {})", operation.original_path, operation.operation_type, operation.operation_id);
+
+        let result = if operation.operation_id.starts_with("subtitle_") {
+            // Subtitle operation - use subtitle apply function
+            eprintln!("🔍 DEBUG: Using subtitle apply function");
+            crate::subtitle::apply_single_operation(operation)
+        } else {
+            // Video operation - use video apply function
+            eprintln!("🔍 DEBUG: Using video apply function");
+            apply_single_video_operation(operation)
+        };
+
+        match result {
             Ok(_) => {
+                eprintln!("✅ DEBUG: Operation successful: '{}'", operation.original_path);
                 operations_applied += 1;
                 all_operations.push(serde_json::json!({
                     "operation_type": operation.operation_type,
                     "original_path": operation.original_path,
                     "new_path": operation.new_path,
                     "backup_path": operation.backup_path,
+                    "operation_id": operation.operation_id,
                     "status": "success"
                 }));
             }
             Err(e) => {
+                eprintln!("❌ DEBUG: Operation failed: '{}' - {}", operation.original_path, e);
                 operations_failed += 1;
                 errors.push(e.clone());
                 all_operations.push(serde_json::json!({
@@ -1567,6 +1809,7 @@ pub async fn apply_video_renames(request: crate::subtitle::ApplyRenamesRequest) 
                     "original_path": operation.original_path,
                     "new_path": operation.new_path,
                     "backup_path": operation.backup_path,
+                    "operation_id": operation.operation_id,
                     "status": "failed",
                     "error": e
                 }));

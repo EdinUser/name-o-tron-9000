@@ -14,6 +14,7 @@ import {
 } from "./utils";
 import { generateServerId } from "../../utils/cache";
 import PreviewTemplate from "./PreviewTemplate";
+import { attachSubtitleOperations } from "./subtitleMapping";
 
 // Functions are now imported from separate modules
 
@@ -40,8 +41,6 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                      library.type === "show" ? settings.templates.episode :
                      settings.templates.music;
     const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
-    const [mappings, setMappings] = useState<Array<{ server_id: string; plex_root: string; local_root: string }>>([]);
-    const [serverId, setServerId] = useState<string>("");
     const [showMapModal, setShowMapModal] = useState(false);
     const [showTemplateHelp, setShowTemplateHelp] = useState(false);
     const [editingItem, setEditingItem] = useState<PreviewRow | null>(null);
@@ -50,6 +49,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [statusFilter, setStatusFilter] = useState<string>("all"); // "all", "good", "warning", "error", "unmatched"
     const [currentShow, setCurrentShow] = useState<{ ratingKey: string; title: string } | null>(null);
     const [remoteResults, setRemoteResults] = useState<PreviewRow[]>([]);
+    const [showUndoConfirm, setShowUndoConfirm] = useState(false);
     const [remoteQuery, setRemoteQuery] = useState<string>("");
     const [searching, setSearching] = useState(false);
 
@@ -89,9 +89,6 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 const serverId = generateServerId(server);
                 const libraryRoots = library.roots || [];
 
-                setMappings(mappings);
-                setServerId(serverId);
-
                 for (const root of libraryRoots) {
                     const mapping = mappings.find(m => m.server_id === serverId && m.plex_root === root);
                     if (mapping) {
@@ -101,8 +98,6 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 }
             } catch (error) {
                 setLibraryFolder(null);
-                setMappings([]);
-                setServerId("");
             }
         }
 
@@ -118,11 +113,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             const mappings = settings.pathMappings || [];
 
             // Find the mapped folder for this library
-            const serverId = server.machineIdentifier || server.address;
+            const serverId = generateServerId(server);
             const libraryRoots = library.roots || [];
-
-            setMappings(mappings);
-            setServerId(serverId);
 
             for (const root of libraryRoots) {
                 const mapping = mappings.find(m => m.server_id === serverId && m.plex_root === root);
@@ -133,8 +125,6 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             }
         } catch (error) {
             setLibraryFolder(null);
-            setMappings([]);
-            setServerId("");
         }
     }, [server.address, server.machineIdentifier, library.roots]);
 
@@ -320,20 +310,20 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         : "";
 
                     const tpl = settings.templates.movie || template;
-                    const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], mappings, serverId);
+                    const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
                     row.metadata = m; // Store original metadata for popover
                     list.push(row);
                 } else if (item.type === "music") {
                     const m = item as MusicItem;
                     const tpl = settings.templates.music || template;
-                    const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || [], mappings, serverId);
+                    const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || []);
                     row.metadata = m; // Store original metadata for popover
                     list.push(row);
                 } else if (item.type === "episode") {
                     const e = item as EpisodeItem;
                     const tpl = settings.templates.episode || template;
                     const useSeasonFolders = !!settings.tv.seasonFolders;
-                    const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder, library.roots || [], mappings, serverId);
+                    const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder, library.roots || []);
                     proposal.metadata = e; // Store original metadata for popover
                     list.push(proposal);
                 }
@@ -348,34 +338,12 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         library_id: library.key,
                         scope: filePaths,
                         settings: settings,
+                        server_id: generateServerId(server),
                     }
                 });
 
-                    // Add subtitle operations to the corresponding preview rows
-                    if (previewResult.subtitle_operations && previewResult.subtitle_operations.length > 0) {
-                        const subtitleOpsByFile = new Map<string, any[]>();
-                        for (const op of previewResult.subtitle_operations) {
-                            const videoPath = op.original_path.substring(0, op.original_path.lastIndexOf('/'));
-                            if (!subtitleOpsByFile.has(videoPath)) {
-                                subtitleOpsByFile.set(videoPath, []);
-                            }
-                            subtitleOpsByFile.get(videoPath)!.push(op);
-                        }
-
-                        // Update rows with subtitle operations
-                        list.forEach(row => {
-                            const videoDir = row.filePath.substring(0, row.filePath.lastIndexOf('/'));
-                            const subtitleOps = subtitleOpsByFile.get(videoDir) || [];
-                            if (subtitleOps.length > 0) {
-                                row.subtitleOperations = subtitleOps.map(op => ({
-                                    originalPath: op.original_path,
-                                    proposedPath: op.new_path,
-                                    operationType: op.operation_type,
-                                    warningFlags: op.warning_flags || [],
-                                }));
-                            }
-                        });
-                    }
+                    // Attach subtitle operations to rows using shared helper
+                    attachSubtitleOperations(list, previewResult);
                 }
             } catch (subtitleError) {
                 // Continue without subtitle operations
@@ -563,7 +531,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.movie || template;
-                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], mappings, serverId);
+                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
                             row.metadata = m; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -592,7 +560,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.episode || template;
-                            const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || [], mappings, serverId);
+                            const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || []);
                             row.metadata = e; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -688,6 +656,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             const result = await invoke<any>("apply_video_renames", {
                 request: {
                     operations,
+                    server_id: generateServerId(server),
                     _settings: settings,
                 }
             });
@@ -695,7 +664,20 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             if (result.success) {
                 alert(`Successfully applied ${result.operations_applied} operations.\nRollback log saved to: ${result.rollback_log_path}`);
             } else {
-                alert(`Applied ${result.operations_applied} operations, but ${result.operations_failed} failed.\nCheck console for details.`);
+                // Log detailed errors to console
+                console.error("Failed to apply renames:", {
+                    operations_applied: result.operations_applied,
+                    operations_failed: result.operations_failed,
+                    rollback_log_path: result.rollback_log_path,
+                    errors: result.errors
+                });
+
+                // Show detailed errors to user
+                const errorDetails = result.errors && result.errors.length > 0
+                    ? `\n\nError details:\n${result.errors.slice(0, 5).join('\n')}${result.errors.length > 5 ? `\n... and ${result.errors.length - 5} more errors` : ''}`
+                    : '';
+
+                alert(`Applied ${result.operations_applied} operations, but ${result.operations_failed} failed.\n\nRollback log saved to: ${result.rollback_log_path}${errorDetails}\n\nCheck console (F12) for complete error details.`);
             }
         } catch (error) {
             console.error("Failed to apply renames:", error);
@@ -706,8 +688,11 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     }
 
     async function undoLastRename() {
-        if (!confirm("This will undo the last rename operation. Continue?")) return;
+        setShowUndoConfirm(true);
+    }
 
+    async function handleUndoConfirm() {
+        setShowUndoConfirm(false);
         setLoading(true);
         try {
             const result = await invoke<any>("undo_last_rename");
@@ -717,7 +702,20 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 // Reload the page to reflect changes
                 setReloadTick(t => t + 1);
             } else {
-                alert(`Undid ${result.operations_applied} operations, but ${result.operations_failed} failed.\nCheck console for details.`);
+                // Log detailed errors to console
+                console.error("Failed to undo renames:", {
+                    operations_applied: result.operations_applied,
+                    operations_failed: result.operations_failed,
+                    rollback_log_path: result.rollback_log_path,
+                    errors: result.errors
+                });
+
+                // Show detailed errors to user
+                const errorDetails = result.errors && result.errors.length > 0
+                    ? `\n\nError details:\n${result.errors.slice(0, 5).join('\n')}${result.errors.length > 5 ? `\n... and ${result.errors.length - 5} more errors` : ''}`
+                    : '';
+
+                alert(`Undid ${result.operations_applied} operations, but ${result.operations_failed} failed.\n\nRollback log saved to: ${result.rollback_log_path}${errorDetails}\n\nCheck console (F12) for complete error details.`);
             }
         } catch (error) {
             console.error("Failed to undo renames:", error);
@@ -725,6 +723,10 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         } finally {
             setLoading(false);
         }
+    }
+
+    function handleUndoCancel() {
+        setShowUndoConfirm(false);
     }
 
     // Column resizing + fluid width support
@@ -834,7 +836,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     ratingKey: movieRatingKey,
                     title: String(item.title ?? "Unknown"),
                     year: item.year ? Number(item.year) : undefined,
-                    file: resolvePlexFilePath(String(file), libraryFolder),
+                            file: resolvePlexFilePath(String(file), libraryFolder),
                     edition: String(item.edition ?? item.editionTitle ?? ""),
                     genre: String(item.genre ?? ""),
                     rating: String(item.contentRating ?? ""),
@@ -847,7 +849,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     thumb: String(item.thumb ?? ""),
                 };
                 const tpl = settings.templates.movie || template;
-                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], mappings, serverId);
+                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
                 row.metadata = m; // Store original metadata for popover
                 more.push(row);
             }
@@ -889,13 +891,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     track: String(item.title ?? "Unknown Track"),
                     trackNumber: item.index ? Number(item.index) : undefined,
                     disc: item.parentIndex ? Number(item.parentIndex) : undefined,
-                    file: resolvePlexFilePath(String(file), libraryFolder),
+                            file: resolvePlexFilePath(String(file), libraryFolder),
                     year: item.year ? Number(item.year) : undefined,
                     genre: String(item.genre ?? ""),
                     thumb: String(item.thumb ?? ""),
                 };
                 const tpl = settings.templates.music || template;
-                const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || [], mappings, serverId);
+                const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || []);
                 row.metadata = m; // Store original metadata for popover
                 more.push(row);
             }
@@ -934,7 +936,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         title: String(item.title ?? "Episode"),
                         season: parsed.season,
                         index: parsed.index,
-                        file: resolvePlexFilePath(String(file), libraryFolder),
+                            file: resolvePlexFilePath(String(file), libraryFolder),
                         year: item.year ? Number(item.year) : undefined,
                         grandparentTitle: String(item.grandparentTitle ?? currentShow?.title ?? "Unknown Show"),
                         parentTitle: String(item.parentTitle ?? ""),
@@ -942,7 +944,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         thumb: String(item.thumb ?? ""),
                     };
                     const tpl = settings.templates.episode || template;
-                    const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || [], mappings, serverId);
+                    const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || []);
                     row.metadata = e; // Store original metadata for popover
                     more.push(row);
                 }
@@ -985,6 +987,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             onSkipReds={skipReds}
             onApplyRename={applyRename}
             onUndoLastRename={undoLastRename}
+            showUndoConfirm={showUndoConfirm}
+            onUndoConfirm={handleUndoConfirm}
+            onUndoCancel={handleUndoCancel}
             onSetSearchQuery={setSearchQuery}
             onSetStatusFilter={setStatusFilter}
             onSetPage={setPage}
