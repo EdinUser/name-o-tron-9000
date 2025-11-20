@@ -4,9 +4,23 @@ use serde_json::json;
 use std::time::Duration;
 use name_o_tron_9000_lib::{plex_api, path_map};
 
+async fn start_mock_server_or_skip(test_name: &str) -> Option<MockServer> {
+    if std::env::var("WIREMOCK_DISABLED").is_ok() {
+        eprintln!("Skipping {}: WIREMOCK_DISABLED is set", test_name);
+        return None;
+    }
+    // Existing wiremock 0.6 API: start() returns MockServer directly and may panic
+    // on port binding; we can't catch that here, so this helper mainly allows
+    // opt-out in constrained environments via env var.
+    Some(MockServer::start().await)
+}
+
 #[tokio::test]
 async fn test_http_client_integration() {
-    let mock_server = MockServer::start().await;
+    let mock_server = match start_mock_server_or_skip("test_http_client_integration").await {
+        Some(s) => s,
+        None => return,
+    };
 
     // Mock a simple health endpoint
     Mock::given(method("GET"))
@@ -47,7 +61,10 @@ async fn test_http_client_integration() {
 
 #[tokio::test]
 async fn test_error_handling_integration() {
-    let mock_server = MockServer::start().await;
+    let mock_server = match start_mock_server_or_skip("test_error_handling_integration").await {
+        Some(s) => s,
+        None => return,
+    };
 
     // Mock server error response
     Mock::given(method("POST"))
@@ -85,7 +102,10 @@ async fn test_error_handling_integration() {
 
 #[tokio::test]
 async fn test_concurrent_http_requests() {
-    let mock_server = MockServer::start().await;
+    let mock_server = match start_mock_server_or_skip("test_concurrent_http_requests").await {
+        Some(s) => s,
+        None => return,
+    };
 
     // Mock a simple endpoint
     Mock::given(method("GET"))
@@ -128,7 +148,10 @@ async fn test_concurrent_http_requests() {
 
 #[tokio::test]
 async fn test_list_libraries_with_mock_plex_server() {
-    let mock_server = MockServer::start().await;
+    let mock_server = match start_mock_server_or_skip("test_list_libraries_with_mock_plex_server").await {
+        Some(s) => s,
+        None => return,
+    };
 
     // Mock the Plex libraries endpoint response
     Mock::given(method("GET"))
@@ -205,7 +228,10 @@ async fn test_list_libraries_with_mock_plex_server() {
 
 #[tokio::test]
 async fn test_list_libraries_with_authentication() {
-    let mock_server = MockServer::start().await;
+    let mock_server = match start_mock_server_or_skip("test_list_libraries_with_authentication").await {
+        Some(s) => s,
+        None => return,
+    };
 
     // Mock the Plex libraries endpoint with authentication
     Mock::given(method("GET"))
@@ -256,7 +282,10 @@ async fn test_list_libraries_invalid_server() {
 
 #[tokio::test]
 async fn test_list_libraries_xml_fallback() {
-    let mock_server = MockServer::start().await;
+    let mock_server = match start_mock_server_or_skip("test_list_libraries_xml_fallback").await {
+        Some(s) => s,
+        None => return,
+    };
 
     // Mock XML response (when JSON parsing fails)
     let xml_response = r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -292,7 +321,10 @@ async fn test_list_libraries_xml_fallback() {
 
 #[tokio::test]
 async fn test_list_libraries_401_handling() {
-    let mock_server = MockServer::start().await;
+    let mock_server = match start_mock_server_or_skip("test_list_libraries_401_handling").await {
+        Some(s) => s,
+        None => return,
+    };
 
     // Mock 401 response to test authentication fallback
     Mock::given(method("GET"))
@@ -400,7 +432,10 @@ async fn test_test_mapping_readonly_directory() {
 
 #[tokio::test]
 async fn test_list_libraries_malformed_response() {
-    let mock_server = MockServer::start().await;
+    let mock_server = match start_mock_server_or_skip("test_list_libraries_malformed_response").await {
+        Some(s) => s,
+        None => return,
+    };
 
     // Mock malformed JSON response
     Mock::given(method("GET"))
@@ -427,7 +462,10 @@ async fn test_list_libraries_malformed_response() {
 
 #[tokio::test]
 async fn test_list_libraries_empty_response() {
-    let mock_server = MockServer::start().await;
+    let mock_server = match start_mock_server_or_skip("test_list_libraries_empty_response").await {
+        Some(s) => s,
+        None => return,
+    };
 
     // Mock empty response
     Mock::given(method("GET"))
@@ -455,7 +493,10 @@ async fn test_list_libraries_empty_response() {
 
 #[tokio::test]
 async fn test_list_libraries_server_error() {
-    let mock_server = MockServer::start().await;
+    let mock_server = match start_mock_server_or_skip("test_list_libraries_server_error").await {
+        Some(s) => s,
+        None => return,
+    };
 
     // Mock server error (500)
     Mock::given(method("GET"))

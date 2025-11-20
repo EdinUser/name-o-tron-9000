@@ -140,9 +140,9 @@ pub fn plex_logout() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wiremock::{MockServer, Mock, ResponseTemplate};
-    use wiremock::matchers::{method, path, header};
-    use serde_json::json;
+    
+    
+    
 
     // Helper function to create a test client
     fn create_test_client() -> reqwest::Client {
