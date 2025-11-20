@@ -7,13 +7,11 @@ on:
       - "v*"
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu-latest, windows-latest, macos-latest]
-
-    runs-on: ${{ matrix.platform }}
+  # =====================================================
+  # LINUX BUILD (runs on YOUR MINT MACHINE)
+  # =====================================================
+  build-linux:
+    runs-on: [self-hosted, linux, x64]
 
     steps:
       - name: Checkout code
@@ -30,7 +28,6 @@ jobs:
           toolchain: stable
 
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential pkg-config libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev
@@ -39,9 +36,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          key: linux-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-node-
+            linux-node-
 
       - name: Install dependencies
         run: npm ci
@@ -51,10 +48,10 @@ jobs:
           npm run test:ci
           cd src-tauri && cargo test
 
-      - name: Build Tauri App
+      - name: Build Tauri App (Linux)
         uses: tauri-apps/tauri-action@v0
         env:
-          PKG_CONFIG_PATH: ${{ matrix.platform == 'ubuntu-latest' && '/usr/lib/x86_64-linux-gnu/pkgconfig' || '' }}
+          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
@@ -62,59 +59,150 @@ jobs:
           releaseDraft: false
           prerelease: false
 
-      - name: Upload installers
+      - name: Upload Linux installers
         uses: actions/upload-artifact@v4
         with:
-          name: tauri-installers-${{ matrix.platform }}
+          name: tauri-installers-linux
           path: src-tauri/target/release/bundle/
 
+  # =====================================================
+  # WINDOWS BUILD (GitHub-hosted)
+  # =====================================================
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: |
+          npm run test:ci
+          cd src-tauri && cargo test
+
+      - name: Build Tauri App (Windows)
+        uses: tauri-apps/tauri-action@v0
+        with:
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
+          releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || '' }}
+          releaseDraft: false
+          prerelease: false
+
+      - name: Upload Windows installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-installers-windows
+          path: src-tauri/target/release/bundle/
+
+  # =====================================================
+  # MACOS BUILD (GitHub-hosted)
+  # =====================================================
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: |
+          npm run test:ci
+          cd src-tauri && cargo test
+
+      - name: Build Tauri App (macOS)
+        uses: tauri-apps/tauri-action@v0
+        with:
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
+          releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || '' }}
+          releaseDraft: false
+          prerelease: false
+
+      - name: Upload macOS installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-installers-macos
+          path: src-tauri/target/release/bundle/
+
+  # =====================================================
+  # DEPLOY
+  # =====================================================
   deploy:
-    needs: build
+    needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download installers
+      - name: Download all installers
         uses: actions/download-artifact@v4
         with:
           path: installers/
 
-      # -----------------------------------------
-      # Generate metadata JSON for the landing page
-      # -----------------------------------------
       - name: Generate revision metadata
         run: |
-          VERSION="${GITHUB_REF##*/}"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME}"
+          else
+            VERSION="rev-$(date -u +'%Y%m%d-%H%M%S')"
+          fi
+
           DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
           echo "{" > release.json
           echo "  \"version\": \"${VERSION}\"," >> release.json
           echo "  \"date\": \"${DATE}\"," >> release.json
           echo "  \"platforms\": {" >> release.json
 
           echo -n "    \"linux\": [" >> release.json
-          ls installers/tauri-installers-ubuntu-latest | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
+          ls installers/tauri-installers-linux | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
           echo "    ]," >> release.json
 
           echo -n "    \"windows\": [" >> release.json
-          ls installers/tauri-installers-windows-latest | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
+          ls installers/tauri-installers-windows | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
           echo "    ]," >> release.json
 
           echo -n "    \"macos\": [" >> release.json
-          ls installers/tauri-installers-macos-latest | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
+          ls installers/tauri-installers-macos | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
           echo "    ]" >> release.json
 
           echo "  }" >> release.json
           echo "}" >> release.json
 
-      - name: Upload revision metadata
+      # Upload metadata to artifacts
+      - name: Upload metadata
         uses: actions/upload-artifact@v4
         with:
           name: release-metadata
           path: release.json
 
-      # -----------------------------------------
-      # Deploy installers to VPS
-      # -----------------------------------------
-      - name: Upload installers to server
+      # Upload to VPS
+      - name: Upload installers to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -124,7 +212,7 @@ jobs:
           source: "installers/**"
           target: "/var/www/name-o-tron.kirilov.dev/web/downloads/"
 
-      - name: Upload release metadata JSON
+      - name: Upload release.json
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -134,10 +222,7 @@ jobs:
           source: "release.json"
           target: "/var/www/name-o-tron.kirilov.dev/web/"
 
-      # -----------------------------------------
-      # Fix SPConfig permissions
-      # -----------------------------------------
-      - name: Fix permissions for SPConfig
+      - name: Fix SPConfig permissions
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
