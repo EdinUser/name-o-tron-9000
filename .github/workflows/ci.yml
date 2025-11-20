@@ -11,11 +11,12 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        os: [ linux-self, windows-latest, macos-latest ]
+
+    # Use Mint for Linux, GitHub for Windows/macOS
+    runs-on: ${{ matrix.os == 'linux-self' && 'self-hosted' || matrix.os }}
 
     steps:
       - name: Checkout code
@@ -37,12 +38,12 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
-      # -----------------------
-      # OS-specific system deps
-      # -----------------------
+      # ---------------------------------------------
+      # OS-Specific Dependencies
+      # ---------------------------------------------
 
-      - name: Install system dependencies (Linux)
-        if: runner.os == 'Linux'
+      - name: Install system dependencies (Linux — running on your Mint)
+        if: matrix.os == 'linux-self'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -57,16 +58,16 @@ jobs:
             build-essential
 
       - name: Install system dependencies (macOS)
-        if: runner.os == 'macOS'
+        if: matrix.os == 'macos-latest'
         run: brew install glib cairo pkg-config
 
       - name: Install system dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: echo "No extra system deps needed (WebView2 runtime already available)"
+        if: matrix.os == 'windows-latest'
+        run: echo "WebView2 runtime is already available"
 
-      # -----------------------
-      # Build + test steps
-      # -----------------------
+      # ---------------------------------------------
+      # Build + Test
+      # ---------------------------------------------
 
       - name: Install frontend dependencies
         run: npm ci
@@ -84,6 +85,6 @@ jobs:
         working-directory: ./src-tauri
         run: cargo test
 
-      - name: Run Rust tests (with integration tests)
+      - name: Run Rust integration tests
         working-directory: ./src-tauri
         run: cargo test --test integration_tests

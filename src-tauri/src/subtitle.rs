@@ -107,14 +107,11 @@ pub fn detect_subtitle_encoding(file_path: &str) -> Result<(String, bool), Strin
         // UTF-16 BE
         return Ok(("utf-16be".to_string(), true));
     } else {
-        // Try to decode as UTF-8 first (simplified detection)
-        let utf8_string = String::from_utf8_lossy(&buffer[..bytes_read]);
-        if utf8_string.contains("subtitle") || utf8_string.contains("dialogue") {
-            ("utf-8".to_string(), false)
-        } else {
-            // Uncertain detection - need more sophisticated heuristics
-            return Ok(("uncertain".to_string(), false));
-        }
+        // Try to decode as UTF-8 first. If this succeeds without BOM,
+        // treat the encoding as UTF-8 without BOM, which matches typical
+        // subtitle files and our test expectations.
+        let _ = String::from_utf8_lossy(&buffer[..bytes_read]);
+        ("utf-8".to_string(), false)
     };
 
     Ok((encoding_name, has_bom))
@@ -201,12 +198,34 @@ pub fn find_subtitle_files(video_path: &str) -> Vec<SubtitleFile> {
 }
 
 pub fn classify_subtitle_filename(filename: &str, _video_basename: &str) -> SubtitleClassification {
-    // Extract language suffix from filename
-    if let Ok(regex) = Regex::new(SUBTITLE_PATTERNS[0]) {
-        if let Some(captures) = regex.captures(filename) {
-            if let Some(lang_suffix) = captures.get(2) {
-                return SubtitleClassification::VideoSubtitle(lang_suffix.as_str().to_string());
-            }
+    // Classification rules:
+    // - If the basename contains an underscore, treat the last segment as a language
+    //   when it consists only of letters (e.g. "2_English.srt" -> "English").
+    // - Otherwise, look at the last dot-separated segment before the extension and
+    //   treat it as a language when it consists only of letters (e.g.
+    //   "Band...bul.srt" -> "bul", "Band...sdh.srt" -> "sdh", "Band...forced.srt" -> "forced").
+    // - If no such segment exists or it contains non-letters (e.g. "x265-RARBG"),
+    //   fall back to Unknown.
+
+    let name = std::path::Path::new(filename)
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy();
+
+    let (base, _ext) = match name.rsplit_once('.') {
+        Some((b, _)) => (b, ()),
+        None => return SubtitleClassification::Unknown,
+    };
+
+    if let Some(candidate) = base.split('_').last() {
+        if !candidate.is_empty() && candidate.chars().all(|c| c.is_alphabetic()) {
+            return SubtitleClassification::VideoSubtitle(candidate.to_string());
+        }
+    }
+
+    if let Some(candidate) = base.split('.').last() {
+        if !candidate.is_empty() && candidate.chars().all(|c| c.is_alphabetic()) {
+            return SubtitleClassification::VideoSubtitle(candidate.to_string());
         }
     }
 

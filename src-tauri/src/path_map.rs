@@ -31,6 +31,27 @@ fn is_windows(platform: Option<&str>) -> bool {
     }
 }
 
+fn server_ids_match(mapping_id: &str, server_id: &str) -> bool {
+    if mapping_id == server_id {
+        return true;
+    }
+
+    fn host_only(id: &str) -> &str {
+        let without_scheme = if let Some(idx) = id.find("://") {
+            &id[idx + 3..]
+        } else {
+            id
+        };
+        if let Some(idx) = without_scheme.find(':') {
+            &without_scheme[..idx]
+        } else {
+            without_scheme
+        }
+    }
+
+    host_only(mapping_id) == host_only(server_id)
+}
+
 /// Check if a path is already resolved to a local filesystem path
 /// Returns true if the path starts with any local root in the mappings
 pub fn is_already_local_path(path: &str, mappings: &[PathMapping], server_id: &str, platform_hint: Option<&str>) -> bool {
@@ -38,7 +59,7 @@ pub fn is_already_local_path(path: &str, mappings: &[PathMapping], server_id: &s
     let path_norm = norm_root(path, case_insensitive);
 
     for m in mappings {
-        if m.server_id != server_id { continue; }
+        if !server_ids_match(&m.server_id, server_id) { continue; }
         let ci = m.platform.as_deref().map(|p| p.eq_ignore_ascii_case("windows")).unwrap_or(case_insensitive);
         let local_root_norm = norm_root(&m.local_root, ci);
 
@@ -63,7 +84,7 @@ pub fn resolve_plex_path(
     let mut best: Option<&PathMapping> = None;
     let mut best_len = 0usize;
     for m in mappings {
-        if m.server_id != server_id { continue; }
+        if !server_ids_match(&m.server_id, server_id) { continue; }
         let ci = m.platform.as_deref().map(|p| p.eq_ignore_ascii_case("windows")).unwrap_or(case_insensitive);
         let root = norm_root(&m.plex_root, ci);
         if plex_norm == root || plex_norm.starts_with(&(root.clone() + "/")) {
@@ -131,4 +152,3 @@ pub fn test_mapping(_server_id: String, _plex_root: String, local_root: String) 
     let ok = exists && writable;
     Ok(TestMappingResult { ok, exists, writable, details })
 }
-
