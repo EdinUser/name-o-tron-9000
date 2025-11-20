@@ -1,10 +1,10 @@
 name: Build Name-o-Tron 9000 App (Cross-Platform)
 
 on:
-  workflow_dispatch: # ✅ manual trigger from Actions tab
+  workflow_dispatch:
   push:
     tags:
-      - "v*" # ✅ runs automatically when you push a version tag like v1.0.0
+      - "v*"
 
 jobs:
   build:
@@ -19,26 +19,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Install Node.js (frontend)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # Install Rust (backend)
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
 
-      # Install system dependencies for Linux (GTK development libraries)
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential pkg-config libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev
 
-      # Cache npm dependencies
       - name: Cache node_modules
         uses: actions/cache@v4
         with:
@@ -47,35 +43,108 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      # Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # Run tests (both frontend and backend)
       - name: Run tests
         run: |
-          # Run frontend tests (TypeScript checking)
           npm run test:ci
-          # Run Rust backend tests
           cd src-tauri && cargo test
 
-      # Build + Package Tauri
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
-          # Set PKG_CONFIG_PATH for Linux builds
           PKG_CONFIG_PATH: ${{ matrix.platform == 'ubuntu-latest' && '/usr/lib/x86_64-linux-gnu/pkgconfig' || '' }}
         with:
-          # Only publish a release if triggered by a tag
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
           releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || '' }}
           releaseDraft: false
           prerelease: false
 
-      # Always upload artifacts (manual or tagged builds)
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
           name: tauri-installers-${{ matrix.platform }}
           path: src-tauri/target/release/bundle/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          path: installers/
+
+      # -----------------------------------------
+      # Generate metadata JSON for the landing page
+      # -----------------------------------------
+      - name: Generate revision metadata
+        run: |
+          VERSION="${GITHUB_REF##*/}"
+          DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          echo "{" > release.json
+          echo "  \"version\": \"${VERSION}\"," >> release.json
+          echo "  \"date\": \"${DATE}\"," >> release.json
+          echo "  \"platforms\": {" >> release.json
+
+          echo -n "    \"linux\": [" >> release.json
+          ls installers/tauri-installers-ubuntu-latest | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
+          echo "    ]," >> release.json
+
+          echo -n "    \"windows\": [" >> release.json
+          ls installers/tauri-installers-windows-latest | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
+          echo "    ]," >> release.json
+
+          echo -n "    \"macos\": [" >> release.json
+          ls installers/tauri-installers-macos-latest | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
+          echo "    ]" >> release.json
+
+          echo "  }" >> release.json
+          echo "}" >> release.json
+
+      - name: Upload revision metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-metadata
+          path: release.json
+
+      # -----------------------------------------
+      # Deploy installers to VPS
+      # -----------------------------------------
+      - name: Upload installers to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 1022
+          source: "installers/**"
+          target: "/var/www/name-o-tron.kirilov.dev/web/downloads/"
+
+      - name: Upload release metadata JSON
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 1022
+          source: "release.json"
+          target: "/var/www/name-o-tron.kirilov.dev/web/"
+
+      # -----------------------------------------
+      # Fix SPConfig permissions
+      # -----------------------------------------
+      - name: Fix permissions for SPConfig
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 1022
+          script: |
+            chown -R web22:client1 /var/www/name-o-tron.kirilov.dev/web/
+            find /var/www/name-o-tron.kirilov.dev/web/ -type d -exec chmod 755 {} \;
+            find /var/www/name-o-tron.kirilov.dev/web/ -type f -exec chmod 644 {} \;
