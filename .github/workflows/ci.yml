@@ -16,7 +16,7 @@ jobs:
         os: [ linux-self, windows-latest, macos-latest ]
 
     # Use Mint for Linux, GitHub for Windows/macOS
-    runs-on: ${{ matrix.os == 'linux-self' && 'self-hosted' || matrix.os }}
+    runs-on: ${{ matrix.os == 'linux-self' && '[self-hosted, linux, x64]' || matrix.os }}
 
     steps:
       - name: Checkout code
