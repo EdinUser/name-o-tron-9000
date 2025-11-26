@@ -13,7 +13,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ linux-self, windows-latest, macos-latest ]
+        os: [ linux-self, windows-latest ]
 
     # Use Mint for Linux, GitHub for Windows/macOS
     runs-on: ${{ matrix.os == 'linux-self' && '[mint]' || matrix.os }}
@@ -56,10 +56,6 @@ jobs:
             libatk1.0-dev \
             pkg-config \
             build-essential
-
-      - name: Install system dependencies (macOS)
-        if: matrix.os == 'macos-latest'
-        run: brew install glib cairo pkg-config
 
       - name: Install system dependencies (Windows)
         if: matrix.os == 'windows-latest'

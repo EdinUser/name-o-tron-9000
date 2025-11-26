@@ -288,20 +288,14 @@ mod tests {
 
 #[command]
 pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewResult, String> {
-    eprintln!("🔍 DEBUG: subtitle preview_renames called with {} files", request.scope.len());
-
     let video_operations = Vec::new();
     let mut subtitle_operations = Vec::new();
     let mut warnings = Vec::new();
     let blocking_errors = Vec::new();
 
     // Parse settings
-    eprintln!("🔍 DEBUG: Subtitle preview - checking settings structure");
-    eprintln!("🔍 DEBUG: Settings keys: {:?}", request.settings.as_object().map(|o| o.keys().collect::<Vec<_>>()));
-
     let general_settings: serde_json::Value = request.settings.get("general")
         .ok_or("Missing general settings")?.clone();
-    eprintln!("🔍 DEBUG: General settings: {:?}", general_settings);
 
     let movie_settings: serde_json::Value = request.settings.get("movies")
         .ok_or("Missing movie settings")?.clone();
@@ -309,17 +303,13 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
         .ok_or("Missing TV settings")?.clone();
 
     let subtitles_config = general_settings.get("subtitles");
-    eprintln!("🔍 DEBUG: Subtitles config: {:?}", subtitles_config);
 
     let skip_subtitles = subtitles_config
         .and_then(|s| s.get("skipSubtitles"))
         .and_then(|s| s.as_bool())
         .unwrap_or(false);
 
-    eprintln!("🔍 DEBUG: skip_subtitles = {}", skip_subtitles);
-
     if skip_subtitles {
-        eprintln!("🔍 DEBUG: Subtitle processing is DISABLED in settings (skipSubtitles=true)");
         return Ok(PreviewResult {
             video_operations,
             subtitle_operations,
@@ -328,18 +318,10 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
         });
     }
 
-    eprintln!("🔍 DEBUG: Subtitle processing is ENABLED, processing {} video files", request.scope.len());
-
     for file_path in &request.scope {
-        eprintln!("🔍 DEBUG: Starting subtitle processing for '{}'", file_path);
 
         // Find subtitle files for this video
         let subtitles = find_subtitle_files(file_path);
-        if subtitles.is_empty() {
-            eprintln!("🔍 DEBUG: No subtitle files found for '{}'", file_path);
-        } else {
-            eprintln!("🔍 DEBUG: Found {} subtitle files for '{}'", subtitles.len(), file_path);
-        }
 
         for mut subtitle in subtitles {
             // Apply rename rules based on settings
@@ -533,12 +515,9 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
                 operation_id: format!("subtitle_{}", uuid::Uuid::new_v4()),
             };
 
-            eprintln!("🔍 DEBUG: Created subtitle operation: '{}' -> '{}'", operation.original_path, operation.new_path);
             subtitle_operations.push(operation);
         }
     }
-
-    eprintln!("🔍 DEBUG: Returning {} video operations and {} subtitle operations", video_operations.len(), subtitle_operations.len());
 
     Ok(PreviewResult {
         video_operations,
@@ -559,38 +538,24 @@ pub async fn apply_renames(app: tauri::AppHandle, request: ApplyRenamesRequest) 
     let settings_result = crate::settings::get_settings(app);
     let mappings: Vec<crate::path_map::PathMapping> = match settings_result {
         Ok(settings) => {
-            // DEBUG: Log what mappings are loaded
-            eprintln!("🔍 DEBUG: Loaded {} path mappings", settings.get("pathMappings").and_then(|pm| pm.as_array()).unwrap_or(&Vec::new()).len());
-            if let Some(mappings_array) = settings.get("pathMappings").and_then(|pm| pm.as_array()) {
-                for (i, m) in mappings_array.iter().enumerate() {
-                    if let Some(obj) = m.as_object() {
-                        eprintln!("🔍 DEBUG: Mapping {}: server_id='{}', plex_root='{}', local_root='{}'",
-                            i,
-                            obj.get("server_id").and_then(|v| v.as_str()).unwrap_or(""),
-                            obj.get("plex_root").and_then(|v| v.as_str()).unwrap_or(""),
-                            obj.get("local_root").and_then(|v| v.as_str()).unwrap_or(""));
-                    }
-                }
-            }
-
-            let server_id = &request.server_id;
-            eprintln!("🔍 DEBUG: Using server_id='{}'", server_id);
-
-            settings
-                .get("pathMappings")
-                .and_then(|pm| pm.as_array())
-                .unwrap_or(&Vec::new())
-                .iter()
-                .filter_map(|m| {
-                    let obj = m.as_object()?;
-                    Some(crate::path_map::PathMapping {
-                        server_id: obj.get("server_id")?.as_str()?.to_string(),
-                        plex_root: obj.get("plex_root")?.as_str()?.to_string(),
-                        local_root: obj.get("local_root")?.as_str()?.to_string(),
-                        platform: obj.get("platform")?.as_str().map(|s| s.to_string()),
+            // Process mappings if available
+            let mappings = if let Some(mappings_array) = settings.get("pathMappings").and_then(|pm| pm.as_array()) {
+                mappings_array.iter()
+                    .filter_map(|m| {
+                        let obj = m.as_object()?;
+                        Some(crate::path_map::PathMapping {
+                            server_id: obj.get("server_id")?.as_str()?.to_string(),
+                            plex_root: obj.get("plex_root")?.as_str()?.to_string(),
+                            local_root: obj.get("local_root")?.as_str()?.to_string(),
+                            platform: obj.get("platform")?.as_str().map(|s| s.to_string()),
+                        })
                     })
-                })
-                .collect()
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+            mappings
         }
         Err(e) => return Err(format!("Failed to get settings: {}", e)),
     };
@@ -598,25 +563,10 @@ pub async fn apply_renames(app: tauri::AppHandle, request: ApplyRenamesRequest) 
     // Resolve all paths in operations from Plex paths to local paths
     let mut resolved_operations = Vec::new();
     for operation in &request.operations {
-        eprintln!("🔍 DEBUG: Resolving original path: '{}'", operation.original_path);
-        eprintln!("🔍 DEBUG: Resolving new path: '{}'", operation.new_path);
-
         let resolved_original = crate::path_map::resolve_plex_path(&operation.original_path, &mappings, &request.server_id, None)
-            .ok_or_else(|| {
-                eprintln!("❌ DEBUG: Failed to resolve path '{}'", operation.original_path);
-                eprintln!("❌ DEBUG: Available mappings for server_id '{}':", request.server_id);
-                for m in &mappings {
-                    if m.server_id == request.server_id {
-                        eprintln!("  - plex_root: '{}', local_root: '{}'", m.plex_root, m.local_root);
-                    }
-                }
-                format!("Failed to resolve original path: {}", operation.original_path)
-            })?;
+            .ok_or_else(|| format!("Failed to resolve original path: {}", operation.original_path))?;
         let resolved_new = crate::path_map::resolve_plex_path(&operation.new_path, &mappings, &request.server_id, None)
             .ok_or_else(|| format!("Failed to resolve new path: {}", operation.new_path))?;
-
-        eprintln!("✅ DEBUG: Resolved original: '{}' -> '{}'", operation.original_path, resolved_original.display());
-        eprintln!("✅ DEBUG: Resolved new: '{}' -> '{}'", operation.new_path, resolved_new.display());
 
         let resolved_operation = RenameOperation {
             operation_type: operation.operation_type.clone(),

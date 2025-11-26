@@ -1344,8 +1344,6 @@ fn extract_library_root_from_path(resolved_path: &std::path::PathBuf, mappings: 
 /// Main preview function that handles both video and subtitle operations
 #[command]
 pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtitle::PreviewRenamesRequest) -> Result<crate::subtitle::PreviewResult, String> {
-    eprintln!("🔍 DEBUG: preview_video_renames called with {} files", request.scope.len());
-
     let mut video_operations: Vec<crate::subtitle::RenameOperation> = Vec::new();
     let mut subtitle_operations: Vec<crate::subtitle::RenameOperation> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
@@ -1410,11 +1408,9 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
                 })
                 .collect();
 
-            eprintln!("🔍 DEBUG: [preview] Found {} path mappings for server '{}'", filtered_mappings.len(), server_id);
             filtered_mappings
         }
         Err(e) => {
-            eprintln!("❌ DEBUG: Failed to load settings for subtitle path mapping: {}", e);
             Vec::new()
         }
     };
@@ -1565,8 +1561,6 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
             }
         }
 
-        eprintln!("🔍 DEBUG: Starting subtitle processing for '{}'", file_path);
-
         // Resolve video path to local filesystem path for subtitle discovery
         let resolved_video_path = if crate::path_map::is_already_local_path(file_path, &mappings, &request.server_id, None) {
             std::path::PathBuf::from(file_path)
@@ -1577,20 +1571,11 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
         };
 
         let local_video_path = resolved_video_path.to_string_lossy().to_string();
-        if local_video_path != *file_path {
-            eprintln!("🔍 DEBUG: Resolved video path for subtitles: '{}' -> '{}'", file_path, local_video_path);
-        }
 
         // Find subtitle files for this (possibly resolved) video path
         let subtitles = crate::subtitle::find_subtitle_files(&local_video_path);
-        if subtitles.is_empty() {
-            eprintln!("🔍 DEBUG: No subtitle files found for '{}'", local_video_path);
-        } else {
-            eprintln!("🔍 DEBUG: Found {} subtitle files for '{}'", subtitles.len(), local_video_path);
-        }
 
         for mut subtitle in subtitles {
-            eprintln!("🔍 DEBUG: Processing subtitle: '{}'", subtitle.original_path);
             // Apply subtitle-specific logic (existing code from subtitle.rs)
             let new_basename = Path::new(file_path)
                 .file_stem()
@@ -1629,13 +1614,9 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
                 operation_id: format!("subtitle_{}", uuid::Uuid::new_v4()),
             };
 
-            eprintln!("🔍 DEBUG: Created subtitle operation: '{}' -> '{}'", operation.original_path, operation.new_path);
             subtitle_operations.push(operation);
         }
     }
-
-    eprintln!("🔍 DEBUG: Returning {} video operations and {} subtitle operations",
-        video_operations.len(), subtitle_operations.len());
 
     Ok(crate::subtitle::PreviewResult {
         video_operations,
@@ -1718,7 +1699,6 @@ pub async fn apply_video_renames(app: tauri::AppHandle, request: crate::subtitle
                 })
                 .collect();
 
-            eprintln!("🔍 DEBUG: Found {} mappings for server '{}'", filtered_mappings.len(), server_id);
             filtered_mappings
         }
         Err(e) => return Err(format!("Failed to get settings: {}", e)),
@@ -1775,21 +1755,16 @@ pub async fn apply_video_renames(app: tauri::AppHandle, request: crate::subtitle
     let log_path = log_dir.join(format!("rollback_{}.json", chrono::Utc::now().timestamp()));
 
     for operation in &operations {
-        eprintln!("🔍 DEBUG: Applying operation: '{}' (type: {}, id: {})", operation.original_path, operation.operation_type, operation.operation_id);
-
         let result = if operation.operation_id.starts_with("subtitle_") {
             // Subtitle operation - use subtitle apply function
-            eprintln!("🔍 DEBUG: Using subtitle apply function");
             crate::subtitle::apply_single_operation(operation)
         } else {
             // Video operation - use video apply function
-            eprintln!("🔍 DEBUG: Using video apply function");
             apply_single_video_operation(operation)
         };
 
         match result {
             Ok(_) => {
-                eprintln!("✅ DEBUG: Operation successful: '{}'", operation.original_path);
                 operations_applied += 1;
                 all_operations.push(serde_json::json!({
                     "operation_type": operation.operation_type,
@@ -1801,7 +1776,6 @@ pub async fn apply_video_renames(app: tauri::AppHandle, request: crate::subtitle
                 }));
             }
             Err(e) => {
-                eprintln!("❌ DEBUG: Operation failed: '{}' - {}", operation.original_path, e);
                 operations_failed += 1;
                 errors.push(e.clone());
                 all_operations.push(serde_json::json!({

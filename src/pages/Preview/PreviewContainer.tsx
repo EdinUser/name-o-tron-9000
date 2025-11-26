@@ -53,6 +53,10 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [remoteQuery, setRemoteQuery] = useState<string>("");
     const [searching, setSearching] = useState(false);
 
+    // Season filtering for TV shows
+    const [selectedSeason, setSelectedSeason] = useState<number | "all" | null>(null);
+    const [availableSeasons, setAvailableSeasons] = useState<number[]>([]);
+
     const [reloadTick, setReloadTick] = useState(0);
 
     // Popover state for showing Plex metadata on hover
@@ -351,6 +355,23 @@ export default function PreviewContainer({server, library, onBack}: Props) {
 
             setRows(list);
             setSelectedIds(new Set(list.filter(r => r.status !== "error").map(r => r.id)));
+
+            // Calculate available seasons for TV shows
+            if (library.type === "show") {
+              const seasons = list
+                .filter(row => row.kind === "episode")
+                .map(row => (row.metadata as EpisodeItem)?.season)
+                .filter(season => season !== undefined && season !== null)
+                .filter((season, index, arr) => arr.indexOf(season) === index) // unique
+                .sort((a, b) => a - b);
+
+              setAvailableSeasons(seasons);
+
+              // Default to season 1 if available and no season selected yet
+              if (selectedSeason === null && seasons.includes(1)) {
+                setSelectedSeason(1);
+              }
+            }
         }
 
         computeProposals();
@@ -426,8 +447,18 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             results = results.filter(r => r.status === statusFilter);
         }
 
+        // Apply season filter for TV shows
+        if (library.type === "show" && selectedSeason !== "all") {
+            const targetSeason = selectedSeason === null ? 1 : selectedSeason;
+            results = results.filter(r => {
+                if (r.kind !== "episode") return true;
+                const episode = r.metadata as EpisodeItem;
+                return episode?.season === targetSeason;
+            });
+        }
+
         return results;
-    }, [rows, debouncedSearchQuery, statusFilter, library.roots]);
+    }, [rows, debouncedSearchQuery, statusFilter, library.roots, library.type, selectedSeason]);
 
     // Trigger remote (API) search for all queries
     useEffect(() => {
@@ -956,20 +987,22 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     }, [rows.length, server.address, currentShow, episodesPaging.size, libraryFolder, settings, template]);
 
     return (
-        <PreviewTemplate
-            server={server}
-            library={library}
-            currentShow={currentShow}
-            loading={loading}
-            searching={searching}
-            error={error}
-            rows={rows}
-            displayRows={displayRows}
-            pageRows={pageRows}
-            selectedIds={selectedIds}
-            page={page}
-            pageSize={pageSize}
-            totalPages={totalPages}
+    <PreviewTemplate
+      server={server}
+      library={library}
+      currentShow={currentShow}
+      loading={loading}
+      searching={searching}
+      error={error}
+      rows={rows}
+      displayRows={displayRows}
+      pageRows={pageRows}
+      selectedIds={selectedIds}
+      page={page}
+      pageSize={pageSize}
+      totalPages={totalPages}
+      selectedSeason={selectedSeason}
+      availableSeasons={availableSeasons}
             anyRedSelected={anyRedSelected}
             libraryFolder={libraryFolder}
             template={template}
@@ -1008,6 +1041,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             onLoadMoreMovies={() => loadMoreMovies()}
             onLoadMoreMusic={() => loadMoreMusic()}
             onLoadMoreEpisodes={() => loadMoreEpisodes()}
+            onSetSelectedSeason={setSelectedSeason}
         />
     );
 }

@@ -67,6 +67,9 @@ type TemplateProps = {
     onLoadMoreMovies: () => void;
     onLoadMoreMusic: () => void;
     onLoadMoreEpisodes: () => void;
+    selectedSeason: number | "all" | null;
+    availableSeasons: number[];
+    onSetSelectedSeason: (season: number | "all" | null) => void;
 };
 
 export default function PreviewTemplate({
@@ -121,6 +124,9 @@ export default function PreviewTemplate({
     onLoadMoreMovies,
     onLoadMoreMusic,
     onLoadMoreEpisodes,
+    selectedSeason,
+    availableSeasons,
+    onSetSelectedSeason,
 }: TemplateProps) {
     return (
         <main className="min-h-screen bg-neutral-900 text-neutral-100" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
@@ -266,7 +272,25 @@ export default function PreviewTemplate({
                         )}
 
                         {library.type === "show" && currentShow && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2">
+                                {/* Season Filter Dropdown - only show for multi-season shows */}
+                                {availableSeasons.length > 1 && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-neutral-400">Season:</span>
+                                        <Select
+                                            value={selectedSeason === null ? 1 : selectedSeason}
+                                            onChange={(value) => onSetSelectedSeason(value === 1 && selectedSeason === null ? null : value)}
+                                            options={[
+                                                ...availableSeasons.map(season => ({
+                                                    value: season,
+                                                    label: `Season ${season}`
+                                                })),
+                                                { value: "all" as const, label: "View all seasons" }
+                                            ]}
+                                            className="w-auto"
+                                        />
+                                    </div>
+                                )}
                                 <button
                                     onClick={onLoadMoreEpisodes}
                                     className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"

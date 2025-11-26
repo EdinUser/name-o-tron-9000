@@ -109,53 +109,10 @@ jobs:
           path: src-tauri/target/release/bundle/
 
   # =====================================================
-  # MACOS BUILD (GitHub-hosted)
-  # =====================================================
-  build-macos:
-    runs-on: macos-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: |
-          npm run test:ci
-          cd src-tauri && cargo test
-
-      - name: Build Tauri App (macOS)
-        uses: tauri-apps/tauri-action@v0
-        with:
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
-          releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || '' }}
-          releaseDraft: false
-          prerelease: false
-
-      - name: Upload macOS installers
-        uses: actions/upload-artifact@v4
-        with:
-          name: tauri-installers-macos
-          path: src-tauri/target/release/bundle/
-
-  # =====================================================
   # DEPLOY
   # =====================================================
   deploy:
-    needs: [build-linux, build-windows, build-macos]
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
 
     steps:
@@ -185,10 +142,6 @@ jobs:
 
           echo -n "    \"windows\": [" >> release.json
           ls installers/tauri-installers-windows | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
-          echo "    ]," >> release.json
-
-          echo -n "    \"macos\": [" >> release.json
-          ls installers/tauri-installers-macos | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
           echo "    ]" >> release.json
 
           echo "  }" >> release.json
