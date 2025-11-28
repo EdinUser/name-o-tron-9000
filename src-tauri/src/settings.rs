@@ -91,7 +91,11 @@ pub fn get_settings(app: tauri::AppHandle) -> Result<Value, String> {
     if txt.trim().is_empty() {
         return Ok(serde_json::json!({}));
     }
-    serde_json::from_str::<Value>(&txt).map_err(|e| e.to_string())
+    serde_json::from_str::<Value>(&txt).map_err(|e| {
+        let msg = format!("Failed to parse settings.json: {}", e);
+        crate::logging::log_event("ERROR", "get_settings", &msg, serde_json::json!({}));
+        msg
+    })
 }
 
 // Test helper functions for unit testing
@@ -304,3 +308,8 @@ pub fn get_cache_directory_path(app: tauri::AppHandle) -> Result<String, String>
     Ok(cache_dir.to_string_lossy().to_string())
 }
 
+#[tauri::command]
+pub fn get_logs_directory_path() -> Result<String, String> {
+    let dir = crate::logging::log_dir();
+    Ok(dir.to_string_lossy().to_string())
+}

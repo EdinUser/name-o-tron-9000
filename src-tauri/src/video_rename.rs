@@ -2198,7 +2198,16 @@ pub async fn apply_video_renames(app: tauri::AppHandle, request: crate::subtitle
 
             filtered_mappings
         }
-        Err(e) => return Err(format!("Failed to get settings: {}", e)),
+        Err(e) => {
+            let msg = format!("Failed to get settings: {}", e);
+            crate::logging::log_event(
+                "ERROR",
+                "apply_video_renames",
+                &msg,
+                serde_json::json!({ "server_id": request.server_id }),
+            );
+            return Err(msg);
+        }
     };
 
     // Resolve all paths in operations
@@ -2222,7 +2231,14 @@ pub async fn apply_video_renames(app: tauri::AppHandle, request: crate::subtitle
             if let Some(library_root) = extract_library_root_from_path(&resolved_original, &mappings) {
                 library_root.join(&operation.new_path)
             } else {
-                return Err(format!("Failed to resolve new path: {}", operation.new_path));
+                let msg = format!("Failed to resolve new path: {}", operation.new_path);
+                crate::logging::log_event(
+                    "ERROR",
+                    "apply_video_renames",
+                    &msg,
+                    serde_json::json!({ "operation_id": operation.operation_id }),
+                );
+                return Err(msg);
             }
         };
 

@@ -820,6 +820,70 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         }
     }
 
+    async function exportPreviewSnapshot() {
+        try {
+            const snapshot = {
+                server: {
+                    name: server.name,
+                    address: server.address,
+                },
+                library: {
+                    key: library.key,
+                    title: library.title,
+                    type: library.type,
+                },
+                currentShow,
+                page,
+                pageSize,
+                statusFilter,
+                searchQuery,
+                selectedSeason,
+                availableSeasons,
+                settings: {
+                    general: {
+                        encoding: settings.general.encoding,
+                        conflictHandling: settings.general.conflictHandling,
+                        safety: settings.general.safety,
+                    },
+                    templates: settings.templates,
+                    movies: settings.movies,
+                    tv: settings.tv,
+                    music: settings.music,
+                    misc: settings.misc,
+                },
+                preview: {
+                    total_rows: displayRows.length,
+                    rows: displayRows.map((r) => ({
+                        id: r.id,
+                        kind: r.kind,
+                        status: r.status,
+                        flags: r.flags,
+                        filePath: r.filePath,
+                        proposed: r.proposed,
+                        metadata: r.metadata
+                            ? {
+                                  type: (r.metadata as any).type,
+                                  ratingKey: (r.metadata as any).ratingKey,
+                                  title:
+                                      (r.metadata as any).title ||
+                                      (r.metadata as any).track ||
+                                      undefined,
+                                  showTitle: (r.metadata as any).showTitle,
+                                  season: (r.metadata as any).season,
+                                  index: (r.metadata as any).index,
+                              }
+                            : null,
+                    })),
+                },
+            };
+
+            const path = await invoke<string>("export_preview_snapshot", { snapshot });
+            alert(`Preview snapshot saved.\n\nPath: ${path}`);
+        } catch (error) {
+            alert(`Failed to export preview snapshot: ${error}`);
+        }
+    }
+
     function handleUndoCancel() {
         setShowUndoConfirm(false);
     }
@@ -1105,6 +1169,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             previewLoading={previewLoading}
             pageAllSelected={pageAllSelected}
             onTogglePageSelection={togglePageSelection}
+            onExportPreviewSnapshot={exportPreviewSnapshot}
             onLoadMoreMovies={() => loadMoreMovies()}
             onLoadMoreMusic={() => loadMoreMusic()}
             onLoadMoreEpisodes={() => loadMoreEpisodes()}

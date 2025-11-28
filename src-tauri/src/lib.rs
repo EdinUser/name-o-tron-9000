@@ -12,6 +12,8 @@ pub mod plex_api;
 pub mod secure;
 pub mod subtitle;
 pub mod video_rename;
+pub mod diagnostics;
+pub mod logging;
 
 // Re-export functions used by frontend
 pub use plex_api::fetch_library_content;
@@ -392,6 +394,7 @@ pub fn run() {
             settings::invalidate_show_mapping_cache,
             settings::clear_all_show_mapping_caches,
             settings::get_cache_directory_path,
+            settings::get_logs_directory_path,
             settings::generate_mappings_checksum_cmd,
             secure::secure_save_token,
             secure::secure_get_token,
@@ -401,6 +404,9 @@ pub fn run() {
             subtitle::undo_last_rename,
             video_rename::preview_video_renames,
             video_rename::apply_video_renames,
+            diagnostics::export_diagnostic_bundle,
+            diagnostics::export_diagnostic_bundle_zip,
+            diagnostics::export_preview_snapshot,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

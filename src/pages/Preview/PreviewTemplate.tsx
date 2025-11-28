@@ -67,6 +67,7 @@ type TemplateProps = {
     previewLoading: boolean;
     pageAllSelected: boolean;
     onTogglePageSelection: () => void;
+    onExportPreviewSnapshot: () => void;
     onLoadMoreMovies: () => void;
     onLoadMoreMusic: () => void;
     onLoadMoreEpisodes: () => void;
@@ -127,6 +128,7 @@ export default function PreviewTemplate({
     previewLoading,
     pageAllSelected,
     onTogglePageSelection,
+    onExportPreviewSnapshot,
     onLoadMoreMovies,
     onLoadMoreMusic,
     onLoadMoreEpisodes,
@@ -159,6 +161,9 @@ export default function PreviewTemplate({
                         </button>
                         <button onClick={onUndoLastRename} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             ↶ Undo
+                        </button>
+                        <button onClick={onExportPreviewSnapshot} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+                            Export snapshot
                         </button>
                         <input
                             value={template}

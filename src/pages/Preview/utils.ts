@@ -51,10 +51,7 @@ export async function sanitizeProposal(
     _settings: any,
 ): Promise<{ ok: boolean; reason?: string; sanitized?: string }> {
     try {
-        const pathLengthCheck =
-            !!_settings?.general?.safety?.pathLengthCheck ?? true;
-        const reservedNamesCheck =
-            !!_settings?.general?.safety?.reservedNamesCheck ?? true;
+        const reservedNamesCheck = _settings?.general?.safety?.reservedNamesCheck ?? true;
 
         const { invoke } = await import("@tauri-apps/api/core");
         const sanitized = await invoke<string>("sanitize_filename_cmd", {
@@ -77,10 +74,7 @@ export async function sanitizeProposal(
 
         return {ok: true, sanitized};
     } catch (error) {
-        const pathLengthCheck =
-            !!_settings?.general?.safety?.pathLengthCheck ?? true;
-        const reservedNamesCheck =
-            !!_settings?.general?.safety?.reservedNamesCheck ?? true;
+        const reservedNamesCheck = _settings?.general?.safety?.reservedNamesCheck ?? true;
 
         // Fallback to basic validation if backend fails
         if (/[\\/:*?"<>|]/.test(name)) return {ok: false, reason: "invalid-chars"};

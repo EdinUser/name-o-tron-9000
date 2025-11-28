@@ -640,9 +640,27 @@ pub async fn apply_renames(app: tauri::AppHandle, request: ApplyRenamesRequest) 
     let mut resolved_operations = Vec::new();
     for operation in &request.operations {
         let resolved_original = crate::path_map::resolve_plex_path(&operation.original_path, &mappings, &request.server_id, None)
-            .ok_or_else(|| format!("Failed to resolve original path: {}", operation.original_path))?;
+            .ok_or_else(|| {
+                let msg = format!("Failed to resolve original path: {}", operation.original_path);
+                crate::logging::log_event(
+                    "ERROR",
+                    "apply_renames",
+                    &msg,
+                    serde_json::json!({ "operation_id": operation.operation_id }),
+                );
+                msg
+            })?;
         let resolved_new = crate::path_map::resolve_plex_path(&operation.new_path, &mappings, &request.server_id, None)
-            .ok_or_else(|| format!("Failed to resolve new path: {}", operation.new_path))?;
+            .ok_or_else(|| {
+                let msg = format!("Failed to resolve new path: {}", operation.new_path);
+                crate::logging::log_event(
+                    "ERROR",
+                    "apply_renames",
+                    &msg,
+                    serde_json::json!({ "operation_id": operation.operation_id }),
+                );
+                msg
+            })?;
 
         let resolved_operation = RenameOperation {
             operation_type: operation.operation_type.clone(),

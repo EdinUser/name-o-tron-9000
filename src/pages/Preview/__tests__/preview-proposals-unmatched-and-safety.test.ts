@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { computeMovieProposal } from "../movieProposal";
-import { computeEpisodeProposal } from "../episodeProposal";
-import { computeMusicProposal } from "../musicProposal";
-import type { MovieItem, EpisodeItem, MusicItem } from "../types";
+import type { MovieItem } from "../types";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string, args: any) => {
