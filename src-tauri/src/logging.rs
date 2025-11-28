@@ -67,11 +67,16 @@ pub fn log_event(level: &str, component: &str, message: &str, mut context: Value
     // Best-effort logging; never panic or propagate errors
     sanitize_value(&mut context);
 
+    // Mask IPs in message as well
+    let message_sanitized = IP_RE
+        .replace_all(message, "xxx.xxx.xxx.xxx")
+        .into_owned();
+
     let event = json!({
         "ts": Utc::now().to_rfc3339(),
         "level": level,
         "component": component,
-        "message": message,
+        "message": message_sanitized,
         "context": context,
     });
 
