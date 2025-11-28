@@ -86,3 +86,53 @@ pub fn log_event(level: &str, component: &str, message: &str, mut context: Value
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value as JsonValue;
+    use std::fs;
+
+    fn read_last_log_line(path: &PathBuf) -> Option<String> {
+        let txt = fs::read_to_string(path).ok()?;
+        txt.lines().filter(|l| !l.trim().is_empty()).last().map(|s| s.to_string())
+    }
+
+    #[test]
+    fn log_event_masks_ips_and_redacts_paths() {
+        let dir = log_dir();
+        let _ = fs::create_dir_all(&dir);
+        let log_path = dir.join("error.log");
+        let _ = fs::remove_file(&log_path);
+
+        log_event(
+            "ERROR",
+            "test_component",
+            "failed to reach 192.168.1.50",
+            json!({
+                "server": "http://192.168.1.50:32400",
+                "original_path": "/share/CACHEDEV1_DATA/Series/Show/ep01.mkv",
+                "filePath": "/mnt/Movies/Inception.mkv",
+                "location": "/some/other/path/sub.srt",
+            }),
+        );
+
+        let line = read_last_log_line(&log_path).expect("log line");
+        let v: JsonValue = serde_json::from_str(&line).expect("valid json");
+
+        // message and context.server should have masked IPs
+        let msg = v.get("message").and_then(|m| m.as_str()).unwrap_or("");
+        assert!(msg.contains("xxx.xxx.xxx.xxx"));
+        assert!(!msg.contains("192.168.1.50"));
+
+        let ctx = v.get("context").and_then(|c| c.as_object()).unwrap();
+        let server = ctx.get("server").and_then(|s| s.as_str()).unwrap_or("");
+        assert!(server.contains("xxx.xxx.xxx.xxx"));
+        assert!(!server.contains("192.168.1.50"));
+
+        // Paths should be redacted to <redacted>/basename
+        assert_eq!(ctx.get("original_path").and_then(|s| s.as_str()), Some("<redacted>/ep01.mkv"));
+        assert_eq!(ctx.get("filePath").and_then(|s| s.as_str()), Some("<redacted>/Inception.mkv"));
+        assert_eq!(ctx.get("location").and_then(|s| s.as_str()), Some("<redacted>/sub.srt"));
+    }
+}

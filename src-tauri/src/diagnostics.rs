@@ -306,3 +306,31 @@ pub fn export_preview_snapshot(snapshot: Value) -> Result<String, String> {
     Ok(bundle_path.to_string_lossy().to_string())
 }
 use tauri::Manager;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn anonymize_value_masks_ips_and_paths() {
+        let ip_re = Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").unwrap();
+        let mut v = json!({
+            "server": "http://192.168.1.50:32400",
+            "original_path": "/share/CACHEDEV1_DATA/Series/Show/ep01.mkv",
+            "filePath": "/mnt/Movies/Inception.mkv",
+            "location": "/some/other/path/sub.srt",
+        });
+
+        anonymize_value(&mut v, &ip_re);
+
+        let obj = v.as_object().unwrap();
+        let server = obj.get("server").and_then(|s| s.as_str()).unwrap();
+        assert!(server.contains("xxx.xxx.xxx.xxx"));
+        assert!(!server.contains("192.168.1.50"));
+
+        assert_eq!(obj.get("original_path").and_then(|s| s.as_str()), Some("<redacted>/ep01.mkv"));
+        assert_eq!(obj.get("filePath").and_then(|s| s.as_str()), Some("<redacted>/Inception.mkv"));
+        assert_eq!(obj.get("location").and_then(|s| s.as_str()), Some("<redacted>/sub.srt"));
+    }
+}
