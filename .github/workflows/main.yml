@@ -11,7 +11,7 @@ jobs:
   # LINUX BUILD (runs on YOUR MINT MACHINE)
   # =====================================================
   build-linux:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: [self-hosted]
 
     steps:
       - name: Checkout code
