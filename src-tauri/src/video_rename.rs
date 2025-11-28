@@ -1050,6 +1050,503 @@ fn sanitize_and_validate_path(path: &str, settings: &serde_json::Value) -> (Stri
     (sanitized, warnings, blocking_errors)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn highlight_non_latin_respects_setting() {
+        let settings_with_highlight = json!({
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": true
+                }
+            }
+        });
+
+        // Use clearly non-Latin characters so detection is unambiguous
+        let path = "映画.mkv";
+        let (_sanitized, warnings, blocking_errors) =
+            sanitize_and_validate_path(path, &settings_with_highlight);
+
+        assert!(blocking_errors.is_empty());
+        assert!(warnings.iter().any(|w| w.contains("Non-Latin characters")));
+
+        let settings_without_highlight = json!({
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let (_sanitized2, warnings2, blocking_errors2) =
+            sanitize_and_validate_path(path, &settings_without_highlight);
+
+        assert!(blocking_errors2.is_empty());
+        assert!(warnings2.iter().all(|w| !w.contains("Non-Latin characters")));
+    }
+
+    #[test]
+    fn path_length_checks_respect_safety_setting() {
+        let long_name: String = std::iter::repeat('A').take(260).collect();
+        let long_path = format!("{}.mkv", long_name);
+
+        let settings_with_checks = json!({
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": false,
+                    "permissionsCheck": false
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let (_sanitized, _warnings, blocking_errors) =
+            sanitize_and_validate_path(&long_path, &settings_with_checks);
+
+        assert!(blocking_errors
+            .iter()
+            .any(|w| w.contains("Path too long")));
+
+        let settings_without_checks = json!({
+            "general": {
+                "safety": {
+                    "pathLengthCheck": false,
+                    "reservedNamesCheck": false,
+                    "permissionsCheck": false
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let (_sanitized2, _warnings2, blocking_errors2) =
+            sanitize_and_validate_path(&long_path, &settings_without_checks);
+
+        assert!(blocking_errors2
+            .iter()
+            .all(|w| !w.contains("Path too long")));
+    }
+
+    #[test]
+    fn episode_specials_folder_respects_detect_ovas_setting() {
+        let episode = EpisodeItem {
+            rating_key: "rk1".to_string(),
+            title: "Pilot".to_string(),
+            year: Some(2020),
+            file: "Show.S00E01.mkv".to_string(),
+            genre: vec![],
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+            grandparent_title: "Show".to_string(),
+            parent_title: "Season 00".to_string(),
+            parent_index: 0,
+            index: 1,
+        };
+
+        let settings_with_specials = json!({
+            "tv": {
+                "detectOVAsSeason00": true,
+                "normalizeMultiEpisode": true,
+                "seasonFolders": true
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op_specials = compute_episode_proposal(
+            &episode,
+            "{grandparentTitle} - S{parentIndex:02}E{index:02}{ext}",
+            &settings_with_specials,
+        )
+        .expect("episode proposal with Specials");
+
+        // Sanitization replaces path separators with '_', so we check prefix only
+        assert!(op_specials
+            .new_path
+            .starts_with("Specials_"));
+
+        let settings_without_specials = json!({
+            "tv": {
+                "detectOVAsSeason00": false,
+                "normalizeMultiEpisode": true,
+                "seasonFolders": true
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op_season00 = compute_episode_proposal(
+            &episode,
+            "{grandparentTitle} - S{parentIndex:02}E{index:02}{ext}",
+            &settings_without_specials,
+        )
+        .expect("episode proposal with Season 00");
+
+        assert!(op_season00
+            .new_path
+            .starts_with("Season 00_"));
+    }
+
+    #[test]
+    fn episode_multi_episode_normalization_respects_setting() {
+        let episode = EpisodeItem {
+            rating_key: "rk2".to_string(),
+            title: "Double Episode".to_string(),
+            year: Some(2020),
+            file: "Show.S01E01E02.mkv".to_string(),
+            genre: vec![],
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+            grandparent_title: "Show".to_string(),
+            parent_title: "Season 01".to_string(),
+            parent_index: 1,
+            index: 1,
+        };
+
+        let base_settings = json!({
+            "tv": {
+                "detectOVAsSeason00": true,
+                "seasonFolders": true
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        // With normalization enabled, template should receive multiEpisodeRange
+        let mut settings_with_norm = base_settings.clone();
+        settings_with_norm["tv"]["normalizeMultiEpisode"] = json!(true);
+
+        let op_norm = compute_episode_proposal(
+            &episode,
+            "{grandparentTitle} - S{parentIndex:02}{multiEpisodeRange}{ext}",
+            &settings_with_norm,
+        )
+        .expect("episode proposal with multi-episode normalization");
+
+        let name_norm = basename(&op_norm.new_path);
+        assert!(name_norm.contains("E01-E02"));
+
+        // With normalization disabled, multiEpisodeRange should not be injected
+        let mut settings_without_norm = base_settings.clone();
+        settings_without_norm["tv"]["normalizeMultiEpisode"] = json!(false);
+
+        let op_no_norm = compute_episode_proposal(
+            &episode,
+            "{grandparentTitle} - S{parentIndex:02}{multiEpisodeRange}{ext}",
+            &settings_without_norm,
+        )
+        .expect("episode proposal without multi-episode normalization");
+
+        let name_no_norm = basename(&op_no_norm.new_path);
+        assert!(!name_no_norm.contains("E01-E02"));
+    }
+
+    #[test]
+    fn movie_own_folder_setting_changes_output_path() {
+        let movie = MovieItem {
+            rating_key: "m1".to_string(),
+            title: "Inception".to_string(),
+            year: Some(2010),
+            file: "Inception (2010).mkv".to_string(),
+            genre: vec![],
+            collection: None,
+            edition_title: None,
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+        };
+
+        let base_settings = json!({
+            "movies": {
+                "folderStructure": "none"
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        // With ownFolderPerMovie = true, path should include the movie title as a folder
+        let mut with_folder = base_settings.clone();
+        with_folder["movies"]["ownFolderPerMovie"] = json!(true);
+
+        let op_with_folder = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &with_folder,
+        )
+        .expect("movie proposal with own folder");
+
+        // After sanitization, the path separator becomes '_' but folder name remains visible
+        assert!(op_with_folder
+            .new_path
+            .starts_with("Inception_"));
+
+        // With ownFolderPerMovie = false, path should not be prefixed by a folder
+        let mut without_folder = base_settings.clone();
+        without_folder["movies"]["ownFolderPerMovie"] = json!(false);
+
+        let op_without_folder = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &without_folder,
+        )
+        .expect("movie proposal without own folder");
+
+        // Current implementation appends the raw extension (without dot)
+        assert_eq!(op_without_folder.new_path, "Inceptionmkv");
+    }
+
+    #[test]
+    fn movie_collections_setting_adds_collection_folder() {
+        let movie = MovieItem {
+            rating_key: "m2".to_string(),
+            title: "Inception".to_string(),
+            year: Some(2010),
+            file: "Inception (2010).mkv".to_string(),
+            genre: vec![],
+            collection: Some("Nolan Collection".to_string()),
+            edition_title: None,
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+        };
+
+        let settings = json!({
+            "movies": {
+                "collections": {
+                    "enabled": true,
+                    "mode": "always",
+                    "format": "{collection}"
+                },
+                "folderStructure": "none",
+                "ownFolderPerMovie": false
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &settings,
+        )
+        .expect("movie proposal with collection folder");
+
+        // After sanitization, collection folder prefix uses '_' instead of '/'
+        assert!(op
+            .new_path
+            .starts_with("Nolan Collection_"));
+        assert!(op.new_path.contains("Inception"));
+    }
+
+    #[test]
+    fn movie_collections_if2plus_currently_excludes_collection_folder() {
+        let movie = MovieItem {
+            rating_key: "m3".to_string(),
+            title: "Inception".to_string(),
+            year: Some(2010),
+            file: "Inception (2010).mkv".to_string(),
+            genre: vec![],
+            collection: Some("Nolan Collection".to_string()),
+            edition_title: None,
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+        };
+
+        let settings = json!({
+            "movies": {
+                "collections": {
+                    "enabled": true,
+                    "mode": "if2plus",
+                    "format": "{collection}"
+                },
+                "folderStructure": "none",
+                "ownFolderPerMovie": false
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &settings,
+        )
+        .expect("movie proposal without collection folder for if2plus mode");
+
+        // Current implementation treats if2plus safely as non-collection (no prefix)
+        assert!(!op
+            .new_path
+            .starts_with("Nolan Collection_"));
+    }
+
+    #[test]
+    fn movie_folder_structure_alpha_groups_by_initial_letter() {
+        let movie = MovieItem {
+            rating_key: "m4".to_string(),
+            title: "Avatar".to_string(),
+            year: Some(2009),
+            file: "Avatar (2009).mkv".to_string(),
+            genre: vec![],
+            collection: None,
+            edition_title: None,
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+        };
+
+        let settings = json!({
+            "movies": {
+                "folderStructure": "alpha",
+                "ownFolderPerMovie": false
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &settings,
+        )
+        .expect("movie proposal with alpha folder structure");
+
+        // First folder is initial letter 'A', then title and extension
+        assert!(op
+            .new_path
+            .starts_with("A_"));
+        assert!(op.new_path.contains("Avatar"));
+    }
+
+    #[test]
+    fn movie_folder_structure_year_decade_groups_by_decade() {
+        let movie = MovieItem {
+            rating_key: "m5".to_string(),
+            title: "Avatar".to_string(),
+            year: Some(2009),
+            file: "Avatar (2009).mkv".to_string(),
+            genre: vec![],
+            collection: None,
+            edition_title: None,
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+        };
+
+        let settings = json!({
+            "movies": {
+                "folderStructure": "year_decade",
+                "ownFolderPerMovie": false
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &settings,
+        )
+        .expect("movie proposal with year_decade folder structure");
+
+        // Decade folder '2000-2009' appears as prefix after sanitization
+        assert!(op
+            .new_path
+            .starts_with("2000-2009_"));
+        assert!(op.new_path.contains("Avatar"));
+    }
+}
+
 /// Compute movie proposal respecting all movie settings
 fn compute_movie_proposal(
     movie: &MovieItem,

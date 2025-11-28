@@ -236,6 +236,8 @@ pub fn classify_subtitle_filename(filename: &str, _video_basename: &str) -> Subt
 mod tests {
     use super::*;
     use tempfile::tempdir;
+    use serde_json::json;
+
 
     #[test]
     fn find_subtitle_files_detects_matching_language_subtitle() {
@@ -283,6 +285,80 @@ mod tests {
             "expected only the subtitle sharing the video basename to be detected"
         );
         assert_eq!(results[0].original_path, matching_sub.to_string_lossy());
+    }
+
+    #[tokio::test]
+    async fn preview_renames_skips_when_skip_subtitles_true() {
+        let dir = tempdir().expect("failed to create temp dir");
+
+        let video_path = dir.path().join("Show.S01E01.mkv");
+        let sub_path = dir.path().join("Show.S01E01.eng.srt");
+
+        fs::write(&video_path, b"").expect("failed to write video file");
+        fs::write(&sub_path, b"").expect("failed to write subtitle file");
+
+        let settings = json!({
+            "general": {
+                "subtitles": {
+                    "skipSubtitles": true
+                }
+            },
+            "movies": {},
+            "tv": {}
+        });
+
+        let request = PreviewRenamesRequest {
+            library_id: "lib1".to_string(),
+            scope: vec![video_path.to_string_lossy().to_string()],
+            settings,
+            server_id: "server1".to_string(),
+        };
+
+        let result = preview_renames(request).await.expect("preview_renames should succeed");
+        assert!(result.subtitle_operations.is_empty());
+    }
+
+    #[tokio::test]
+    async fn preview_renames_generates_subtitle_rename_when_not_skipped() {
+        let dir = tempdir().expect("failed to create temp dir");
+
+        let video_path = dir.path().join("Show.S01E01.mkv");
+        let sub_path = dir.path().join("Show.S01E01.eng.srt");
+
+        fs::write(&video_path, b"").expect("failed to write video file");
+        fs::write(&sub_path, b"").expect("failed to write subtitle file");
+
+        let settings = json!({
+            "general": {
+                "subtitles": {
+                    "skipSubtitles": false,
+                    "convertToUtf8": false
+                }
+            },
+            "movies": {},
+            "tv": {}
+        });
+
+        let request = PreviewRenamesRequest {
+            library_id: "lib1".to_string(),
+            scope: vec![video_path.to_string_lossy().to_string()],
+            settings,
+            server_id: "server1".to_string(),
+        };
+
+        let result = preview_renames(request).await.expect("preview_renames should succeed");
+
+        assert_eq!(result.subtitle_operations.len(), 1, "expected one subtitle operation");
+        let op = &result.subtitle_operations[0];
+        assert_eq!(op.operation_type, "rename");
+
+        let new_basename = Path::new(&op.new_path)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+
+        assert_eq!(new_basename, "Show.S01E01.eng.srt");
     }
 }
 
