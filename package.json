@@ -13,6 +13,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
+    "test:all": "npm test && cargo test",
     "test:ci": "tsc --noEmit",
     "mock:plex": "node _helpers/tests/mock-plex-server.cjs"
   },

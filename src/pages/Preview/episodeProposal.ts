@@ -281,12 +281,16 @@ export async function computeEpisodeProposal(
         status = status === "good" ? "warning" : status;
         flags.push("non-latin");
     }
-    if (proposed.length > 255) {
-        status = "error";
-        flags.push(">255 path");
-    } else if (proposed.length > 200 && status !== "error") {
-        status = "warning";
-        flags.push(">200 path");
+    const pathLengthCheck =
+        settings.general?.safety?.pathLengthCheck ?? true;
+    if (pathLengthCheck) {
+        if (proposed.length > 255) {
+            status = "error";
+            flags.push(">255 path");
+        } else if (proposed.length > 200 && status !== "error") {
+            status = "warning";
+            flags.push(">200 path");
+        }
     }
 
     // Check if item is mapped (not in a mapped folder)

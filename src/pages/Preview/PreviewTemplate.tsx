@@ -64,6 +64,9 @@ type TemplateProps = {
     onUpdateSettings: (settings: any) => void;
     onSetReloadTick: (fn: (prev: number) => number) => void;
     settings: any;
+    previewLoading: boolean;
+    pageAllSelected: boolean;
+    onTogglePageSelection: () => void;
     onLoadMoreMovies: () => void;
     onLoadMoreMusic: () => void;
     onLoadMoreEpisodes: () => void;
@@ -121,6 +124,9 @@ export default function PreviewTemplate({
     onUpdateSettings,
     onSetReloadTick,
     settings,
+    previewLoading,
+    pageAllSelected,
+    onTogglePageSelection,
     onLoadMoreMovies,
     onLoadMoreMusic,
     onLoadMoreEpisodes,
@@ -219,16 +225,8 @@ export default function PreviewTemplate({
             </header>
 
             <section className="mx-auto px-6 py-6">
-                {/* Library info, search, and load more buttons on the same line */}
-                <div className="mb-4 flex items-center justify-between gap-4">
-                    <div className="text-sm text-neutral-400">
-                        Server: <span className="text-neutral-200">{server.name}</span> — Library: <span className="text-neutral-200">{library.title}</span>
-                        {currentShow && (
-                            <>
-                                {" "}— Show: <span className="text-neutral-200">{currentShow.title}</span>
-                            </>
-                        )}
-                    </div>
+                {/* Search and load more buttons */}
+                <div className="mb-4 flex items-center justify-end gap-2">
                     <div className="flex items-center gap-2">
                         {/* Reload button */}
                         <button title="Reload library" onClick={() => onSetReloadTick((prev: number) => prev + 1)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
@@ -356,17 +354,17 @@ export default function PreviewTemplate({
                 </div>
 
 
-                {(loading || searching) && (
-                    <p className="text-center text-neutral-400">
-                        {searchQuery.trim() || searching ? 'Searching…' : 'Loading preview…'}
-                    </p>
-                )}
                 {error && <p className="text-center text-red-300">Error: {error}</p>}
 
-                {!loading && !error && (
-                    <div ref={containerRef} className="overflow-auto rounded-xl border border-neutral-800">
+                <div ref={containerRef} className="overflow-auto rounded-xl border border-neutral-800 mt-4">
                         <div className="grid items-center gap-2 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm font-semibold" style={{gridTemplateColumns: gridTemplate}}>
-                            <div/>
+                            <div className="flex items-center justify-center" title="Select or deselect all rows on this page">
+                                <Toggle
+                                    checked={pageAllSelected}
+                                    onChange={() => onTogglePageSelection()}
+                                    aria-label="Select or deselect all rows on this page"
+                                />
+                            </div>
                             <div className="relative select-none">
                                 <span>Current</span>
                                 <span onMouseDown={(e) => onStartResize("current", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize"/>
@@ -377,7 +375,19 @@ export default function PreviewTemplate({
                             </div>
                             <div></div>
                         </div>
-                        {pageRows.map((r) => (
+                        {((loading || previewLoading || searching) && displayRows.length === 0) && (
+                            <div className="px-3 py-4 text-center text-sm text-neutral-400">
+                                {searchQuery.trim() || searching
+                                    ? 'Searching…'
+                                    : library.type === 'movie'
+                                        ? 'Loading movies…'
+                                        : library.type === 'show'
+                                            ? 'Loading episodes…'
+                                            : 'Loading items…'}
+                            </div>
+                        )}
+
+                        {displayRows.length > 0 && pageRows.map((r) => (
                             <div
                                 key={r.id}
                                 className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40 dark:hover:bg-neutral-800/40 light:hover:bg-neutral-50/40"
@@ -437,14 +447,23 @@ export default function PreviewTemplate({
                                     )}
                                 </div>
                             ))}
-                        {displayRows.length === 0 && <p className="px-3 py-2 text-neutral-400">No items to preview.</p>}
+                        {!loading && !previewLoading && !searching && displayRows.length === 0 && (
+                            <p className="px-3 py-2 text-neutral-400">No items to preview.</p>
+                        )}
                     </div>
-                )}
 
-                {/* Library folder mapping helper - show the actual mapped local folder */}
+                {/* Library info and folder mapping helper */}
                 <div className="mt-3 flex items-center justify-between text-sm text-neutral-300">
-                    <div>
-                        <span className="text-neutral-400">Local folder:</span>{" "}
+                    <div className="text-neutral-300">
+                        <span className="text-neutral-400">
+                            Server: <span className="text-neutral-200">{server.name}</span> — Library: <span className="text-neutral-200">{library.title}</span>
+                            {currentShow && (
+                                <>
+                                    {" "}— Show: <span className="text-neutral-200">{currentShow.title}</span>
+                                </>
+                            )}
+                            {" "}— Local folder:
+                        </span>{" "}
                         <span className="text-neutral-200">{libraryFolder ?? "Not mapped"}</span>
                     </div>
                     <div className="flex items-center gap-2">

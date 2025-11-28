@@ -52,6 +52,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [showUndoConfirm, setShowUndoConfirm] = useState(false);
     const [remoteQuery, setRemoteQuery] = useState<string>("");
     const [searching, setSearching] = useState(false);
+    const [previewLoading, setPreviewLoading] = useState(false);
 
     // Season filtering for TV shows
     const [selectedSeason, setSelectedSeason] = useState<number | "all" | null>(null);
@@ -89,17 +90,32 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 const settings = await invoke<{ pathMappings?: { server_id: string; plex_root: string; local_root: string }[] }>("get_settings");
                 const mappings = settings.pathMappings || [];
 
+                const normalizeRoot = (p: string | null | undefined) =>
+                    (p || "")
+                        .replace(/\\/g, "/")
+                        .replace(/\/+$/, "") || "";
+
                 // Find the mapped folder for this library
                 const serverId = generateServerId(server);
-                const libraryRoots = library.roots || [];
+                const libraryRoots = (library.roots || []).map(normalizeRoot);
+
+                // Prefer the longest matching root in case of overlaps
+                let bestLocal: string | null = null;
+                let bestLen = 0;
 
                 for (const root of libraryRoots) {
-                    const mapping = mappings.find(m => m.server_id === serverId && m.plex_root === root);
-                    if (mapping) {
-                        setLibraryFolder(mapping.local_root);
-                        break;
+                    for (const m of mappings) {
+                        if (m.server_id !== serverId) continue;
+                        const mappedRoot = normalizeRoot(m.plex_root);
+                        if (!mappedRoot || mappedRoot !== root) continue;
+                        if (mappedRoot.length > bestLen) {
+                            bestLen = mappedRoot.length;
+                            bestLocal = m.local_root;
+                        }
                     }
                 }
+
+                setLibraryFolder(bestLocal);
             } catch (error) {
                 setLibraryFolder(null);
             }
@@ -116,17 +132,31 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             const settings = await invoke<{ pathMappings?: { server_id: string; plex_root: string; local_root: string }[] }>("get_settings");
             const mappings = settings.pathMappings || [];
 
+            const normalizeRoot = (p: string | null | undefined) =>
+                (p || "")
+                    .replace(/\\/g, "/")
+                    .replace(/\/+$/, "") || "";
+
             // Find the mapped folder for this library
             const serverId = generateServerId(server);
-            const libraryRoots = library.roots || [];
+            const libraryRoots = (library.roots || []).map(normalizeRoot);
+
+            let bestLocal: string | null = null;
+            let bestLen = 0;
 
             for (const root of libraryRoots) {
-                const mapping = mappings.find(m => m.server_id === serverId && m.plex_root === root);
-                if (mapping) {
-                    setLibraryFolder(mapping.local_root);
-                    break;
+                for (const m of mappings) {
+                    if (m.server_id !== serverId) continue;
+                    const mappedRoot = normalizeRoot(m.plex_root);
+                    if (!mappedRoot || mappedRoot !== root) continue;
+                    if (mappedRoot.length > bestLen) {
+                        bestLen = mappedRoot.length;
+                        bestLocal = m.local_root;
+                    }
                 }
             }
+
+            setLibraryFolder(bestLocal);
         } catch (error) {
             setLibraryFolder(null);
         }
@@ -169,7 +199,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             ratingKey: movieRatingKey,
                             title: String(item.title ?? "Unknown"),
                             year: item.year ? Number(item.year) : undefined,
-                            file: resolvePlexFilePath(String(file), libraryFolder),
+                            file: String(file),
+                            plexPath: String(file),
                             edition: String(item.edition ?? item.editionTitle ?? ""),
                             genre: String(item.genre ?? ""),
                             rating: String(item.contentRating ?? ""),
@@ -212,7 +243,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             track: String(item.title ?? "Unknown Track"),
                             trackNumber: item.index ? Number(item.index) : undefined,
                             disc: item.parentIndex ? Number(item.parentIndex) : undefined,
-                            file: resolvePlexFilePath(String(file), libraryFolder),
+                            file: String(file),
+                            plexPath: String(file),
                             year: item.year ? Number(item.year) : undefined,
                             genre: String(item.genre ?? ""),
                             thumb: String(item.thumb ?? ""),
@@ -253,7 +285,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 title: String(item.title ?? "Episode"),
                                 season: parsed.season,
                                 index: parsed.index,
-                                file: resolvePlexFilePath(String(file), libraryFolder),
+                                file: String(file),
+                                plexPath: String(file),
                                 year: item.year ? Number(item.year) : undefined,
                                 grandparentTitle: String(item.grandparentTitle ?? showToLoad.title),
                                 parentTitle: String(item.parentTitle ?? ""),
@@ -300,7 +333,14 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     // Compute proposals from raw items when settings change
     useEffect(() => {
         async function computeProposals() {
-            if (rawItems.length === 0) return;
+            if (rawItems.length === 0) {
+                setRows([]);
+                setSelectedIds(new Set());
+                setPreviewLoading(false);
+                return;
+            }
+
+            setPreviewLoading(true);
 
             const list: PreviewRow[] = [];
 
@@ -372,6 +412,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 setSelectedSeason(1);
               }
             }
+        
+            setPreviewLoading(false);
         }
 
         computeProposals();
@@ -549,7 +591,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 ratingKey: movieRatingKey,
                                 title: String(item.title || "Unknown"),
                                 year: item.year ? Number(item.year) : undefined,
-                                file: resolvePlexFilePath(filePath, libraryFolder), // Resolve to absolute local path
+                                file: filePath,
+                                plexPath: filePath,
                                 edition: String(item.edition ?? item.editionTitle ?? ""),
                                 genre: String(item.genre ?? ""),
                                 rating: String(item.contentRating ?? ""),
@@ -583,7 +626,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 title: String(item.title || "Episode"),
                                 season: seasonNum,
                                 index: epIndex,
-                                file: resolvePlexFilePath(filePath, libraryFolder), // Resolve to absolute local path
+                                file: filePath,
+                                plexPath: filePath,
                                 year: item.year ? Number(item.year) : undefined,
                                 grandparentTitle: String(item.grandparentTitle ?? showTitle),
                                 parentTitle: String(item.parentTitle ?? ""),
@@ -636,6 +680,11 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const pageRows = useMemo(() => displayRows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize), [displayRows, page, pageSize]);
     useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
 
+    const pageAllSelected = useMemo(
+        () => pageRows.length > 0 && pageRows.every(r => selectedIds.has(r.id)),
+        [pageRows, selectedIds]
+    );
+
     function toggle(id: string) {
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -646,6 +695,21 @@ export default function PreviewContainer({server, library, onBack}: Props) {
 
     function skipReds() {
         setSelectedIds(new Set(rows.filter(r => r.status !== "error").map(r => r.id)));
+    }
+
+    function togglePageSelection() {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            const allSelected = pageRows.length > 0 && pageRows.every(r => next.has(r.id));
+
+            if (allSelected) {
+                pageRows.forEach(r => next.delete(r.id));
+            } else {
+                pageRows.forEach(r => next.add(r.id));
+            }
+
+            return next;
+        });
     }
 
     async function applyRename() {
@@ -1038,6 +1102,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             onUpdateSettings={updateSettings}
             onSetReloadTick={(fn) => setReloadTick(fn)}
             settings={settings}
+            previewLoading={previewLoading}
+            pageAllSelected={pageAllSelected}
+            onTogglePageSelection={togglePageSelection}
             onLoadMoreMovies={() => loadMoreMovies()}
             onLoadMoreMusic={() => loadMoreMusic()}
             onLoadMoreEpisodes={() => loadMoreEpisodes()}

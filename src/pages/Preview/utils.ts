@@ -46,8 +46,16 @@ export function sortEditionsByPriority(editionToken: string): string {
 }
 
 // Path sanitization utilities
-export async function sanitizeProposal(name: string, _settings: any): Promise<{ ok: boolean; reason?: string; sanitized?: string }> {
+export async function sanitizeProposal(
+    name: string,
+    _settings: any,
+): Promise<{ ok: boolean; reason?: string; sanitized?: string }> {
     try {
+        const pathLengthCheck =
+            !!_settings?.general?.safety?.pathLengthCheck ?? true;
+        const reservedNamesCheck =
+            !!_settings?.general?.safety?.reservedNamesCheck ?? true;
+
         const { invoke } = await import("@tauri-apps/api/core");
         const sanitized = await invoke<string>("sanitize_filename_cmd", {
             filename: name,
@@ -59,18 +67,29 @@ export async function sanitizeProposal(name: string, _settings: any): Promise<{ 
             return {ok: false, reason: "invalid-chars", sanitized};
         }
 
-        // Check for reserved names (after sanitization)
-        const base = sanitized.replace(/\.[^.]+$/, "");
-        if (RESERVED.has(base.toUpperCase())) {
-            return {ok: false, reason: "reserved-name", sanitized};
+        // Check for reserved names (after sanitization) when enabled
+        if (reservedNamesCheck) {
+            const base = sanitized.replace(/\.[^.]+$/, "");
+            if (RESERVED.has(base.toUpperCase())) {
+                return { ok: false, reason: "reserved-name", sanitized };
+            }
         }
 
         return {ok: true, sanitized};
     } catch (error) {
+        const pathLengthCheck =
+            !!_settings?.general?.safety?.pathLengthCheck ?? true;
+        const reservedNamesCheck =
+            !!_settings?.general?.safety?.reservedNamesCheck ?? true;
+
         // Fallback to basic validation if backend fails
         if (/[\\/:*?"<>|]/.test(name)) return {ok: false, reason: "invalid-chars"};
-        const base = name.replace(/\.[^.]+$/, "");
-        if (RESERVED.has(base.toUpperCase())) return {ok: false, reason: "reserved-name"};
+        if (reservedNamesCheck) {
+            const base = name.replace(/\.[^.]+$/, "");
+            if (RESERVED.has(base.toUpperCase())) {
+                return { ok: false, reason: "reserved-name" };
+            }
+        }
         return {ok: true, sanitized: name};
     }
 }
