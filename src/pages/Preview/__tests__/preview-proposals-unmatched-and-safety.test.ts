@@ -5,6 +5,13 @@ import type { MovieItem } from "../types";
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string, args: any) => {
     if (cmd === "sanitize_filename_cmd") {
+      return args.filename;
+    }
+    if (cmd === "compute_movie_destinations") {
+      const items = args.request?.items || [];
+      return items.map((item: any) => ({ rating_key: item.rating_key, proposed: item.base_name }));
+    }
+    if (cmd === "sanitize_filename_cmd") {
       // Echo back the filename to keep behavior simple for tests
       return args.filename;
     }

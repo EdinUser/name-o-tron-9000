@@ -2656,3 +2656,55 @@ pub fn compute_movie_destinations(
     Ok(results)
 }
 
+
+    #[test]
+    fn compute_relative_dirs_preserves_grouping_under_library_root() {
+        let library_roots = vec!["/media/Movies".to_string()];
+        let original = "/media/Movies/A-D/Nolan/Inception (2010).mkv";
+        let dirs = compute_relative_dirs(original, &library_roots);
+        assert_eq!(dirs, vec!["A-D".to_string(), "Nolan".to_string()]);
+    }
+
+    #[test]
+    fn compute_movie_destinations_respects_existing_grouping_and_own_folder() {
+        use serde_json::json;
+
+        let settings = json!({
+            "movies": {
+                "ownFolderPerMovie": true
+            }
+        });
+
+        // Movie directly under library root gets its own folder
+        let req1 = MovieDestinationRequest {
+            settings: settings.clone(),
+            library_roots: vec!["/media/Movies".to_string()],
+            items: vec![MovieDestinationItem {
+                rating_key: "rk1".to_string(),
+                original_path: "/media/Movies/Inception (2010).mkv".to_string(),
+                base_name: "Inception (2010).mkv".to_string(),
+                title: "Inception".to_string(),
+                year: Some(2010),
+            }],
+        };
+        let resp1 = compute_movie_destinations(req1).expect("destinations");
+        assert_eq!(resp1.len(), 1);
+        assert_eq!(resp1[0].proposed, "Inception/Inception (2010).mkv");
+
+        // Movie inside grouped folders keeps that grouping
+        let req2 = MovieDestinationRequest {
+            settings: settings.clone(),
+            library_roots: vec!["/media/Movies".to_string()],
+            items: vec![MovieDestinationItem {
+                rating_key: "rk2".to_string(),
+                original_path: "/media/Movies/A-D/Nolan/Inception (2010).mkv".to_string(),
+                base_name: "Inception (2010).mkv".to_string(),
+                title: "Inception".to_string(),
+                year: Some(2010),
+            }],
+        };
+        let resp2 = compute_movie_destinations(req2).expect("destinations");
+        assert_eq!(resp2.len(), 1);
+        assert_eq!(resp2[0].proposed, "A-D/Nolan/Inception (2010).mkv");
+    }
+

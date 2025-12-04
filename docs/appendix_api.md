@@ -74,45 +74,24 @@ test_mapping(args: {
   details: string;
 }>
 
-// Rename Operations
+// Subtitle-only preview/apply (used by video pipeline)
 preview_renames(args: {
   libraryId: string;
   scope: string;
   settings: any;
-}): Promise<{
-  video_operations: Array<{
-    old_path: string;
-    new_path: string;
-    status: 'green' | 'yellow' | 'red';
-    flags: string[];
-  }>;
-  subtitle_operations: Array<{
-    old_path: string;
-    new_path: string;
-    encoding?: string;
-  }>;
-  warnings: string[];
-  blocking_errors: string[];
-}>
+}): Promise<PreviewResult>
 
 apply_renames(args: {
   operations: any[];
   settings: any;
-}): Promise<{
-  success: boolean;
-  operations_applied: number;
-  operations_failed: number;
-  rollback_log_path: string;
-  errors: string[];
-}>
+}): Promise<ApplyResult>
 
-undo_last_rename(): Promise<{
-  success: boolean;
-  operations_applied: number;
-  operations_failed: number;
-  rollback_log_path: string;
-  errors: string[];
-}>
+// Main video + subtitles rename operations used by the Preview UI
+preview_video_renames(args: PreviewRenamesRequest): Promise<PreviewResult>
+
+apply_video_renames(args: ApplyRenamesRequest): Promise<ApplyResult>
+
+undo_last_rename(): Promise<ApplyResult>
 ```
 
 #### Settings & Security Commands
@@ -125,6 +104,11 @@ save_settings(settings: any): Promise<void>
 secure_save_token(token: string): Promise<void>
 secure_get_token(): Promise<string | null>
 secure_clear_token(): Promise<void>
+
+// Diagnostics & Logs
+export_diagnostic_bundle(): Promise<string>           // JSON bundle on disk, returns path
+export_diagnostic_bundle_zip(targetPath: string): Promise<string> // Creates anonymized ZIP bundle for bug reports
+export_preview_snapshot(snapshot: any): Promise<string>           // Saves anonymized preview snapshot JSON, returns path
 ```
 
 ## Configuration Deep Dive
