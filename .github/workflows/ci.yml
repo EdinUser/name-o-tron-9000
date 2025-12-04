@@ -10,22 +10,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    strategy:
-      matrix:
-        os: [ linux-self ]
-
-    # Use Mint for Linux self-hosted
+  # Linux self-hosted (Mint) – runs everything inside an Ubuntu container
+  test-linux:
     runs-on: mint
+    container:
+      image: ubuntu:22.04
 
     steps:
+      - name: Install system dependencies inside container
+        run: |
+          apt-get update
+          apt-get install -y \
+            curl \
+            git \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev \
+            libglib2.0-dev \
+            libpango1.0-dev \
+            libatk1.0-dev \
+            pkg-config \
+            build-essential
+
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20"
           cache: npm
 
       - name: Setup Rust
@@ -37,28 +51,6 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
-
-      # ---------------------------------------------
-      # OS-Specific Dependencies
-      # ---------------------------------------------
-
-      - name: Install system dependencies (Linux — running on your Mint)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libjavascriptcoregtk-4.1-dev \
-            libsoup-3.0-dev \
-            libglib2.0-dev \
-            libpango1.0-dev \
-            libatk1.0-dev \
-            pkg-config \
-            build-essential
-
-      # ---------------------------------------------
-      # Build + Test
-      # ---------------------------------------------
 
       - name: Install frontend dependencies
         run: npm ci
@@ -80,3 +72,49 @@ jobs:
         working-directory: ./src-tauri
         run: cargo test --test integration_tests
 
+  # Windows GitHub-hosted runner – kept as before
+  test-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install system dependencies (Windows)
+        run: echo "WebView2 runtime is already available"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli
+
+      - name: Run frontend type checking
+        run: npm run test:ci
+
+      - name: Run frontend tests
+        run: npm run test:run
+
+      - name: Run Rust tests
+        working-directory: ./src-tauri
+        run: cargo test
+
+      - name: Run Rust integration tests
+        working-directory: ./src-tauri
+        run: cargo test --test integration_tests
