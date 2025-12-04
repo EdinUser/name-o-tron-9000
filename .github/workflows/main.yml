@@ -12,6 +12,9 @@ jobs:
   # =====================================================
   build-linux:
     runs-on: [self-hosted, mint]
+    container:
+      image: ubuntu:22.04
+      options: --device=/dev/fuse --cap-add SYS_ADMIN
 
     steps:
       - name: Checkout code
@@ -21,8 +24,8 @@ jobs:
 
       - name: Install Linux dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
             build-essential \
             pkg-config \
             curl \
