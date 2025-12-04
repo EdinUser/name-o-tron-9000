@@ -2363,3 +2363,296 @@ fn apply_single_video_operation(operation: &crate::subtitle::RenameOperation) ->
 
     Ok(())
 }
+
+#[derive(Debug, Deserialize)]
+pub struct CleanupEmptyFoldersRequest {
+    pub server_id: String,
+    pub original_paths: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CleanupEmptyFoldersResult {
+    pub removed_directories: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+#[command]
+pub async fn cleanup_empty_folders(app: tauri::AppHandle, request: CleanupEmptyFoldersRequest) -> Result<CleanupEmptyFoldersResult, String> {
+    use std::path::PathBuf;
+
+    let mut removed_directories = Vec::new();
+    let mut errors = Vec::new();
+
+    // Load mappings so we can resolve Plex-style paths to local filesystem paths
+    let settings_result = crate::settings::get_settings(app);
+    let mappings: Vec<crate::path_map::PathMapping> = match settings_result {
+        Ok(settings) => {
+            let server_id = &request.server_id;
+
+            let hostname_only = if server_id.contains("://") {
+                if let Some(host_part) = server_id.split("://").nth(1) {
+                    host_part.split(':').next().unwrap_or(server_id)
+                } else {
+                    server_id
+                }
+            } else {
+                server_id
+            };
+
+            let filtered_mappings: Vec<_> = settings
+                .get("pathMappings")
+                .and_then(|pm| pm.as_array())
+                .unwrap_or(&Vec::new())
+                .iter()
+                .filter_map(|m| {
+                    let obj = m.as_object()?;
+                    let mapping_server_id = obj.get("server_id")?.as_str()?;
+
+                    let mapping_hostname = if mapping_server_id.contains("://") {
+                        if let Some(host_part) = mapping_server_id.split("://").nth(1) {
+                            host_part.split(':').next().unwrap_or(mapping_server_id)
+                        } else {
+                            mapping_server_id
+                        }
+                    } else {
+                        mapping_server_id
+                    };
+
+                    let exact_match = mapping_server_id == server_id;
+                    let hostname_match = mapping_hostname == hostname_only;
+
+                    if !exact_match && !hostname_match {
+                        return None;
+                    }
+
+                    let plex_root = obj.get("plex_root")?.as_str()?;
+                    let local_root = obj.get("local_root")?.as_str()?;
+                    let platform = obj.get("platform").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+                    Some(crate::path_map::PathMapping {
+                        server_id: mapping_server_id.to_string(),
+                        plex_root: plex_root.to_string(),
+                        local_root: local_root.to_string(),
+                        platform,
+                    })
+                })
+                .collect();
+
+            filtered_mappings
+        }
+        Err(e) => {
+            let msg = format!("Failed to get settings: {}", e);
+            crate::logging::log_event(
+                "ERROR",
+                "cleanup_empty_folders",
+                &msg,
+                serde_json::json!({ "server_id": request.server_id }),
+            );
+            return Err(msg);
+        }
+    };
+
+    // Collect candidate directories from original paths
+    let mut candidate_dirs: Vec<PathBuf> = Vec::new();
+    for original in &request.original_paths {
+        let resolved = if crate::path_map::is_already_local_path(original, &mappings, &request.server_id, None) {
+            PathBuf::from(original)
+        } else if let Some(resolved) = crate::path_map::resolve_plex_path(original, &mappings, &request.server_id, None) {
+            resolved
+        } else {
+            errors.push(format!("Failed to resolve path for empty-folder check: {}", original));
+            continue;
+        };
+
+        if let Some(parent) = resolved.parent() {
+            candidate_dirs.push(parent.to_path_buf());
+        }
+    }
+
+    // De-duplicate directories
+    candidate_dirs.sort();
+    candidate_dirs.dedup();
+
+    for dir in candidate_dirs {
+        let mut current = dir.clone();
+
+        // Walk upwards a few levels, removing empty directories under the mapped library roots
+        for _ in 0..4 {
+            if !current.exists() {
+                break;
+            }
+            if !current.is_dir() {
+                break;
+            }
+
+            // Ensure this directory is under one of the mapped local roots
+            let is_under_mapped_root = mappings.iter().any(|m| {
+                let root = PathBuf::from(&m.local_root);
+                current.starts_with(&root)
+            });
+            if !is_under_mapped_root {
+                break;
+            }
+
+            // Check if directory is empty
+            match std::fs::read_dir(&current) {
+                Ok(mut entries) => {
+                    if entries.next().is_some() {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    errors.push(format!("Failed to read directory {}: {}", current.to_string_lossy(), e));
+                    break;
+                }
+            }
+
+            // Remove the empty directory
+            match std::fs::remove_dir(&current) {
+                Ok(_) => {
+                    removed_directories.push(current.to_string_lossy().to_string());
+                }
+                Err(e) => {
+                    errors.push(format!("Failed to remove directory {}: {}", current.to_string_lossy(), e));
+                    break;
+                }
+            }
+
+            // Move one level up; stop if there is no parent
+            if let Some(parent) = current.parent() {
+                current = parent.to_path_buf();
+            } else {
+                break;
+            }
+        }
+    }
+
+    Ok(CleanupEmptyFoldersResult {
+        removed_directories,
+        errors,
+    })
+}
+
+
+// Movie destination helpers for frontend preview (folder logic SPOT)
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MovieDestinationItem {
+    pub rating_key: String,
+    pub original_path: String,
+    pub base_name: String,
+    pub title: String,
+    pub year: Option<i32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MovieDestinationRequest {
+    pub settings: serde_json::Value,
+    pub library_roots: Vec<String>,
+    pub items: Vec<MovieDestinationItem>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MovieDestinationResponseItem {
+    pub rating_key: String,
+    pub proposed: String,
+}
+
+fn normalize_plex_path(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
+fn compute_relative_dirs(original_path: &str, library_roots: &[String]) -> Vec<String> {
+    let normalized = normalize_plex_path(original_path);
+
+    // Find the longest matching library root prefix (Plex paths)
+    let mut best_prefix_len: usize = 0;
+    let mut best_root: Option<String> = None;
+
+    for root in library_roots {
+        let root_norm = normalize_plex_path(root).trim_end_matches('/').to_string();
+        if !root_norm.is_empty()
+            && normalized.starts_with(&root_norm)
+            && root_norm.len() > best_prefix_len
+        {
+            best_prefix_len = root_norm.len();
+            best_root = Some(root_norm);
+        }
+    }
+
+    let relative = if let Some(root) = best_root {
+        let mut tail = normalized[root.len()..].to_string();
+        if tail.starts_with('/') {
+            tail.remove(0);
+        }
+        tail
+    } else {
+        normalized.trim_start_matches('/').to_string()
+    };
+
+    let parts: Vec<&str> = relative.split('/').filter(|p| !p.is_empty()).collect();
+    if parts.is_empty() {
+        return Vec::new();
+    }
+
+    parts[..parts.len() - 1]
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
+}
+
+fn compute_movie_destination_for_item(
+    item: &MovieDestinationItem,
+    relative_dirs: &[String],
+    movie_settings: &serde_json::Value,
+) -> String {
+    let own_folder_per_movie = movie_settings
+        .get("ownFolderPerMovie")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
+    let mut segments: Vec<String> = Vec::new();
+
+    if relative_dirs.is_empty() {
+        if own_folder_per_movie {
+            let folder = safe_folder_name(&item.title);
+            segments.push(folder);
+        }
+    } else {
+        // Preserve existing grouping structure; do not reorganize directories here.
+        segments.extend(relative_dirs.iter().cloned());
+    }
+
+    if segments.is_empty() {
+        item.base_name.clone()
+    } else {
+        let mut path = segments.join("/");
+        path.push('/');
+        path.push_str(&item.base_name);
+        path
+    }
+}
+
+#[command]
+pub fn compute_movie_destinations(
+    request: MovieDestinationRequest,
+) -> Result<Vec<MovieDestinationResponseItem>, String> {
+    let movie_settings = request
+        .settings
+        .get("movies")
+        .ok_or("Missing movie settings")?;
+
+    let mut results: Vec<MovieDestinationResponseItem> = Vec::new();
+
+    for item in &request.items {
+        let relative_dirs = compute_relative_dirs(&item.original_path, &request.library_roots);
+        let proposed = compute_movie_destination_for_item(item, &relative_dirs, movie_settings);
+        results.push(MovieDestinationResponseItem {
+            rating_key: item.rating_key.clone(),
+            proposed,
+        });
+    }
+
+    Ok(results)
+}
+

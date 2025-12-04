@@ -54,6 +54,32 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [searching, setSearching] = useState(false);
     const [previewLoading, setPreviewLoading] = useState(false);
 
+    // Apply / cleanup state
+    const [applyInProgress, setApplyInProgress] = useState(false);
+    const [applyOperationCount, setApplyOperationCount] = useState(0);
+    const [lastApplySummary, setLastApplySummary] = useState<{
+        operationsApplied: number;
+        operationsFailed: number;
+        rollbackLogPath: string;
+        operations: {
+            operation_type: string;
+            original_path: string;
+            new_path: string;
+            backup_path: string | null;
+            operation_id: string;
+        }[];
+    } | null>(null);
+    const [cleanupInProgress, setCleanupInProgress] = useState(false);
+    const [cleanupResult, setCleanupResult] = useState<{
+        removed_directories: string[];
+        errors: string[];
+    } | null>(null);
+
+    function clearApplySummary() {
+        setLastApplySummary(null);
+        setCleanupResult(null);
+    }
+
     // Season filtering for TV shows
     const [selectedSeason, setSelectedSeason] = useState<number | "all" | null>(null);
     const [availableSeasons, setAvailableSeasons] = useState<number[]>([]);
@@ -394,7 +420,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             }
 
             setRows(list);
-            setSelectedIds(new Set(list.filter(r => r.status !== "error").map(r => r.id)));
+            setSelectedIds(new Set());
 
             // Calculate available seasons for TV shows
             if (library.type === "show") {
@@ -694,7 +720,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     }
 
     function skipReds() {
-        setSelectedIds(new Set(rows.filter(r => r.status !== "error").map(r => r.id)));
+        // Prefer current filtered view so behaviour matches what user sees
+        setSelectedIds(new Set(filteredRows.filter(r => r.status !== "error").map(r => r.id)));
     }
 
     function togglePageSelection() {
@@ -713,14 +740,31 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     }
 
     async function applyRename() {
-        if (anyRedSelected) return;
+        // Extra guard – button is already disabled when anyRedSelected
+        if (anyRedSelected) {
+            alert("Cannot proceed while any selected items are red. Use “Skip Reds” or fix blocking issues first.");
+            return;
+        }
+
+        console.log("[Preview] Proceed clicked", {
+            totalRows: rows.length,
+            visibleRows: displayRows.length,
+            selectedIds: Array.from(selectedIds),
+        });
 
         setLoading(true);
         try {
             // Collect all operations (video + subtitle)
-            const operations = [];
+            const operations: {
+                operation_type: string;
+                original_path: string;
+                new_path: string;
+                backup_path: string | null;
+                operation_id: string;
+            }[] = [];
 
-            for (const row of rows) {
+            // Only operate on the current filtered set (season/search/status)
+            for (const row of pageRows) {
                 if (selectedIds.has(row.id)) {
                     // Add video operation
                     operations.push({
@@ -746,7 +790,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 }
             }
 
-            if (operations.length === 0) return;
+            if (operations.length === 0) {
+                alert("No items are selected to rename. Toggle at least one row on this page and try again.");
+                return;
+            }
+
+            setApplyInProgress(true);
+            setApplyOperationCount(operations.length);
 
             const result = await invoke<any>("apply_video_renames", {
                 request: {
@@ -756,9 +806,14 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 }
             });
 
-            if (result.success) {
-                alert(`Successfully applied ${result.operations_applied} operations.\nRollback log saved to: ${result.rollback_log_path}`);
-            } else {
+            setLastApplySummary({
+                operationsApplied: result.operations_applied,
+                operationsFailed: result.operations_failed,
+                rollbackLogPath: result.rollback_log_path,
+                operations,
+            });
+
+            if (!result.success) {
                 // Log detailed errors to console
                 console.error("Failed to apply renames:", {
                     operations_applied: result.operations_applied,
@@ -779,6 +834,47 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             alert(`Failed to apply renames: ${error}`);
         } finally {
             setLoading(false);
+            setApplyInProgress(false);
+        }
+    }
+
+    async function removeEmptyFolders() {
+        if (!lastApplySummary) return;
+
+        setCleanupInProgress(true);
+        setCleanupResult(null);
+        try {
+            const originalPaths = lastApplySummary.operations
+                .filter(op => op.operation_type === "rename")
+                .map(op => op.original_path);
+
+            if (originalPaths.length === 0) {
+                setCleanupResult({
+                    removed_directories: [],
+                    errors: ["No rename operations available to derive directories from."],
+                });
+                return;
+            }
+
+            const result = await invoke<any>("cleanup_empty_folders", {
+                request: {
+                    server_id: generateServerId(server),
+                    original_paths: originalPaths,
+                }
+            });
+
+            setCleanupResult({
+                removed_directories: result.removed_directories || [],
+                errors: result.errors || [],
+            });
+        } catch (error) {
+            console.error("Failed to remove empty folders:", error);
+            setCleanupResult({
+                removed_directories: [],
+                errors: [String(error)],
+            });
+        } finally {
+            setCleanupInProgress(false);
         }
     }
 
@@ -1174,6 +1270,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             onLoadMoreMusic={() => loadMoreMusic()}
             onLoadMoreEpisodes={() => loadMoreEpisodes()}
             onSetSelectedSeason={setSelectedSeason}
+            applyInProgress={applyInProgress}
+            applyOperationCount={applyOperationCount}
+            lastApplySummary={lastApplySummary}
+            cleanupInProgress={cleanupInProgress}
+            cleanupResult={cleanupResult}
+            onRemoveEmptyFolders={removeEmptyFolders}
+            onCloseApplySummary={clearApplySummary}
         />
     );
 }

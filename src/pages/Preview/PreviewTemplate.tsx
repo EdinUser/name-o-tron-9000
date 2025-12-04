@@ -74,6 +74,27 @@ type TemplateProps = {
     selectedSeason: number | "all" | null;
     availableSeasons: number[];
     onSetSelectedSeason: (season: number | "all" | null) => void;
+    applyInProgress: boolean;
+    applyOperationCount: number;
+    lastApplySummary: {
+        operationsApplied: number;
+        operationsFailed: number;
+        rollbackLogPath: string;
+        operations: {
+            operation_type: string;
+            original_path: string;
+            new_path: string;
+            backup_path: string | null;
+            operation_id: string;
+        }[];
+    } | null;
+    cleanupInProgress: boolean;
+    cleanupResult: {
+        removed_directories: string[];
+        errors: string[];
+    } | null;
+    onRemoveEmptyFolders: () => void;
+    onCloseApplySummary: () => void;
 };
 
 export default function PreviewTemplate({
@@ -135,6 +156,13 @@ export default function PreviewTemplate({
     selectedSeason,
     availableSeasons,
     onSetSelectedSeason,
+    applyInProgress,
+    applyOperationCount,
+    lastApplySummary,
+    cleanupInProgress,
+    cleanupResult,
+    onRemoveEmptyFolders,
+    onCloseApplySummary,
 }: TemplateProps) {
     return (
         <main className="min-h-screen bg-neutral-900 text-neutral-100" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
@@ -747,6 +775,90 @@ export default function PreviewTemplate({
                             >
                                 Undo Last Rename
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Apply progress overlay */}
+            {applyInProgress && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center" style={{ zIndex: 12000 }}>
+                    <div className="bg-neutral-900 border border-neutral-700 rounded-lg px-6 py-5 max-w-sm w-full mx-4">
+                        <h3 className="text-lg font-semibold text-neutral-100 mb-2">Applying renames…</h3>
+                        <p className="text-sm text-neutral-300 mb-3">
+                            {applyOperationCount > 0
+                                ? `Processing ${applyOperationCount} filesystem operations (videos and subtitles).`
+                                : "Processing filesystem operations (videos and subtitles)."}
+                        </p>
+                        <div className="h-2 w-full bg-neutral-800 rounded">
+                            <div className="h-2 w-full bg-cyan-600 rounded" />
+                        </div>
+                        <p className="mt-3 text-xs text-neutral-500">
+                            This may take a moment. Please keep Name‑o‑Tron 9000 open until it completes.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Apply summary + remove empty folders modal */}
+            {lastApplySummary && !applyInProgress && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center" style={{ zIndex: 12000 }}>
+                    <div className="bg-neutral-900 border border-neutral-700 rounded-lg px-6 py-5 max-w-lg w-full mx-4">
+                        <h3 className="text-lg font-semibold text-neutral-100 mb-3">Rename summary</h3>
+                        <p className="text-sm text-neutral-300 mb-1">
+                            Operations applied: <span className="font-semibold text-neutral-100">{lastApplySummary.operationsApplied}</span>
+                        </p>
+                        <p className="text-sm text-neutral-300 mb-3">
+                            Operations failed: <span className="font-semibold text-neutral-100">{lastApplySummary.operationsFailed}</span>
+                        </p>
+                        <p className="text-xs text-neutral-400 mb-4">
+                            Rollback log: <span className="font-mono break-all">{lastApplySummary.rollbackLogPath}</span>
+                        </p>
+
+                        <div className="border-t border-neutral-800 pt-3 mt-2">
+                            <h4 className="text-sm font-semibold text-neutral-100 mb-2">Remove empty folders?</h4>
+                            <p className="text-sm text-neutral-300 mb-3">
+                                You can clean up folders that became completely empty as a result of this rename batch. Only truly empty
+                                directories under the affected library paths will be removed.
+                            </p>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={onRemoveEmptyFolders}
+                                    disabled={cleanupInProgress}
+                                    className="px-4 py-2 text-sm rounded-md bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
+                                >
+                                    {cleanupInProgress ? "Removing empty folders…" : "Remove empty folders"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={onCloseApplySummary}
+                                    className="px-4 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
+                                >
+                                    Close
+                                </button>
+                            </div>
+
+                            {cleanupResult && (
+                                <div className="mt-3 text-xs text-neutral-300">
+                                    <p className="mb-1">
+                                        Removed folders:{" "}
+                                        <span className="font-semibold">
+                                            {cleanupResult.removed_directories.length}
+                                        </span>
+                                    </p>
+                                    {cleanupResult.errors.length > 0 && (
+                                        <div className="mt-1 text-red-300">
+                                            {cleanupResult.errors.slice(0, 3).map((err, idx) => (
+                                                <div key={idx}>• {err}</div>
+                                            ))}
+                                            {cleanupResult.errors.length > 3 && (
+                                                <div>• …and more errors (see logs)</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
