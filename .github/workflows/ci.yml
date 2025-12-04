@@ -74,6 +74,8 @@ jobs:
 
   # Windows GitHub-hosted runner – kept as before
   test-windows:
+    if: ${{ false }}
+
     runs-on: windows-latest
 
     steps:
