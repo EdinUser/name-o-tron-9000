@@ -27,6 +27,7 @@ jobs:
             pkg-config \
             curl \
             git \
+            xdg-utils \
             libgtk-3-dev \
             libwebkit2gtk-4.1-dev \
             libjavascriptcoregtk-4.1-dev \
@@ -57,10 +58,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: |
-          npm run test:ci
-          cd src-tauri && cargo test
+      # Tests are run in CI on PRs to main; skipping here for faster release builds.
+      # - name: Run tests
+      #   run: |
+      #     npm run test:ci
+      #     cd src-tauri && cargo test
 
       - name: Build Tauri App (Linux)
         uses: tauri-apps/tauri-action@v0
@@ -111,10 +113,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: |
-          npm run test:ci
-          cd src-tauri && cargo test
+      # Tests are run in CI on PRs to main; skipping here for faster release builds.
+      # - name: Run tests
+      #   run: |
+      #     npm run test:ci
+      #     cd src-tauri && cargo test
 
       - name: Build Tauri App (Windows)
         uses: tauri-apps/tauri-action@v0
@@ -135,7 +138,7 @@ jobs:
   # DEPLOY
   # =====================================================
   deploy:
-    needs: [build-linux, build-windows]
+    needs: [build-linux]
     runs-on: ubuntu-latest
 
     steps:
@@ -163,9 +166,8 @@ jobs:
           ls installers/tauri-installers-linux | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
           echo "    ]," >> release.json
 
-          echo -n "    \"windows\": [" >> release.json
-          ls installers/tauri-installers-windows | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
-          echo "    ]" >> release.json
+          # Windows builds are currently disabled; keep key for schema compatibility but leave it empty.
+          echo "    \"windows\": []" >> release.json
 
           echo "  }" >> release.json
           echo "}" >> release.json
