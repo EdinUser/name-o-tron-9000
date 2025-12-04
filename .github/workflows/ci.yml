@@ -13,10 +13,10 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ linux-self, windows-latest ]
+        os: [ linux-self ]
 
-    # Use Mint for Linux, GitHub for Windows/macOS
-    runs-on: ${{ matrix.os == 'linux-self' && '[mint]' || matrix.os }}
+    # Use Mint for Linux self-hosted
+    runs-on: mint
 
     steps:
       - name: Checkout code
@@ -25,8 +25,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
+          cache: npm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -43,7 +43,6 @@ jobs:
       # ---------------------------------------------
 
       - name: Install system dependencies (Linux — running on your Mint)
-        if: matrix.os == 'linux-self'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -56,10 +55,6 @@ jobs:
             libatk1.0-dev \
             pkg-config \
             build-essential
-
-      - name: Install system dependencies (Windows)
-        if: matrix.os == 'windows-latest'
-        run: echo "WebView2 runtime is already available"
 
       # ---------------------------------------------
       # Build + Test
@@ -84,3 +79,4 @@ jobs:
       - name: Run Rust integration tests
         working-directory: ./src-tauri
         run: cargo test --test integration_tests
+
