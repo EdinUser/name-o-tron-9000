@@ -73,6 +73,8 @@ jobs:
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y \
             fuse3 \
+            libfuse2 \
+            squashfs-tools \
             libglib2.0-0 \
             libgdk-pixbuf2.0-0 \
             libcairo-gobject2 \
@@ -92,6 +94,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
+          APPIMAGE_EXTRACT_AND_RUN: "1"
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
