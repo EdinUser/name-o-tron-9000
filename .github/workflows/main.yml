@@ -63,6 +63,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Make linuxdeploy binaries executable
+        run: |
+          # Make downloaded AppImages executable (they're downloaded during build)
+          find src-tauri/target/release/bundle/appimage -name "*.AppImage" -type f -exec chmod +x {} \; 2>/dev/null || true
+
+      - name: Install additional linuxdeploy dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            fuse3 \
+            libglib2.0-0 \
+            libgdk-pixbuf2.0-0 \
+            libcairo-gobject2 \
+            libpango-1.0-0 \
+            libatk1.0-0 \
+            libcairo2 \
+            libgtk-3-0 \
+            libgdk-pixbuf2.0-0
+
       # Tests are run in CI on PRs to main; skipping here for faster release builds.
       # - name: Run tests
       #   run: |
