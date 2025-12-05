@@ -96,15 +96,26 @@ jobs:
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
           APPIMAGE_EXTRACT_AND_RUN: "1"
           DEBUG: "tauri,bundle,linuxdeploy,appimage"
-          RUST_LOG: "info"
-          TAURI_LOG: "info"
+          RUST_LOG: "tauri_bundler=trace,tauri=trace,info"
+          TAURI_LOG: "trace"
           APPIMAGE_TOOL_DEBUG: "1"
+          VERBOSE: "1"
+          LINUXDEPLOY_LOG_LEVEL: "debug"
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
           releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || '' }}
           releaseDraft: false
           prerelease: false
+          args: --log-level trace
+
+      - name: Show linuxdeploy/appimage logs (if any)
+        if: failure()
+        run: |
+          echo "== Listing appimage bundle dir =="
+          ls -la src-tauri/target/release/bundle/appimage || true
+          echo "== Tail possible logs =="
+          find src-tauri/target/release/bundle/appimage -type f -maxdepth 2 \( -name "*.log" -o -name "*.txt" \) -print -exec tail -n 50 {} \; || true
 
       - name: Upload Linux installers
         uses: actions/upload-artifact@v4
