@@ -50,7 +50,8 @@ It requires access to a Plex Media Server and its metadata.
 - **macOS** (Intel/Apple Silicon, .dmg installer)
 - **Linux** (AppImage, .deb, .rpm packages)
 
-Download from the [releases page](https://github.com/your-repo/releases) and follow the platform-specific installation instructions.
+Download directly from the live site: https://name-o-tron.kirilov.dev/downloads/  
+Docs are hosted at https://name-o-tron.kirilov.dev/ (built from the `docs/` folder).
 
 ### Building from Source
 

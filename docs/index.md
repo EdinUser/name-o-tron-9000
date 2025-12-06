@@ -78,7 +78,7 @@ Name-o-Tron 9000 is designed specifically for Plex users who want to maintain pr
 - **Administrative access** to both Plex server and local files
 
 ### Installation
-- **Download** from releases (Linux/macOS/Windows)
+- **Download** from https://name-o-tron.kirilov.dev/downloads/ (Linux/macOS/Windows installers published by CI)
 - **Build from source** (see [Building from Source](appendix_build.md))
 
 ### First Launch Workflow

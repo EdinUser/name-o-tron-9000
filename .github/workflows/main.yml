@@ -184,14 +184,18 @@ jobs:
         with:
           path: installers/
 
+      - name: Stage installers for upload
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.app-version.outputs.version }}"
+          STAGE="upload/${VERSION}"
+          mkdir -p "$STAGE"
+          find installers -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.exe" -o -name "*.msi" -o -name "*.dmg" \) -exec cp {} "$STAGE"/ \;
+          ls -lah "$STAGE"
+
       - name: Generate revision metadata
         run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            VERSION="${GITHUB_REF_NAME}"
-          else
-            VERSION="rev-$(date -u +'%Y%m%d-%H%M%S')"
-          fi
-
+          VERSION="${{ steps.app-version.outputs.version }}"
           DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
           echo "{" > release.json
@@ -200,7 +204,7 @@ jobs:
           echo "  \"platforms\": {" >> release.json
 
           echo -n "    \"linux\": [" >> release.json
-          ls installers/tauri-installers-linux | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
+          ls upload/${VERSION} | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
           echo "    ]," >> release.json
 
           # Windows builds are currently disabled; keep key for schema compatibility but leave it empty.
@@ -234,7 +238,7 @@ jobs:
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 10222
-          source: "installers/**"
+          source: "upload/${{ steps.app-version.outputs.version }}/**"
           target: "/var/www/name-o-tron.kirilov.dev/web/downloads/${{ steps.app-version.outputs.version }}/"
 
       - name: Upload release.json
