@@ -12,15 +12,6 @@ jobs:
   # =====================================================
   build-linux:
     runs-on: [self-hosted, mint]
-    container:
-      image: ubuntu:22.04
-      options: >-
-        --privileged
-        --device=/dev/fuse
-        --cap-add SYS_ADMIN
-        --security-opt apparmor:unconfined
-        --tmpfs /tmp:exec
-        --tmpfs /run:exec
 
     steps:
       - name: Checkout code
