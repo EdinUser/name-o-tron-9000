@@ -1,13 +1,10 @@
 name: Build & Deploy Docs (MkDocs)
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - "docs/**"
-      - "mkdocs.yml"
-      - ".github/workflows/docs-site.yml"
-      - "README.md"
+  workflow_run:
+    workflows: ["Build Name-o-Tron 9000 App (Cross-Platform)"]
+    types:
+      - completed
   workflow_dispatch:
 
 concurrency:
@@ -16,6 +13,7 @@ concurrency:
 
 jobs:
   build-and-deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
 
     steps:

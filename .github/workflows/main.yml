@@ -184,6 +184,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Read version from package.json
         id: app-version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
@@ -268,3 +271,4 @@ jobs:
             chown -R web22:client1 /var/www/name-o-tron.kirilov.dev/web/
             find /var/www/name-o-tron.kirilov.dev/web/ -type d -exec chmod 755 {} \;
             find /var/www/name-o-tron.kirilov.dev/web/ -type f -exec chmod 644 {} \;
+
