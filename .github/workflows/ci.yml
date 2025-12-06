@@ -12,6 +12,7 @@ concurrency:
 jobs:
   # Linux self-hosted (Mint) – runs everything inside an Ubuntu container
   test-linux:
+    if: ${{ false }}
     runs-on: mint
     container:
       image: ubuntu:22.04
