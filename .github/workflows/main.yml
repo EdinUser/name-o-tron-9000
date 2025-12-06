@@ -12,6 +12,8 @@ jobs:
   # =====================================================
   build-linux:
     runs-on: [self-hosted, mint]
+    env:
+      SKIP_APT_INSTALL: "true"
 
     steps:
       - name: Checkout code
@@ -20,9 +22,10 @@ jobs:
           clean: false
 
       - name: Install Linux dependencies
+        if: ${{ env.SKIP_APT_INSTALL != 'true' }}
         run: |
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
             build-essential \
             pkg-config \
             curl \
@@ -66,9 +69,10 @@ jobs:
           find src-tauri/target/release/bundle/appimage -name "*.AppImage" -type f -exec chmod +x {} \; 2>/dev/null || true
 
       - name: Install additional linuxdeploy dependencies
+        if: ${{ env.SKIP_APT_INSTALL != 'true' }}
         run: |
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
             fuse3 \
             libfuse2 \
             squashfs-tools \
