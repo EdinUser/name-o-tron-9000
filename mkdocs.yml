@@ -4,8 +4,12 @@ site_description: "User guide and reference for Name-o-Tron 9000"
 docs_dir: docs
 theme:
   name: material
+plugins:
+  - search
+  - macros
 nav:
   - Home: index.md
+  - Downloads: downloads.md
   - Features: features.md
   - Settings: settings.md
   - Tips & Best Practices: tips.md
