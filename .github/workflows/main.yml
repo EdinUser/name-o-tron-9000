@@ -135,19 +135,7 @@ jobs:
       - name: Read version from package.json
         id: app-version-win
         shell: bash
-        run: |
-          VER=$(node -p "require('./package.json').version")
-          WIN_VER=$(node -e "const v=require('./package.json').version; const m=v.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/); if(!m){console.error('Unsupported version: '+v); process.exit(1);} let build='0'; if(m[4]){ const num=m[4].match(/\\d+/); if(num) build=num[0]; } console.log(`${m[1]}.${m[2]}.${m[3]}.${build}`);")
-          echo "version=$VER" >> $GITHUB_OUTPUT
-          echo "win_version=$WIN_VER" >> $GITHUB_OUTPUT
-
-      - name: Patch tauri.conf.json version for Windows MSI
-        shell: pwsh
-        run: |
-          $ver = "${{ steps.app-version-win.outputs.win_version }}"
-          $json = Get-Content "src-tauri/tauri.conf.json" | ConvertFrom-Json
-          $json.version = $ver
-          $json | ConvertTo-Json -Depth 10 | Set-Content "src-tauri/tauri.conf.json"
+        run: echo "version=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -171,7 +159,7 @@ jobs:
       - name: Build Tauri App (Windows)
         uses: tauri-apps/tauri-action@v0
         env:
-          TAURI_BUILD_VERSION: ${{ steps.app-version-win.outputs.win_version }}
+          TAURI_BUILD_VERSION: ${{ steps.app-version-win.outputs.version }}
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
