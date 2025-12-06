@@ -141,6 +141,14 @@ jobs:
           echo "version=$VER" >> $GITHUB_OUTPUT
           echo "win_version=$WIN_VER" >> $GITHUB_OUTPUT
 
+      - name: Patch tauri.conf.json version for Windows MSI
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.app-version-win.outputs.win_version }}"
+          $json = Get-Content "src-tauri/tauri.conf.json" | ConvertFrom-Json
+          $json.version = $ver
+          $json | ConvertTo-Json -Depth 10 | Set-Content "src-tauri/tauri.conf.json"
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
