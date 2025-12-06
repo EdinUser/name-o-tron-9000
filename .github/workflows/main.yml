@@ -205,23 +205,10 @@ jobs:
 
       - name: Generate revision metadata
         run: |
+          set -euo pipefail
           VERSION="${{ steps.app-version.outputs.version }}"
           DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-          echo "{" > release.json
-          echo "  \"version\": \"${VERSION}\"," >> release.json
-          echo "  \"date\": \"${DATE}\"," >> release.json
-          echo "  \"platforms\": {" >> release.json
-
-          echo -n "    \"linux\": [" >> release.json
-          ls upload/${VERSION} | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
-          echo "    ]," >> release.json
-
-          # Windows builds are currently disabled; keep key for schema compatibility but leave it empty.
-          echo "    \"windows\": []" >> release.json
-
-          echo "  }" >> release.json
-          echo "}" >> release.json
+          python scripts/generate_release.py "$VERSION" "$DATE"
 
       # Upload metadata to artifacts
       - name: Upload metadata
