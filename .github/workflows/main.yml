@@ -120,7 +120,7 @@ jobs:
   build-windows:
     # Temporarily disabled while testing Linux-only builds.
     # Remove or change this condition to re-enable Windows builds.
-    if: ${{ false }}
+    # if: ${{ false }}
     runs-on: windows-latest
 
     steps:
