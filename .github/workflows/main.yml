@@ -92,70 +92,16 @@ jobs:
       #     cd src-tauri && cargo test
 
       - name: Build Tauri App (Linux)
-        id: tauri-build
-        continue-on-error: true
         uses: tauri-apps/tauri-action@v0
         env:
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
           APPIMAGE_EXTRACT_AND_RUN: "1"
-          DEBUG: "tauri,bundle,linuxdeploy,appimage"
-          RUST_LOG: "tauri_bundler=trace,tauri=trace,info"
-          TAURI_LOG: "trace"
-          APPIMAGE_TOOL_DEBUG: "1"
-          VERBOSE: "1"
-          LINUXDEPLOY_LOG_LEVEL: "debug"
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
           releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || '' }}
           releaseDraft: false
           prerelease: false
-
-      - name: Debug linuxdeploy and AppImage artifacts
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Build outcome: ${{ steps.tauri-build.outcome }}"
-          echo "== Bundle directory tree =="
-          find src-tauri/target/release/bundle -maxdepth 4 -type f -printf "%p\n" || true
-          APPDIR="src-tauri/target/release/bundle/appimage/name-o-tron-9000.AppDir"
-          if [[ -d "$APPDIR" ]]; then
-            echo "AppDir contents:"
-            find "$APPDIR" -maxdepth 3 -type f -printf "%p\n" || true
-          else
-            echo "AppDir not found: $APPDIR"
-          fi
-          echo "Locating linuxdeploy AppImage binaries..."
-          LD_BIN=$(find "$HOME/.cache" -name 'linuxdeploy*.AppImage' -print | head -n 1 || true)
-          echo "linuxdeploy found: ${LD_BIN:-none}"
-          if [[ -n "$LD_BIN" ]]; then
-            chmod +x "$LD_BIN" || true
-            echo "Running linuxdeploy manually with verbosity 3..."
-            APPIMAGE_EXTRACT_AND_RUN=1 "$LD_BIN" --verbosity 3 --appdir "$APPDIR" --plugin gtk --output appimage 2>&1 | tee /tmp/linuxdeploy.log || true
-            echo "--- linuxdeploy log tail ---"
-            tail -n 200 /tmp/linuxdeploy.log || true
-          fi
-
-      - name: Ensure AppImage exists (fail if missing)
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          APPIMAGE_FILE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage 2>/dev/null | head -n 1 || true)
-          echo "Detected AppImage: ${APPIMAGE_FILE:-none}"
-          if [[ -z "$APPIMAGE_FILE" ]]; then
-            echo "AppImage not produced"
-            exit 1
-          fi
-
-      - name: Show linuxdeploy/appimage logs (if any)
-        if: failure()
-        run: |
-          echo "== Listing appimage bundle dir =="
-          ls -la src-tauri/target/release/bundle/appimage || true
-          echo "== Tail possible logs =="
-          find src-tauri/target/release/bundle/appimage -type f -maxdepth 2 \( -name "*.log" -o -name "*.txt" \) -print -exec tail -n 50 {} \; || true
 
       - name: Upload Linux installers
         uses: actions/upload-artifact@v4
@@ -268,7 +214,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: 1022
+          port: 10222
           source: "installers/**"
           target: "/var/www/name-o-tron.kirilov.dev/web/downloads/"
 
@@ -278,7 +224,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: 1022
+          port: 10222
           source: "release.json"
           target: "/var/www/name-o-tron.kirilov.dev/web/"
 
@@ -288,7 +234,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: 1022
+          port: 10222
           script: |
             chown -R web22:client1 /var/www/name-o-tron.kirilov.dev/web/
             find /var/www/name-o-tron.kirilov.dev/web/ -type d -exec chmod 755 {} \;
