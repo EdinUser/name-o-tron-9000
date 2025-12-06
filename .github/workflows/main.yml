@@ -238,6 +238,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 10222
           source: "upload/${{ steps.app-version.outputs.version }}/**"
+          strip_components: 2
           target: "/var/www/name-o-tron.kirilov.dev/web/downloads/${{ steps.app-version.outputs.version }}/"
 
       - name: Upload release.json
