@@ -23,7 +23,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          clean: false
+          clean: true
 
       - name: Install Linux dependencies
         if: ${{ env.SKIP_APT_INSTALL != 'true' }}
@@ -75,8 +75,8 @@ jobs:
       - name: Install additional linuxdeploy dependencies
         if: ${{ env.SKIP_APT_INSTALL != 'true' }}
         run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          sudo -n apt-get update
+          sudo -n DEBIAN_FRONTEND=noninteractive apt-get install -y \
             fuse3 \
             libfuse2 \
             squashfs-tools \
