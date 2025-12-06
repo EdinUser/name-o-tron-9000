@@ -120,7 +120,6 @@ jobs:
   build-windows:
     # Temporarily disabled while testing Linux-only builds.
     # Remove or change this condition to re-enable Windows builds.
-    if: ${{ false }}
     runs-on: windows-latest
 
     steps:
@@ -132,6 +131,14 @@ jobs:
         with:
           node-version: 20
           cache: npm
+
+      - name: Read version from package.json
+        id: app-version-win
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Windows build version: $version"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -154,6 +161,8 @@ jobs:
 
       - name: Build Tauri App (Windows)
         uses: tauri-apps/tauri-action@v0
+        env:
+          TAURI_BUILD_VERSION: ${{ steps.app-version-win.outputs.version }}
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
@@ -171,10 +180,13 @@ jobs:
   # DEPLOY
   # =====================================================
   deploy:
-    needs: [build-linux]
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Read version from package.json
         id: app-version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
@@ -195,23 +207,10 @@ jobs:
 
       - name: Generate revision metadata
         run: |
+          set -euo pipefail
           VERSION="${{ steps.app-version.outputs.version }}"
           DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-          echo "{" > release.json
-          echo "  \"version\": \"${VERSION}\"," >> release.json
-          echo "  \"date\": \"${DATE}\"," >> release.json
-          echo "  \"platforms\": {" >> release.json
-
-          echo -n "    \"linux\": [" >> release.json
-          ls upload/${VERSION} | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
-          echo "    ]," >> release.json
-
-          # Windows builds are currently disabled; keep key for schema compatibility but leave it empty.
-          echo "    \"windows\": []" >> release.json
-
-          echo "  }" >> release.json
-          echo "}" >> release.json
+          python scripts/generate_release.py "$VERSION" "$DATE"
 
       # Upload metadata to artifacts
       - name: Upload metadata
@@ -239,6 +238,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 10222
           source: "upload/${{ steps.app-version.outputs.version }}/**"
+          strip_components: 2
           target: "/var/www/name-o-tron.kirilov.dev/web/downloads/${{ steps.app-version.outputs.version }}/"
 
       - name: Upload release.json
@@ -251,6 +251,16 @@ jobs:
           source: "release.json"
           target: "/var/www/name-o-tron.kirilov.dev/web/${{ steps.app-version.outputs.version }}/"
 
+      - name: Upload release.json (latest pointer)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 10222
+          source: "release.json"
+          target: "/var/www/name-o-tron.kirilov.dev/web/"
+
       - name: Fix SPConfig permissions
         uses: appleboy/ssh-action@v0.1.7
         with:
@@ -262,3 +272,4 @@ jobs:
             chown -R web22:client1 /var/www/name-o-tron.kirilov.dev/web/
             find /var/www/name-o-tron.kirilov.dev/web/ -type d -exec chmod 755 {} \;
             find /var/www/name-o-tron.kirilov.dev/web/ -type f -exec chmod 644 {} \;
+

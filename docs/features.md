@@ -1,6 +1,6 @@
 # Features Overview
 
-This section details the comprehensive capabilities of Name-o-Tron 9000, organized by major functional areas.
+This section details the comprehensive capabilities of Name-o-Tron 9000, organized by major functional areas. It is a purpose-built **Plex renamer** focused on safe, metadata-accurate **Plex library rename** workflows (movies, TV, music), with poster hover cards, show-mapping cache, and remote Plex search to keep large libraries responsive.
 
 ## Plex Integration
 
@@ -9,11 +9,13 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 - **Manual Server Addition**: Add servers manually by IP address or hostname
 - **PIN Authentication**: Secure Plex account authentication via browser-based PIN flow
 - **Token Management**: Secure token storage with optional encryption
+ - **Plex library rename focus**: Everything downstream is optimized for Plex metadata-driven renaming.
 
 ### Library Access
 - **Multi-Library Support**: Access Movies, TV Shows, and Music libraries
 - **Metadata Fetching**: Retrieves complete Plex metadata including titles, years, ratings, and artwork
 - **Real-time Search**: Search Plex database when local file filtering yields no results
+ - **Remote search fallback**: When preview filtering returns zero local matches, the app calls Plex `/hubs/search`; returned rows are flagged as `remote-search` to distinguish them from local items.
 
 ## Preview & Safety System
 
@@ -106,8 +108,14 @@ Path mapping connects Plex's internal file paths to your actual folder locations
 - **Longest-Prefix Matching**: Map Plex paths to local paths using intelligent prefix matching
 - **Network Storage Support**: Handle NAS, SAN, and other network-attached storage
 - **Visual Management**: GUI for creating, editing, and validating path mappings
+ - **Show mapping cache aware**: Cache invalidates automatically when path mappings change.
 
 For detailed guidance on setting up and troubleshooting path mappings, see [Path Mapping](tips.md#path-mapping) in the Tips & Best Practices guide.
+
+### Show Mapping Cache & Posters
+- **TV show mapping cache**: Caches mapping status and enriched metadata per server/library; checksum validation keeps it aligned with current path mappings.
+- **Poster hover cards**: Preview rows surface Plex metadata popovers with thumbnail caching for fast repeat hovers.
+- **Cache maintenance**: Cache rebuilds automatically when mappings change; backend supports manual invalidation when needed.
 
 ## Advanced Features
 

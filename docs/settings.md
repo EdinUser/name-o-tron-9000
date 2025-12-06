@@ -59,6 +59,11 @@ Throughout this document, settings options are marked with labels to help you un
   - Available for movies, TV episodes, and music
   - Combined with per-page “Select all” controls in the Preview table for efficient batch selection
 
+### Pagination & Search 🟢 Basic
+- **Default page sizes**: Movies 200, TV 20, Music 200 (client-side pagination).
+- **Debounced search**: 500ms debounce filters the current page immediately.
+- **Remote search fallback**: If a preview search returns zero local matches and the initial load is idle, the app queries Plex `/hubs/search`; those rows are flagged as `remote-search` to distinguish them from local items.
+
 ### Filename Encoding 🟢 Basic
 - **Keep Unicode** (•) - Recommended default
   - Preserve international characters and symbols
@@ -172,6 +177,11 @@ Throughout this document, settings options are marked with labels to help you un
 - **Warn if episode count doesn't match Plex DB** 🟡 Advanced
   - Detect potential metadata issues
   - May flag legitimate content variations
+
+### Show Mapping Cache 🟡 Advanced
+- TV show mapping status and metadata are cached per server/library for faster browsing.
+- Cache validity is tied to path-mapping checksum and auto-invalidates when mappings change.
+- Backend supports manual cache invalidation when needed.
 
 [settings_music.png]
 
