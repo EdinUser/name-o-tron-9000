@@ -310,7 +310,7 @@ Yes, with these considerations:
 - **Complete user guide**: See the `docs/` folder in the installation
 - **Settings reference**: [docs/settings.md](settings.md)
 - **Tips & best practices**: [docs/tips.md](tips.md)
-- **Technical details**: [docs/appendix.md](appendix.md)
+- **Technical details**: See the developer docs in `dev_docs/` inside the repository.
 
 
 ---

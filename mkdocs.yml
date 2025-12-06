@@ -10,12 +10,6 @@ nav:
   - Settings: settings.md
   - Tips & Best Practices: tips.md
   - FAQ: faq.md
-  - Appendices:
-      - Overview: appendix.md
-      - Architecture: appendix_architecture.md
-      - API Reference: appendix_api.md
-      - Build from Source: appendix_build.md
-  - Roadmap: roadmap.md
 markdown_extensions:
   - admonition
   - toc:

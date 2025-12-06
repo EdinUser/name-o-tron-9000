@@ -207,6 +207,6 @@ interface MusicSettings {
 ### Contributing & Feature Requests
 - **Feature requests**: GitHub issues with "enhancement" label
 - **Bug reports**: GitHub issues with "bug" label
-- **Contributing code**: See [docs/roadmap.md](roadmap.md) and [AGENTS.md](../AGENTS.md)
+- **Contributing code**: See [roadmap.md](roadmap.md) and [AGENTS.md](../AGENTS.md)
 
 For developer-focused information, see the [AGENTS.md](../AGENTS.md) file in the repository root. For user-focused guidance, refer to the main [user guide](index.md).
