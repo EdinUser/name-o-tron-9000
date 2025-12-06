@@ -4,6 +4,8 @@ site_description: "User guide and reference for Name-o-Tron 9000"
 docs_dir: docs
 theme:
   name: material
+  logo: assets/name-o-tron-9000.svg
+  favicon: assets/name-o-tron-9000.svg
 plugins:
   - search
   - macros

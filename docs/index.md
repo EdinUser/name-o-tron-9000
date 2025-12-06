@@ -1,5 +1,21 @@
 # Name-o-Tron 9000 — User Guide
 
+<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+  <img src="assets/name-o-tron-animate.svg" alt="Name-o-Tron 9000 animated logo" style="max-width:180px;min-width:140px;">
+  <div>
+    <p><strong>Rename with safety-first defaults, live previews, and full rollback.</strong></p>
+    <p>Desktop Plex renamer — discover servers, map paths, preview, rename, and undo across your Plex libraries.</p>
+    <p style="margin-top:4px;color:#9ca3af;">Keywords: Plex renamer, Plex library rename, Plex file naming, Plex metadata rename.</p>
+  </div>
+</div>
+
+## Why Name-o-Tron 9000 for Plex renaming?
+
+- Purpose-built Plex renamer with traffic-light safety (🟩/🟨/🟥) so you never apply risky changes.
+- Works for full Plex library rename jobs or targeted fixes (Movies, TV, Music).
+- Keeps Plex naming conventions aligned with metadata (titles, years, seasons/episodes, editions).
+- Runs locally with rollback logs, so you can undo any batch instantly.
+
 Welcome to the **Name-o-Tron 9000** user documentation.
 This guide explains how to install, configure, and safely use the app to rename your media files with Plex metadata.
 
