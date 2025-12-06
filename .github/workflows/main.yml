@@ -16,6 +16,10 @@ jobs:
       SKIP_APT_INSTALL: "true"
 
     steps:
+      - name: Read version from package.json
+        id: app-version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -96,10 +100,11 @@ jobs:
         env:
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
           APPIMAGE_EXTRACT_AND_RUN: "1"
+          TAURI_BUILD_VERSION: ${{ steps.app-version.outputs.version }}
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
-          releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || format('Release {0}', steps.app-version.outputs.version) }}
+          releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || format('Build {0}', steps.app-version.outputs.version) }}
           releaseDraft: false
           prerelease: false
 
@@ -170,6 +175,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Read version from package.json
+        id: app-version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
       - name: Download all installers
         uses: actions/download-artifact@v4
         with:
@@ -207,6 +216,16 @@ jobs:
           name: release-metadata
           path: release.json
 
+      # Test SSH connectivity to VPS
+      - name: Test SSH connectivity
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 10222
+          script: echo "SSH OK"
+
       # Upload to VPS
       - name: Upload installers to VPS
         uses: appleboy/scp-action@v0.1.7
@@ -216,7 +235,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 10222
           source: "installers/**"
-          target: "/var/www/name-o-tron.kirilov.dev/web/downloads/"
+          target: "/var/www/name-o-tron.kirilov.dev/web/downloads/${{ steps.app-version.outputs.version }}/"
 
       - name: Upload release.json
         uses: appleboy/scp-action@v0.1.7
@@ -226,7 +245,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 10222
           source: "release.json"
-          target: "/var/www/name-o-tron.kirilov.dev/web/"
+          target: "/var/www/name-o-tron.kirilov.dev/web/${{ steps.app-version.outputs.version }}/"
 
       - name: Fix SPConfig permissions
         uses: appleboy/ssh-action@v0.1.7
