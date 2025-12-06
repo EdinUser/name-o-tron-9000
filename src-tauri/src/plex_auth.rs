@@ -7,9 +7,12 @@ use tauri_plugin_opener::OpenerExt;
 #[derive(Debug, Clone)]
 pub struct LoginState {
     pub client_id: String,
+    #[allow(dead_code)]
     pub pin_id: i64,
     pub code: String,
+    #[allow(dead_code)]
     pub started_at: Instant,
+    #[allow(dead_code)]
     pub expires_in: i64,
     pub token: Option<String>,
     pub status: LoginStatus,
@@ -241,7 +244,7 @@ mod tests {
         let client_id = "test-client-id";
 
         let request_builder = client.get("https://example.com");
-        let headers_request = with_plex_headers(request_builder, client_id);
+        let _headers_request = with_plex_headers(request_builder, client_id);
 
         // We can't easily inspect the headers, but we can ensure the function doesn't panic
         // In a real test, you might use a mock client that captures the request
@@ -303,7 +306,7 @@ mod tests {
     #[test]
     fn test_edge_case_handling() {
         // Test handling of empty or malformed data
-        let client = create_test_client();
+        let _client = create_test_client();
 
         // Test that functions handle missing or malformed data gracefully
         // These tests would typically use mock servers, but for now we'll test

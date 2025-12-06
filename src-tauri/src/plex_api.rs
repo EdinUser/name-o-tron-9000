@@ -351,7 +351,7 @@ fn xml_collections_to_json(xml: &str) -> Option<serde_json::Value> {
                 }
             }
             Ok(Event::Eof) => break,
-            Err(e) => {
+            Err(_) => {
                 return None;
             }
             _ => {}
@@ -411,7 +411,7 @@ fn xml_collection_items_to_json(xml: &str) -> Option<serde_json::Value> {
                 }
             }
             Ok(Event::Eof) => break,
-            Err(e) => {
+            Err(_) => {
                 return None;
             }
             _ => {}
@@ -679,7 +679,7 @@ async fn http_get_with_variants(
         .map_err(|e| format!("http client error: {e:?}"))?;
 
     let mut last_err: Option<String> = None;
-    for (i, url) in urls.iter().enumerate() {
+    for url in urls {
         let mut req = with_plex_headers(client.get(url), client_id)
             .header("Accept", "application/json, application/xml;q=0.9")
             .header("Accept-Encoding", "identity")
@@ -1137,7 +1137,7 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                     retry_urls.push(format!("{}/library/sections?X-Plex-Token={}", b, urlencoding::encode(&server_tok)));
                     retry_urls.push(format!("{}/library/sections/?X-Plex-Token={}", b, urlencoding::encode(&server_tok)));
                 }
-                for (i, u) in retry_urls.iter().enumerate() {
+                for u in retry_urls.iter() {
                     let req = with_plex_headers(client.get(u), &client_id)
                         .header("Accept", "application/json, application/xml;q=0.9")
                         .header("Accept-Encoding", "identity")
@@ -1161,8 +1161,7 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                             } else {
                             }
                         }
-                        Err(e) => {
-                        }
+                        Err(_) => {}
                     }
                 }
             } else {
@@ -1280,7 +1279,7 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
             Ok(_) => {
                 // Handle other event types (Text, Comment, etc.)
             }
-            Err(e) => {
+            Err(_) => {
                 break;
             }
         }

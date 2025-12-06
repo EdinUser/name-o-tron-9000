@@ -219,6 +219,7 @@ pub fn generate_mappings_checksum_with_server(server_id: &str, mappings: &[PathM
 }
 
 #[tauri::command]
+#[allow(non_snake_case)]
 pub fn load_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryId: String) -> Result<Option<ShowMappingCache>, String> {
     let path = cache_path(&app, &serverId, &libraryId)?;
     if !path.exists() {
@@ -234,6 +235,7 @@ pub fn load_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryI
 }
 
 #[tauri::command]
+#[allow(non_snake_case)]
 pub fn save_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryId: String, cache: ShowMappingCache) -> Result<(), String> {
     let path = cache_path(&app, &serverId, &libraryId)?;
     ensure_parent(&path)?;
@@ -243,6 +245,7 @@ pub fn save_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryI
 }
 
 #[tauri::command]
+#[allow(non_snake_case)]
 pub fn invalidate_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryId: String) -> Result<(), String> {
     let path = cache_path(&app, &serverId, &libraryId)?;
     if path.exists() {
@@ -252,6 +255,7 @@ pub fn invalidate_show_mapping_cache(app: tauri::AppHandle, serverId: String, li
 }
 
 #[tauri::command]
+#[allow(non_snake_case)]
 pub fn generate_mappings_checksum_cmd(serverId: String, mappings: Vec<PathMappingDto>) -> String {
     generate_mappings_checksum_with_server(&serverId, &mappings)
 }

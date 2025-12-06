@@ -91,6 +91,8 @@ jobs:
       #     cd src-tauri && cargo test
 
       - name: Build Tauri App (Linux)
+        id: tauri-build
+        continue-on-error: true
         uses: tauri-apps/tauri-action@v0
         env:
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
@@ -107,6 +109,39 @@ jobs:
           releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || '' }}
           releaseDraft: false
           prerelease: false
+
+      - name: Debug linuxdeploy and AppImage artifacts
+        if: always()
+        run: |
+          set -euxo pipefail
+          echo "Build outcome: ${{ steps.tauri-build.outcome }}"
+          echo "== Bundle directory tree =="
+          find src-tauri/target/release/bundle -maxdepth 4 -type f -printf "%p\n" || true
+          APPDIR="src-tauri/target/release/bundle/appimage/name-o-tron-9000.AppDir"
+          if [ -d "$APPDIR" ]; then
+            echo "AppDir contents:"
+            find "$APPDIR" -maxdepth 3 -type f -printf "%p\n" || true
+          else
+            echo "AppDir not found: $APPDIR"
+          fi
+          echo "Locating linuxdeploy AppImage binaries..."
+          LD_BIN=$(find "$HOME/.cache" -name 'linuxdeploy*.AppImage' -print | head -n 1 || true)
+          echo "linuxdeploy found: ${LD_BIN:-none}"
+          if [ -n "$LD_BIN" ]; then
+            chmod +x "$LD_BIN" || true
+            APPIMAGE_EXTRACT_AND_RUN=1 "$LD_BIN" --verbosity 3 --appdir "$APPDIR" --plugin gtk --output appimage || true
+          fi
+
+      - name: Ensure AppImage exists (fail if missing)
+        if: always()
+        run: |
+          set -euxo pipefail
+          APPIMAGE_FILE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -n 1 || true)
+          echo "Detected AppImage: ${APPIMAGE_FILE:-none}"
+          if [ -z "$APPIMAGE_FILE" ]; then
+            echo "AppImage not produced"
+            exit 1
+          fi
 
       - name: Show linuxdeploy/appimage logs (if any)
         if: failure()

@@ -309,7 +309,7 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
 
     let mut last_error = None;
 
-    for (i, base_url) in attempts.iter().enumerate() {
+    for base_url in attempts.iter() {
         // Append token as query param as some PMS builds require it even if header is present
         let url_with_token = if let Some(token_str) = auth_token {
             if base_url.contains('?') {

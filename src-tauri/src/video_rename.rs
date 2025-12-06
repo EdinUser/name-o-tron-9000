@@ -1907,7 +1907,7 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
 
             filtered_mappings
         }
-        Err(e) => {
+        Err(_) => {
             Vec::new()
         }
     };

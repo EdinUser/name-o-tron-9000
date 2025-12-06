@@ -219,6 +219,7 @@ pub fn export_diagnostic_bundle(app: tauri::AppHandle) -> Result<String, String>
 }
 
 #[tauri::command]
+#[allow(non_snake_case)]
 pub fn export_diagnostic_bundle_zip(app: tauri::AppHandle, targetPath: String) -> Result<String, String> {
     let ip_re = Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").map_err(|e| e.to_string())?;
 
