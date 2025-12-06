@@ -112,13 +112,14 @@ jobs:
 
       - name: Debug linuxdeploy and AppImage artifacts
         if: always()
+        shell: bash
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           echo "Build outcome: ${{ steps.tauri-build.outcome }}"
           echo "== Bundle directory tree =="
           find src-tauri/target/release/bundle -maxdepth 4 -type f -printf "%p\n" || true
           APPDIR="src-tauri/target/release/bundle/appimage/name-o-tron-9000.AppDir"
-          if [ -d "$APPDIR" ]; then
+          if [[ -d "$APPDIR" ]]; then
             echo "AppDir contents:"
             find "$APPDIR" -maxdepth 3 -type f -printf "%p\n" || true
           else
@@ -127,18 +128,22 @@ jobs:
           echo "Locating linuxdeploy AppImage binaries..."
           LD_BIN=$(find "$HOME/.cache" -name 'linuxdeploy*.AppImage' -print | head -n 1 || true)
           echo "linuxdeploy found: ${LD_BIN:-none}"
-          if [ -n "$LD_BIN" ]; then
+          if [[ -n "$LD_BIN" ]]; then
             chmod +x "$LD_BIN" || true
-            APPIMAGE_EXTRACT_AND_RUN=1 "$LD_BIN" --verbosity 3 --appdir "$APPDIR" --plugin gtk --output appimage || true
+            echo "Running linuxdeploy manually with verbosity 3..."
+            APPIMAGE_EXTRACT_AND_RUN=1 "$LD_BIN" --verbosity 3 --appdir "$APPDIR" --plugin gtk --output appimage 2>&1 | tee /tmp/linuxdeploy.log || true
+            echo "--- linuxdeploy log tail ---"
+            tail -n 200 /tmp/linuxdeploy.log || true
           fi
 
       - name: Ensure AppImage exists (fail if missing)
         if: always()
+        shell: bash
         run: |
-          set -euxo pipefail
-          APPIMAGE_FILE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -n 1 || true)
+          set -euo pipefail
+          APPIMAGE_FILE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage 2>/dev/null | head -n 1 || true)
           echo "Detected AppImage: ${APPIMAGE_FILE:-none}"
-          if [ -z "$APPIMAGE_FILE" ]; then
+          if [[ -z "$APPIMAGE_FILE" ]]; then
             echo "AppImage not produced"
             exit 1
           fi
