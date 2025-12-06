@@ -9,7 +9,7 @@ plugins:
   - macros
 nav:
   - Home: index.md
-  - Downloads: downloads.md
+  - Downloads: releases.md
   - Features: features.md
   - Settings: settings.md
   - Tips & Best Practices: tips.md

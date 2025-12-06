@@ -1,4 +1,4 @@
-# Downloads
+# Downloads & Releases
 
 The latest installers are published on the server and described by `release.json`.
 
