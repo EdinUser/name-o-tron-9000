@@ -1,0 +1,19 @@
+site_name: Name-o-Tron 9000 Docs
+site_url: https://name-o-tron.kirilov.dev
+site_description: "User guide and reference for Name-o-Tron 9000"
+docs_dir: docs
+theme:
+  name: material
+nav:
+  - Home: index.md
+  - Features: features.md
+  - Settings: settings.md
+  - Tips & Best Practices: tips.md
+  - FAQ: faq.md
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - tables
+  - attr_list
+

@@ -12,6 +12,8 @@ pub mod plex_api;
 pub mod secure;
 pub mod subtitle;
 pub mod video_rename;
+pub mod diagnostics;
+pub mod logging;
 
 // Re-export functions used by frontend
 pub use plex_api::fetch_library_content;
@@ -307,7 +309,7 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
 
     let mut last_error = None;
 
-    for (i, base_url) in attempts.iter().enumerate() {
+    for base_url in attempts.iter() {
         // Append token as query param as some PMS builds require it even if header is present
         let url_with_token = if let Some(token_str) = auth_token {
             if base_url.contains('?') {
@@ -392,6 +394,7 @@ pub fn run() {
             settings::invalidate_show_mapping_cache,
             settings::clear_all_show_mapping_caches,
             settings::get_cache_directory_path,
+            settings::get_logs_directory_path,
             settings::generate_mappings_checksum_cmd,
             secure::secure_save_token,
             secure::secure_get_token,
@@ -400,7 +403,12 @@ pub fn run() {
             subtitle::apply_renames,
             subtitle::undo_last_rename,
             video_rename::preview_video_renames,
+            video_rename::compute_movie_destinations,
             video_rename::apply_video_renames,
+            video_rename::cleanup_empty_folders,
+            diagnostics::export_diagnostic_bundle,
+            diagnostics::export_diagnostic_bundle_zip,
+            diagnostics::export_preview_snapshot,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

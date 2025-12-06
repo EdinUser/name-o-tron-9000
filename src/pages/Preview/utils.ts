@@ -46,12 +46,17 @@ export function sortEditionsByPriority(editionToken: string): string {
 }
 
 // Path sanitization utilities
-export async function sanitizeProposal(name: string, settings: any): Promise<{ ok: boolean; reason?: string; sanitized?: string }> {
+export async function sanitizeProposal(
+    name: string,
+    _settings: any,
+): Promise<{ ok: boolean; reason?: string; sanitized?: string }> {
     try {
+        const reservedNamesCheck = _settings?.general?.safety?.reservedNamesCheck ?? true;
+
         const { invoke } = await import("@tauri-apps/api/core");
         const sanitized = await invoke<string>("sanitize_filename_cmd", {
             filename: name,
-            settings: settings.misc.characterReplacement
+            settings: _settings.misc.characterReplacement
         });
 
         // Check if the sanitized name still contains invalid characters
@@ -59,18 +64,26 @@ export async function sanitizeProposal(name: string, settings: any): Promise<{ o
             return {ok: false, reason: "invalid-chars", sanitized};
         }
 
-        // Check for reserved names (after sanitization)
-        const base = sanitized.replace(/\.[^.]+$/, "");
-        if (RESERVED.has(base.toUpperCase())) {
-            return {ok: false, reason: "reserved-name", sanitized};
+        // Check for reserved names (after sanitization) when enabled
+        if (reservedNamesCheck) {
+            const base = sanitized.replace(/\.[^.]+$/, "");
+            if (RESERVED.has(base.toUpperCase())) {
+                return { ok: false, reason: "reserved-name", sanitized };
+            }
         }
 
         return {ok: true, sanitized};
     } catch (error) {
+        const reservedNamesCheck = _settings?.general?.safety?.reservedNamesCheck ?? true;
+
         // Fallback to basic validation if backend fails
         if (/[\\/:*?"<>|]/.test(name)) return {ok: false, reason: "invalid-chars"};
-        const base = name.replace(/\.[^.]+$/, "");
-        if (RESERVED.has(base.toUpperCase())) return {ok: false, reason: "reserved-name"};
+        if (reservedNamesCheck) {
+            const base = name.replace(/\.[^.]+$/, "");
+            if (RESERVED.has(base.toUpperCase())) {
+                return { ok: false, reason: "reserved-name" };
+            }
+        }
         return {ok: true, sanitized: name};
     }
 }
@@ -181,11 +194,9 @@ export function getItemRootFolder(filePath: string, libraryRoots: string[]): str
     return bestMatch || null;
 }
 
-export function isItemMapped(filePath: string, libraryRoots: string[], mappings: Array<{ server_id: string; plex_root: string; local_root: string }>, serverId: string): boolean {
+export function isItemMapped(filePath: string, libraryRoots: string[]): boolean {
     const itemRoot = getItemRootFolder(filePath, libraryRoots);
-    if (!itemRoot) return false;
-
-    return mappings.some(m => m.server_id === serverId && m.plex_root === itemRoot);
+    return itemRoot !== null;
 }
 
 export function parseEpisodeInfo(filePath: string, fallbackTitle: string): { showTitle: string; season?: number; index?: number } {

@@ -91,7 +91,11 @@ pub fn get_settings(app: tauri::AppHandle) -> Result<Value, String> {
     if txt.trim().is_empty() {
         return Ok(serde_json::json!({}));
     }
-    serde_json::from_str::<Value>(&txt).map_err(|e| e.to_string())
+    serde_json::from_str::<Value>(&txt).map_err(|e| {
+        let msg = format!("Failed to parse settings.json: {}", e);
+        crate::logging::log_event("ERROR", "get_settings", &msg, serde_json::json!({}));
+        msg
+    })
 }
 
 // Test helper functions for unit testing
@@ -215,6 +219,7 @@ pub fn generate_mappings_checksum_with_server(server_id: &str, mappings: &[PathM
 }
 
 #[tauri::command]
+#[allow(non_snake_case)]
 pub fn load_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryId: String) -> Result<Option<ShowMappingCache>, String> {
     let path = cache_path(&app, &serverId, &libraryId)?;
     if !path.exists() {
@@ -230,6 +235,7 @@ pub fn load_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryI
 }
 
 #[tauri::command]
+#[allow(non_snake_case)]
 pub fn save_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryId: String, cache: ShowMappingCache) -> Result<(), String> {
     let path = cache_path(&app, &serverId, &libraryId)?;
     ensure_parent(&path)?;
@@ -239,6 +245,7 @@ pub fn save_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryI
 }
 
 #[tauri::command]
+#[allow(non_snake_case)]
 pub fn invalidate_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryId: String) -> Result<(), String> {
     let path = cache_path(&app, &serverId, &libraryId)?;
     if path.exists() {
@@ -248,6 +255,7 @@ pub fn invalidate_show_mapping_cache(app: tauri::AppHandle, serverId: String, li
 }
 
 #[tauri::command]
+#[allow(non_snake_case)]
 pub fn generate_mappings_checksum_cmd(serverId: String, mappings: Vec<PathMappingDto>) -> String {
     generate_mappings_checksum_with_server(&serverId, &mappings)
 }
@@ -304,3 +312,8 @@ pub fn get_cache_directory_path(app: tauri::AppHandle) -> Result<String, String>
     Ok(cache_dir.to_string_lossy().to_string())
 }
 
+#[tauri::command]
+pub fn get_logs_directory_path() -> Result<String, String> {
+    let dir = crate::logging::log_dir();
+    Ok(dir.to_string_lossy().to_string())
+}

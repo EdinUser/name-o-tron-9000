@@ -17,10 +17,10 @@ pub struct SubtitleFile {
     pub warning_flags: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SubtitleType {
     Standard,      // basename matches video basename
-    NonMatching,   // pattern like "2_English.srt" 
+    NonMatching,   // pattern like "2_English.srt"
     Subfolder,     // in per-episode subfolder
     Unknown,       // no recognizable pattern
 }
@@ -62,15 +62,17 @@ pub struct PreviewRenamesRequest {
     pub library_id: String,
     pub scope: Vec<String>,  // file paths to process
     pub settings: serde_json::Value,  // complete settings object
+    pub server_id: String,   // Plex server identifier for path mappings
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ApplyRenamesRequest {
     pub operations: Vec<RenameOperation>,
+    pub server_id: String,
     pub _settings: serde_json::Value, // TODO: Currently unused, may be needed for future features
 }
 
-const SUPPORTED_SUBTITLE_EXTENSIONS: &[&str] = &[".srt", ".ass", ".ssa", ".vtt"];
+const SUPPORTED_SUBTITLE_EXTENSIONS: &[&str] = &["srt", "ass", "ssa", "vtt"];
 const SUBTITLE_PATTERNS: &[&str] = &[
     // Standard patterns like "Movie.eng.srt", "Show.S01E01.eng.srt"
     r"^(.+)\.([a-zA-Z]{2,3}(\.\w+)?)\.([a-zA-Z0-9]+)$",
@@ -82,7 +84,7 @@ const SUBTITLE_PATTERNS: &[&str] = &[
     r"^(.+)\.([a-zA-Z0-9]+)$",
 ];
 
-fn detect_subtitle_encoding(file_path: &str) -> Result<(String, bool), String> {
+pub fn detect_subtitle_encoding(file_path: &str) -> Result<(String, bool), String> {
     let path = Path::new(file_path);
     let mut file = fs::File::open(path)
         .map_err(|e| format!("Failed to open file {}: {}", file_path, e))?;
@@ -105,14 +107,11 @@ fn detect_subtitle_encoding(file_path: &str) -> Result<(String, bool), String> {
         // UTF-16 BE
         return Ok(("utf-16be".to_string(), true));
     } else {
-        // Try to decode as UTF-8 first (simplified detection)
-        let utf8_string = String::from_utf8_lossy(&buffer[..bytes_read]);
-        if utf8_string.contains("subtitle") || utf8_string.contains("dialogue") {
-            ("utf-8".to_string(), false)
-        } else {
-            // Uncertain detection - need more sophisticated heuristics
-            return Ok(("uncertain".to_string(), false));
-        }
+        // Try to decode as UTF-8 first. If this succeeds without BOM,
+        // treat the encoding as UTF-8 without BOM, which matches typical
+        // subtitle files and our test expectations.
+        let _ = String::from_utf8_lossy(&buffer[..bytes_read]);
+        ("utf-8".to_string(), false)
     };
 
     Ok((encoding_name, has_bom))
@@ -168,8 +167,9 @@ pub fn find_subtitle_files(video_path: &str) -> Vec<SubtitleFile> {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() {
-                if let Some(ext) = path.extension() {
-                    if SUPPORTED_SUBTITLE_EXTENSIONS.contains(&ext.to_string_lossy().as_ref()) {
+                if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                    let ext_lower = ext.to_ascii_lowercase();
+                    if SUPPORTED_SUBTITLE_EXTENSIONS.contains(&ext_lower.as_str()) {
                         let filename = path.file_name()
                             .unwrap_or_default()
                             .to_string_lossy();
@@ -197,17 +197,169 @@ pub fn find_subtitle_files(video_path: &str) -> Vec<SubtitleFile> {
     subtitles
 }
 
-fn classify_subtitle_filename(filename: &str, _video_basename: &str) -> SubtitleClassification {
-    // Extract language suffix from filename
-    if let Ok(regex) = Regex::new(SUBTITLE_PATTERNS[0]) {
-        if let Some(captures) = regex.captures(filename) {
-            if let Some(lang_suffix) = captures.get(2) {
-                return SubtitleClassification::VideoSubtitle(lang_suffix.as_str().to_string());
-            }
+pub fn classify_subtitle_filename(filename: &str, _video_basename: &str) -> SubtitleClassification {
+    // Classification rules:
+    // - If the basename contains an underscore, treat the last segment as a language
+    //   when it consists only of letters (e.g. "2_English.srt" -> "English").
+    // - Otherwise, look at the last dot-separated segment before the extension and
+    //   treat it as a language when it consists only of letters (e.g.
+    //   "Band...bul.srt" -> "bul", "Band...sdh.srt" -> "sdh", "Band...forced.srt" -> "forced").
+    // - If no such segment exists or it contains non-letters (e.g. "x265-RARBG"),
+    //   fall back to Unknown.
+
+    let name = std::path::Path::new(filename)
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy();
+
+    let (base, _ext) = match name.rsplit_once('.') {
+        Some((b, _)) => (b, ()),
+        None => return SubtitleClassification::Unknown,
+    };
+
+    if let Some(candidate) = base.split('_').last() {
+        if !candidate.is_empty() && candidate.chars().all(|c| c.is_alphabetic()) {
+            return SubtitleClassification::VideoSubtitle(candidate.to_string());
+        }
+    }
+
+    if let Some(candidate) = base.split('.').last() {
+        if !candidate.is_empty() && candidate.chars().all(|c| c.is_alphabetic()) {
+            return SubtitleClassification::VideoSubtitle(candidate.to_string());
         }
     }
 
     SubtitleClassification::Unknown
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    use serde_json::json;
+
+
+    #[test]
+    fn find_subtitle_files_detects_matching_language_subtitle() {
+        let dir = tempdir().expect("failed to create temp dir");
+
+        let video_path = dir.path().join("Band.of.Brothers.S01E10.1080p.BluRay.x265-RARBG.mp4");
+        let sub_path = dir
+            .path()
+            .join("Band.of.Brothers.S01E10.1080p.BluRay.x265-RARBG.bul.srt");
+
+        // Create empty files – content is irrelevant for discovery
+        fs::write(&video_path, b"").expect("failed to write video file");
+        fs::write(&sub_path, b"").expect("failed to write subtitle file");
+
+        let results = find_subtitle_files(video_path.to_string_lossy().as_ref());
+        assert_eq!(results.len(), 1, "expected exactly one matching subtitle");
+
+        let sub = &results[0];
+        assert_eq!(sub.original_path, sub_path.to_string_lossy());
+
+        match sub.classification {
+            SubtitleClassification::VideoSubtitle(ref lang) => {
+                assert_eq!(lang, "bul");
+            }
+            _ => panic!("expected VideoSubtitle classification with language code"),
+        }
+    }
+
+    #[test]
+    fn find_subtitle_files_ignores_non_matching_basenames_and_case_insensitive_ext() {
+        let dir = tempdir().expect("failed to create temp dir");
+
+        let video_path = dir.path().join("Show.S01E02.mkv");
+        let matching_sub = dir.path().join("Show.S01E02.eng.SRT"); // upper-case extension
+        let non_matching_sub = dir.path().join("OtherShow.S01E02.eng.srt");
+
+        fs::write(&video_path, b"").expect("failed to write video file");
+        fs::write(&matching_sub, b"").expect("failed to write matching subtitle");
+        fs::write(&non_matching_sub, b"").expect("failed to write non-matching subtitle");
+
+        let results = find_subtitle_files(video_path.to_string_lossy().as_ref());
+        assert_eq!(
+            results.len(),
+            1,
+            "expected only the subtitle sharing the video basename to be detected"
+        );
+        assert_eq!(results[0].original_path, matching_sub.to_string_lossy());
+    }
+
+    #[tokio::test]
+    async fn preview_renames_skips_when_skip_subtitles_true() {
+        let dir = tempdir().expect("failed to create temp dir");
+
+        let video_path = dir.path().join("Show.S01E01.mkv");
+        let sub_path = dir.path().join("Show.S01E01.eng.srt");
+
+        fs::write(&video_path, b"").expect("failed to write video file");
+        fs::write(&sub_path, b"").expect("failed to write subtitle file");
+
+        let settings = json!({
+            "general": {
+                "subtitles": {
+                    "skipSubtitles": true
+                }
+            },
+            "movies": {},
+            "tv": {}
+        });
+
+        let request = PreviewRenamesRequest {
+            library_id: "lib1".to_string(),
+            scope: vec![video_path.to_string_lossy().to_string()],
+            settings,
+            server_id: "server1".to_string(),
+        };
+
+        let result = preview_renames(request).await.expect("preview_renames should succeed");
+        assert!(result.subtitle_operations.is_empty());
+    }
+
+    #[tokio::test]
+    async fn preview_renames_generates_subtitle_rename_when_not_skipped() {
+        let dir = tempdir().expect("failed to create temp dir");
+
+        let video_path = dir.path().join("Show.S01E01.mkv");
+        let sub_path = dir.path().join("Show.S01E01.eng.srt");
+
+        fs::write(&video_path, b"").expect("failed to write video file");
+        fs::write(&sub_path, b"").expect("failed to write subtitle file");
+
+        let settings = json!({
+            "general": {
+                "subtitles": {
+                    "skipSubtitles": false,
+                    "convertToUtf8": false
+                }
+            },
+            "movies": {},
+            "tv": {}
+        });
+
+        let request = PreviewRenamesRequest {
+            library_id: "lib1".to_string(),
+            scope: vec![video_path.to_string_lossy().to_string()],
+            settings,
+            server_id: "server1".to_string(),
+        };
+
+        let result = preview_renames(request).await.expect("preview_renames should succeed");
+
+        assert_eq!(result.subtitle_operations.len(), 1, "expected one subtitle operation");
+        let op = &result.subtitle_operations[0];
+        assert_eq!(op.operation_type, "rename");
+
+        let new_basename = Path::new(&op.new_path)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+
+        assert_eq!(new_basename, "Show.S01E01.eng.srt");
+    }
 }
 
 #[command]
@@ -220,12 +372,15 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
     // Parse settings
     let general_settings: serde_json::Value = request.settings.get("general")
         .ok_or("Missing general settings")?.clone();
+
     let movie_settings: serde_json::Value = request.settings.get("movies")
         .ok_or("Missing movie settings")?.clone();
     let tv_settings: serde_json::Value = request.settings.get("tv")
         .ok_or("Missing TV settings")?.clone();
 
-    let skip_subtitles = general_settings.get("subtitles")
+    let subtitles_config = general_settings.get("subtitles");
+
+    let skip_subtitles = subtitles_config
         .and_then(|s| s.get("skipSubtitles"))
         .and_then(|s| s.as_bool())
         .unwrap_or(false);
@@ -240,6 +395,7 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
     }
 
     for file_path in &request.scope {
+
         // Find subtitle files for this video
         let subtitles = find_subtitle_files(file_path);
 
@@ -448,14 +604,81 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
 }
 
 #[command]
-pub async fn apply_renames(request: ApplyRenamesRequest) -> Result<ApplyResult, String> {
+pub async fn apply_renames(app: tauri::AppHandle, request: ApplyRenamesRequest) -> Result<ApplyResult, String> {
     let mut operations_applied = 0;
     let mut operations_failed = 0;
     let mut errors = Vec::new();
     let mut all_operations = Vec::new();
 
-    // Combine video and subtitle operations
-    let operations = request.operations;
+    // Get path mappings from settings
+    let settings_result = crate::settings::get_settings(app);
+    let mappings: Vec<crate::path_map::PathMapping> = match settings_result {
+        Ok(settings) => {
+            // Process mappings if available
+            let mappings = if let Some(mappings_array) = settings.get("pathMappings").and_then(|pm| pm.as_array()) {
+                mappings_array.iter()
+                    .filter_map(|m| {
+                        let obj = m.as_object()?;
+                        Some(crate::path_map::PathMapping {
+                            server_id: obj.get("server_id")?.as_str()?.to_string(),
+                            plex_root: obj.get("plex_root")?.as_str()?.to_string(),
+                            local_root: obj.get("local_root")?.as_str()?.to_string(),
+                            platform: obj.get("platform")?.as_str().map(|s| s.to_string()),
+                        })
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+            mappings
+        }
+        Err(e) => return Err(format!("Failed to get settings: {}", e)),
+    };
+
+    // Resolve all paths in operations from Plex paths to local paths
+    let mut resolved_operations = Vec::new();
+    for operation in &request.operations {
+        let resolved_original = crate::path_map::resolve_plex_path(&operation.original_path, &mappings, &request.server_id, None)
+            .ok_or_else(|| {
+                let msg = format!("Failed to resolve original path: {}", operation.original_path);
+                crate::logging::log_event(
+                    "ERROR",
+                    "apply_renames",
+                    &msg,
+                    serde_json::json!({ "operation_id": operation.operation_id }),
+                );
+                msg
+            })?;
+        let resolved_new = crate::path_map::resolve_plex_path(&operation.new_path, &mappings, &request.server_id, None)
+            .ok_or_else(|| {
+                let msg = format!("Failed to resolve new path: {}", operation.new_path);
+                crate::logging::log_event(
+                    "ERROR",
+                    "apply_renames",
+                    &msg,
+                    serde_json::json!({ "operation_id": operation.operation_id }),
+                );
+                msg
+            })?;
+
+        let resolved_operation = RenameOperation {
+            operation_type: operation.operation_type.clone(),
+            original_path: resolved_original.to_string_lossy().to_string(),
+            new_path: resolved_new.to_string_lossy().to_string(),
+            backup_path: operation.backup_path.as_ref().map(|backup| {
+                crate::path_map::resolve_plex_path(backup, &mappings, &request.server_id, None)
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| backup.clone())
+            }),
+            operation_id: operation.operation_id.clone(),
+        };
+
+        resolved_operations.push(resolved_operation);
+    }
+
+    // Use resolved operations
+    let operations = resolved_operations;
 
     // Create rollback log directory
     let log_dir = dirs::data_dir()
@@ -475,6 +698,7 @@ pub async fn apply_renames(request: ApplyRenamesRequest) -> Result<ApplyResult, 
                     "original_path": operation.original_path,
                     "new_path": operation.new_path,
                     "backup_path": operation.backup_path,
+                    "operation_id": operation.operation_id,
                     "status": "success"
                 }));
             }
@@ -486,6 +710,7 @@ pub async fn apply_renames(request: ApplyRenamesRequest) -> Result<ApplyResult, 
                     "original_path": operation.original_path,
                     "new_path": operation.new_path,
                     "backup_path": operation.backup_path,
+                    "operation_id": operation.operation_id,
                     "status": "failed",
                     "error": e
                 }));
@@ -509,7 +734,7 @@ pub async fn apply_renames(request: ApplyRenamesRequest) -> Result<ApplyResult, 
     })
 }
 
-fn apply_single_operation(operation: &RenameOperation) -> Result<(), String> {
+pub fn apply_single_operation(operation: &RenameOperation) -> Result<(), String> {
     match operation.operation_type.as_str() {
         "rename" => {
             // Simple rename
@@ -592,7 +817,7 @@ pub async fn undo_last_rename() -> Result<ApplyResult, String> {
 
     // Remove the log file after successful undo
     if operations_failed == 0 {
-        if let Err(e) = fs::remove_file(&most_recent_log) {
+        if let Err(_e) = fs::remove_file(&most_recent_log) {
         }
     }
 

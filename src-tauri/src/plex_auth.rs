@@ -7,9 +7,12 @@ use tauri_plugin_opener::OpenerExt;
 #[derive(Debug, Clone)]
 pub struct LoginState {
     pub client_id: String,
+    #[allow(dead_code)]
     pub pin_id: i64,
     pub code: String,
+    #[allow(dead_code)]
     pub started_at: Instant,
+    #[allow(dead_code)]
     pub expires_in: i64,
     pub token: Option<String>,
     pub status: LoginStatus,
@@ -140,9 +143,9 @@ pub fn plex_logout() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wiremock::{MockServer, Mock, ResponseTemplate};
-    use wiremock::matchers::{method, path, header};
-    use serde_json::json;
+    
+    
+    
 
     // Helper function to create a test client
     fn create_test_client() -> reqwest::Client {
@@ -172,20 +175,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_pin_success() {
-        let mock_server = MockServer::start().await;
-
-        // Mock the Plex PIN creation response
-        Mock::given(method("POST"))
-            .and(path("/api/v2/pins"))
-            .and(header("X-Plex-Client-Identifier", "test-client-id"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "id": 12345,
-                "code": "ABCD1234",
-                "expiresIn": 600
-            })))
-            .mount(&mock_server)
-            .await;
-
         let client = create_test_client();
         let client_id = "test-client-id";
 
@@ -255,7 +244,7 @@ mod tests {
         let client_id = "test-client-id";
 
         let request_builder = client.get("https://example.com");
-        let headers_request = with_plex_headers(request_builder, client_id);
+        let _headers_request = with_plex_headers(request_builder, client_id);
 
         // We can't easily inspect the headers, but we can ensure the function doesn't panic
         // In a real test, you might use a mock client that captures the request
@@ -300,18 +289,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_pin_polling_with_mock_server() {
-        let mock_server = MockServer::start().await;
-
-        // Mock successful PIN polling response
-        Mock::given(method("GET"))
-            .and(path("/api/v2/pins/12345"))
-            .and(header("X-Plex-Client-Identifier", "test-client-id"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "authToken": "test-auth-token-12345"
-            })))
-            .mount(&mock_server)
-            .await;
-
         let client = create_test_client();
         let client_id = "test-client-id";
         let pin_id = 12345;
@@ -329,7 +306,7 @@ mod tests {
     #[test]
     fn test_edge_case_handling() {
         // Test handling of empty or malformed data
-        let client = create_test_client();
+        let _client = create_test_client();
 
         // Test that functions handle missing or malformed data gracefully
         // These tests would typically use mock servers, but for now we'll test

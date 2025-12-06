@@ -182,7 +182,8 @@ For detailed information about log storage, types, and export options, see [Roll
 
 **Quick reference:**
 - Logs location: `~/.nameotron/logs/` (OS-specific app data directory)
-- Export formats: TXT, CSV, JSON available
+- Export formats: TXT, CSV, JSON available (configurable in Settings → General)
+- Diagnostic bundles: From Settings → General you can export an anonymized ZIP bundle (settings + recent logs) to attach to bug reports
 
 ## Settings & Configuration
 
@@ -198,6 +199,10 @@ For detailed information about log storage, types, and export options, see [Roll
 1. Copy the settings file to the new machine
 2. Go to Settings > General tab
 3. Click "Import Settings" and select the file
+
+For debugging complex issues, you can also:
+- Export a **diagnostic bundle** (ZIP) from Settings → General
+- Export a **preview snapshot** from the Preview screen (captures current filters, settings, and rows in anonymized JSON)
 
 ### **Can I customize the renaming templates?**
 Yes! Each media type has customizable templates:
@@ -305,7 +310,7 @@ Yes, with these considerations:
 - **Complete user guide**: See the `docs/` folder in the installation
 - **Settings reference**: [docs/settings.md](settings.md)
 - **Tips & best practices**: [docs/tips.md](tips.md)
-- **Technical details**: [docs/appendix.md](appendix.md)
+- **Technical details**: See the developer docs in `dev_docs/` inside the repository.
 
 
 ---

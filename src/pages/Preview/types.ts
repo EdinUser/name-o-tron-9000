@@ -12,6 +12,7 @@ export type MovieItem = {
     title: string;
     year?: number;
     file: string;
+    plexPath?: string; // Original Plex path
     edition?: string;
     editionTitle?: string;
     genre?: string;
@@ -36,6 +37,7 @@ export type EpisodeItem = {
     season?: number;
     index?: number; // episode number
     file: string;
+    plexPath?: string; // Original Plex path
     grandparentTitle?: string;
     parentTitle?: string;
     parentIndex?: number;
@@ -55,6 +57,7 @@ export type MusicItem = {
     trackNumber?: number;
     disc?: number;
     file: string;
+    plexPath?: string; // Original Plex path
     year?: number;
     genre?: string;
     guid?: string;
@@ -65,6 +68,7 @@ export type PreviewRow = {
     id: string;
     kind: "movie" | "episode" | "music";
     filePath: string;
+    plexPath?: string; // Original Plex path
     proposed: string;
     status: "good" | "warning" | "error" | "unmatched";
     flags: string[];

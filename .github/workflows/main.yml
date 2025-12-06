@@ -7,13 +7,121 @@ on:
       - "v*"
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu-latest, windows-latest, macos-latest]
+  # =====================================================
+  # LINUX BUILD (runs on YOUR MINT MACHINE)
+  # =====================================================
+  build-linux:
+    runs-on: [self-hosted, mint]
+    env:
+      SKIP_APT_INSTALL: "true"
 
-    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Read version from package.json
+        id: app-version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Install Linux dependencies
+        if: ${{ env.SKIP_APT_INSTALL != 'true' }}
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            build-essential \
+            pkg-config \
+            curl \
+            git \
+            xdg-utils \
+            libfuse2 \
+            ca-certificates \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev \
+            libglib2.0-dev \
+            libpango1.0-dev \
+            libatk1.0-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Make linuxdeploy binaries executable
+        run: |
+          # Make downloaded AppImages executable (they're downloaded during build)
+          find src-tauri/target/release/bundle/appimage -name "*.AppImage" -type f -exec chmod +x {} \; 2>/dev/null || true
+
+      - name: Install additional linuxdeploy dependencies
+        if: ${{ env.SKIP_APT_INSTALL != 'true' }}
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            fuse3 \
+            libfuse2 \
+            squashfs-tools \
+            libglib2.0-0 \
+            libgdk-pixbuf2.0-0 \
+            libcairo-gobject2 \
+            libpango-1.0-0 \
+            libatk1.0-0 \
+            libcairo2 \
+            libgtk-3-0 \
+            libgdk-pixbuf2.0-0
+
+      # Tests are run in CI on PRs to main; skipping here for faster release builds.
+      # - name: Run tests
+      #   run: |
+      #     npm run test:ci
+      #     cd src-tauri && cargo test
+
+      - name: Build Tauri App (Linux)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          TAURI_BUILD_VERSION: ${{ steps.app-version.outputs.version }}
+        with:
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || format('Release {0}', steps.app-version.outputs.version) }}
+          releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || format('Build {0}', steps.app-version.outputs.version) }}
+          releaseDraft: false
+          prerelease: false
+
+      - name: Upload Linux installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-installers-linux
+          path: src-tauri/target/release/bundle/
+
+  # =====================================================
+  # WINDOWS BUILD (GitHub-hosted)
+  # =====================================================
+  build-windows:
+    # Temporarily disabled while testing Linux-only builds.
+    # Remove or change this condition to re-enable Windows builds.
+    if: ${{ false }}
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -23,38 +131,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
 
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          workspaces: "./src-tauri -> target"
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: |
-          npm run test:ci
-          cd src-tauri && cargo test
+      # Tests are run in CI on PRs to main; skipping here for faster release builds.
+      # - name: Run tests
+      #   run: |
+      #     npm run test:ci
+      #     cd src-tauri && cargo test
 
-      - name: Build Tauri App
+      - name: Build Tauri App (Windows)
         uses: tauri-apps/tauri-action@v0
-        env:
-          PKG_CONFIG_PATH: ${{ matrix.platform == 'ubuntu-latest' && '/usr/lib/x86_64-linux-gnu/pkgconfig' || '' }}
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
@@ -62,88 +161,103 @@ jobs:
           releaseDraft: false
           prerelease: false
 
-      - name: Upload installers
+      - name: Upload Windows installers
         uses: actions/upload-artifact@v4
         with:
-          name: tauri-installers-${{ matrix.platform }}
+          name: tauri-installers-windows
           path: src-tauri/target/release/bundle/
 
+  # =====================================================
+  # DEPLOY
+  # =====================================================
   deploy:
-    needs: build
+    needs: [build-linux]
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download installers
+      - name: Read version from package.json
+        id: app-version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Download all installers
         uses: actions/download-artifact@v4
         with:
           path: installers/
 
-      # -----------------------------------------
-      # Generate metadata JSON for the landing page
-      # -----------------------------------------
+      - name: Stage installers for upload
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.app-version.outputs.version }}"
+          STAGE="upload/${VERSION}"
+          mkdir -p "$STAGE"
+          find installers -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.exe" -o -name "*.msi" -o -name "*.dmg" \) -exec cp {} "$STAGE"/ \;
+          ls -lah "$STAGE"
+
       - name: Generate revision metadata
         run: |
-          VERSION="${GITHUB_REF##*/}"
+          VERSION="${{ steps.app-version.outputs.version }}"
           DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
           echo "{" > release.json
           echo "  \"version\": \"${VERSION}\"," >> release.json
           echo "  \"date\": \"${DATE}\"," >> release.json
           echo "  \"platforms\": {" >> release.json
 
           echo -n "    \"linux\": [" >> release.json
-          ls installers/tauri-installers-ubuntu-latest | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
+          ls upload/${VERSION} | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
           echo "    ]," >> release.json
 
-          echo -n "    \"windows\": [" >> release.json
-          ls installers/tauri-installers-windows-latest | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
-          echo "    ]," >> release.json
-
-          echo -n "    \"macos\": [" >> release.json
-          ls installers/tauri-installers-macos-latest | sed 's/^/\"/' | sed 's/$/\",/' >> release.json
-          echo "    ]" >> release.json
+          # Windows builds are currently disabled; keep key for schema compatibility but leave it empty.
+          echo "    \"windows\": []" >> release.json
 
           echo "  }" >> release.json
           echo "}" >> release.json
 
-      - name: Upload revision metadata
+      # Upload metadata to artifacts
+      - name: Upload metadata
         uses: actions/upload-artifact@v4
         with:
           name: release-metadata
           path: release.json
 
-      # -----------------------------------------
-      # Deploy installers to VPS
-      # -----------------------------------------
-      - name: Upload installers to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 1022
-          source: "installers/**"
-          target: "/var/www/name-o-tron.kirilov.dev/web/downloads/"
-
-      - name: Upload release metadata JSON
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 1022
-          source: "release.json"
-          target: "/var/www/name-o-tron.kirilov.dev/web/"
-
-      # -----------------------------------------
-      # Fix SPConfig permissions
-      # -----------------------------------------
-      - name: Fix permissions for SPConfig
+      # Test SSH connectivity to VPS
+      - name: Test SSH connectivity
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: 1022
+          port: 10222
+          script: echo "SSH OK"
+
+      # Upload to VPS
+      - name: Upload installers to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 10222
+          source: "upload/${{ steps.app-version.outputs.version }}/**"
+          target: "/var/www/name-o-tron.kirilov.dev/web/downloads/${{ steps.app-version.outputs.version }}/"
+
+      - name: Upload release.json
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 10222
+          source: "release.json"
+          target: "/var/www/name-o-tron.kirilov.dev/web/${{ steps.app-version.outputs.version }}/"
+
+      - name: Fix SPConfig permissions
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 10222
           script: |
             chown -R web22:client1 /var/www/name-o-tron.kirilov.dev/web/
             find /var/www/name-o-tron.kirilov.dev/web/ -type d -exec chmod 755 {} \;

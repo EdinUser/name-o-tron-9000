@@ -14,6 +14,7 @@ import {
 } from "./utils";
 import { generateServerId } from "../../utils/cache";
 import PreviewTemplate from "./PreviewTemplate";
+import { attachSubtitleOperations } from "./subtitleMapping";
 
 // Functions are now imported from separate modules
 
@@ -40,8 +41,6 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                      library.type === "show" ? settings.templates.episode :
                      settings.templates.music;
     const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
-    const [mappings, setMappings] = useState<Array<{ server_id: string; plex_root: string; local_root: string }>>([]);
-    const [serverId, setServerId] = useState<string>("");
     const [showMapModal, setShowMapModal] = useState(false);
     const [showTemplateHelp, setShowTemplateHelp] = useState(false);
     const [editingItem, setEditingItem] = useState<PreviewRow | null>(null);
@@ -50,8 +49,40 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [statusFilter, setStatusFilter] = useState<string>("all"); // "all", "good", "warning", "error", "unmatched"
     const [currentShow, setCurrentShow] = useState<{ ratingKey: string; title: string } | null>(null);
     const [remoteResults, setRemoteResults] = useState<PreviewRow[]>([]);
+    const [showUndoConfirm, setShowUndoConfirm] = useState(false);
     const [remoteQuery, setRemoteQuery] = useState<string>("");
     const [searching, setSearching] = useState(false);
+    const [previewLoading, setPreviewLoading] = useState(false);
+
+    // Apply / cleanup state
+    const [applyInProgress, setApplyInProgress] = useState(false);
+    const [applyOperationCount, setApplyOperationCount] = useState(0);
+    const [lastApplySummary, setLastApplySummary] = useState<{
+        operationsApplied: number;
+        operationsFailed: number;
+        rollbackLogPath: string;
+        operations: {
+            operation_type: string;
+            original_path: string;
+            new_path: string;
+            backup_path: string | null;
+            operation_id: string;
+        }[];
+    } | null>(null);
+    const [cleanupInProgress, setCleanupInProgress] = useState(false);
+    const [cleanupResult, setCleanupResult] = useState<{
+        removed_directories: string[];
+        errors: string[];
+    } | null>(null);
+
+    function clearApplySummary() {
+        setLastApplySummary(null);
+        setCleanupResult(null);
+    }
+
+    // Season filtering for TV shows
+    const [selectedSeason, setSelectedSeason] = useState<number | "all" | null>(null);
+    const [availableSeasons, setAvailableSeasons] = useState<number[]>([]);
 
     const [reloadTick, setReloadTick] = useState(0);
 
@@ -85,24 +116,34 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 const settings = await invoke<{ pathMappings?: { server_id: string; plex_root: string; local_root: string }[] }>("get_settings");
                 const mappings = settings.pathMappings || [];
 
+                const normalizeRoot = (p: string | null | undefined) =>
+                    (p || "")
+                        .replace(/\\/g, "/")
+                        .replace(/\/+$/, "") || "";
+
                 // Find the mapped folder for this library
                 const serverId = generateServerId(server);
-                const libraryRoots = library.roots || [];
+                const libraryRoots = (library.roots || []).map(normalizeRoot);
 
-                setMappings(mappings);
-                setServerId(serverId);
+                // Prefer the longest matching root in case of overlaps
+                let bestLocal: string | null = null;
+                let bestLen = 0;
 
                 for (const root of libraryRoots) {
-                    const mapping = mappings.find(m => m.server_id === serverId && m.plex_root === root);
-                    if (mapping) {
-                        setLibraryFolder(mapping.local_root);
-                        break;
+                    for (const m of mappings) {
+                        if (m.server_id !== serverId) continue;
+                        const mappedRoot = normalizeRoot(m.plex_root);
+                        if (!mappedRoot || mappedRoot !== root) continue;
+                        if (mappedRoot.length > bestLen) {
+                            bestLen = mappedRoot.length;
+                            bestLocal = m.local_root;
+                        }
                     }
                 }
+
+                setLibraryFolder(bestLocal);
             } catch (error) {
                 setLibraryFolder(null);
-                setMappings([]);
-                setServerId("");
             }
         }
 
@@ -117,24 +158,33 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             const settings = await invoke<{ pathMappings?: { server_id: string; plex_root: string; local_root: string }[] }>("get_settings");
             const mappings = settings.pathMappings || [];
 
-            // Find the mapped folder for this library
-            const serverId = server.machineIdentifier || server.address;
-            const libraryRoots = library.roots || [];
+            const normalizeRoot = (p: string | null | undefined) =>
+                (p || "")
+                    .replace(/\\/g, "/")
+                    .replace(/\/+$/, "") || "";
 
-            setMappings(mappings);
-            setServerId(serverId);
+            // Find the mapped folder for this library
+            const serverId = generateServerId(server);
+            const libraryRoots = (library.roots || []).map(normalizeRoot);
+
+            let bestLocal: string | null = null;
+            let bestLen = 0;
 
             for (const root of libraryRoots) {
-                const mapping = mappings.find(m => m.server_id === serverId && m.plex_root === root);
-                if (mapping) {
-                    setLibraryFolder(mapping.local_root);
-                    break;
+                for (const m of mappings) {
+                    if (m.server_id !== serverId) continue;
+                    const mappedRoot = normalizeRoot(m.plex_root);
+                    if (!mappedRoot || mappedRoot !== root) continue;
+                    if (mappedRoot.length > bestLen) {
+                        bestLen = mappedRoot.length;
+                        bestLocal = m.local_root;
+                    }
                 }
             }
+
+            setLibraryFolder(bestLocal);
         } catch (error) {
             setLibraryFolder(null);
-            setMappings([]);
-            setServerId("");
         }
     }, [server.address, server.machineIdentifier, library.roots]);
 
@@ -175,7 +225,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             ratingKey: movieRatingKey,
                             title: String(item.title ?? "Unknown"),
                             year: item.year ? Number(item.year) : undefined,
-                            file: resolvePlexFilePath(String(file), libraryFolder),
+                            file: String(file),
+                            plexPath: String(file),
                             edition: String(item.edition ?? item.editionTitle ?? ""),
                             genre: String(item.genre ?? ""),
                             rating: String(item.contentRating ?? ""),
@@ -218,7 +269,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             track: String(item.title ?? "Unknown Track"),
                             trackNumber: item.index ? Number(item.index) : undefined,
                             disc: item.parentIndex ? Number(item.parentIndex) : undefined,
-                            file: resolvePlexFilePath(String(file), libraryFolder),
+                            file: String(file),
+                            plexPath: String(file),
                             year: item.year ? Number(item.year) : undefined,
                             genre: String(item.genre ?? ""),
                             thumb: String(item.thumb ?? ""),
@@ -259,7 +311,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 title: String(item.title ?? "Episode"),
                                 season: parsed.season,
                                 index: parsed.index,
-                                file: resolvePlexFilePath(String(file), libraryFolder),
+                                file: String(file),
+                                plexPath: String(file),
                                 year: item.year ? Number(item.year) : undefined,
                                 grandparentTitle: String(item.grandparentTitle ?? showToLoad.title),
                                 parentTitle: String(item.parentTitle ?? ""),
@@ -306,7 +359,14 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     // Compute proposals from raw items when settings change
     useEffect(() => {
         async function computeProposals() {
-            if (rawItems.length === 0) return;
+            if (rawItems.length === 0) {
+                setRows([]);
+                setSelectedIds(new Set());
+                setPreviewLoading(false);
+                return;
+            }
+
+            setPreviewLoading(true);
 
             const list: PreviewRow[] = [];
 
@@ -320,20 +380,20 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         : "";
 
                     const tpl = settings.templates.movie || template;
-                    const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], mappings, serverId);
+                    const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
                     row.metadata = m; // Store original metadata for popover
                     list.push(row);
                 } else if (item.type === "music") {
                     const m = item as MusicItem;
                     const tpl = settings.templates.music || template;
-                    const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || [], mappings, serverId);
+                    const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || []);
                     row.metadata = m; // Store original metadata for popover
                     list.push(row);
                 } else if (item.type === "episode") {
                     const e = item as EpisodeItem;
                     const tpl = settings.templates.episode || template;
                     const useSeasonFolders = !!settings.tv.seasonFolders;
-                    const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder, library.roots || [], mappings, serverId);
+                    const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder, library.roots || []);
                     proposal.metadata = e; // Store original metadata for popover
                     list.push(proposal);
                 }
@@ -348,41 +408,38 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         library_id: library.key,
                         scope: filePaths,
                         settings: settings,
+                        server_id: generateServerId(server),
                     }
                 });
 
-                    // Add subtitle operations to the corresponding preview rows
-                    if (previewResult.subtitle_operations && previewResult.subtitle_operations.length > 0) {
-                        const subtitleOpsByFile = new Map<string, any[]>();
-                        for (const op of previewResult.subtitle_operations) {
-                            const videoPath = op.original_path.substring(0, op.original_path.lastIndexOf('/'));
-                            if (!subtitleOpsByFile.has(videoPath)) {
-                                subtitleOpsByFile.set(videoPath, []);
-                            }
-                            subtitleOpsByFile.get(videoPath)!.push(op);
-                        }
-
-                        // Update rows with subtitle operations
-                        list.forEach(row => {
-                            const videoDir = row.filePath.substring(0, row.filePath.lastIndexOf('/'));
-                            const subtitleOps = subtitleOpsByFile.get(videoDir) || [];
-                            if (subtitleOps.length > 0) {
-                                row.subtitleOperations = subtitleOps.map(op => ({
-                                    originalPath: op.original_path,
-                                    proposedPath: op.new_path,
-                                    operationType: op.operation_type,
-                                    warningFlags: op.warning_flags || [],
-                                }));
-                            }
-                        });
-                    }
+                    // Attach subtitle operations to rows using shared helper
+                    attachSubtitleOperations(list, previewResult);
                 }
             } catch (subtitleError) {
                 // Continue without subtitle operations
             }
 
             setRows(list);
-            setSelectedIds(new Set(list.filter(r => r.status !== "error").map(r => r.id)));
+            setSelectedIds(new Set());
+
+            // Calculate available seasons for TV shows
+            if (library.type === "show") {
+              const seasons = list
+                .filter(row => row.kind === "episode")
+                .map(row => (row.metadata as EpisodeItem)?.season)
+                .filter(season => season !== undefined && season !== null)
+                .filter((season, index, arr) => arr.indexOf(season) === index) // unique
+                .sort((a, b) => a - b);
+
+              setAvailableSeasons(seasons);
+
+              // Default to season 1 if available and no season selected yet
+              if (selectedSeason === null && seasons.includes(1)) {
+                setSelectedSeason(1);
+              }
+            }
+        
+            setPreviewLoading(false);
         }
 
         computeProposals();
@@ -458,8 +515,18 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             results = results.filter(r => r.status === statusFilter);
         }
 
+        // Apply season filter for TV shows
+        if (library.type === "show" && selectedSeason !== "all") {
+            const targetSeason = selectedSeason === null ? 1 : selectedSeason;
+            results = results.filter(r => {
+                if (r.kind !== "episode") return true;
+                const episode = r.metadata as EpisodeItem;
+                return episode?.season === targetSeason;
+            });
+        }
+
         return results;
-    }, [rows, debouncedSearchQuery, statusFilter, library.roots]);
+    }, [rows, debouncedSearchQuery, statusFilter, library.roots, library.type, selectedSeason]);
 
     // Trigger remote (API) search for all queries
     useEffect(() => {
@@ -550,7 +617,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 ratingKey: movieRatingKey,
                                 title: String(item.title || "Unknown"),
                                 year: item.year ? Number(item.year) : undefined,
-                                file: resolvePlexFilePath(filePath, libraryFolder), // Resolve to absolute local path
+                                file: filePath,
+                                plexPath: filePath,
                                 edition: String(item.edition ?? item.editionTitle ?? ""),
                                 genre: String(item.genre ?? ""),
                                 rating: String(item.contentRating ?? ""),
@@ -563,7 +631,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.movie || template;
-                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], mappings, serverId);
+                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
                             row.metadata = m; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -584,7 +652,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 title: String(item.title || "Episode"),
                                 season: seasonNum,
                                 index: epIndex,
-                                file: resolvePlexFilePath(filePath, libraryFolder), // Resolve to absolute local path
+                                file: filePath,
+                                plexPath: filePath,
                                 year: item.year ? Number(item.year) : undefined,
                                 grandparentTitle: String(item.grandparentTitle ?? showTitle),
                                 parentTitle: String(item.parentTitle ?? ""),
@@ -592,7 +661,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.episode || template;
-                            const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || [], mappings, serverId);
+                            const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || []);
                             row.metadata = e; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -637,6 +706,11 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const pageRows = useMemo(() => displayRows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize), [displayRows, page, pageSize]);
     useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
 
+    const pageAllSelected = useMemo(
+        () => pageRows.length > 0 && pageRows.every(r => selectedIds.has(r.id)),
+        [pageRows, selectedIds]
+    );
+
     function toggle(id: string) {
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -646,18 +720,51 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     }
 
     function skipReds() {
-        setSelectedIds(new Set(rows.filter(r => r.status !== "error").map(r => r.id)));
+        // Prefer current filtered view so behaviour matches what user sees
+        setSelectedIds(new Set(filteredRows.filter(r => r.status !== "error").map(r => r.id)));
+    }
+
+    function togglePageSelection() {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            const allSelected = pageRows.length > 0 && pageRows.every(r => next.has(r.id));
+
+            if (allSelected) {
+                pageRows.forEach(r => next.delete(r.id));
+            } else {
+                pageRows.forEach(r => next.add(r.id));
+            }
+
+            return next;
+        });
     }
 
     async function applyRename() {
-        if (anyRedSelected) return;
+        // Extra guard – button is already disabled when anyRedSelected
+        if (anyRedSelected) {
+            alert("Cannot proceed while any selected items are red. Use “Skip Reds” or fix blocking issues first.");
+            return;
+        }
+
+        console.log("[Preview] Proceed clicked", {
+            totalRows: rows.length,
+            visibleRows: displayRows.length,
+            selectedIds: Array.from(selectedIds),
+        });
 
         setLoading(true);
         try {
             // Collect all operations (video + subtitle)
-            const operations = [];
+            const operations: {
+                operation_type: string;
+                original_path: string;
+                new_path: string;
+                backup_path: string | null;
+                operation_id: string;
+            }[] = [];
 
-            for (const row of rows) {
+            // Only operate on the current filtered set (season/search/status)
+            for (const row of pageRows) {
                 if (selectedIds.has(row.id)) {
                     // Add video operation
                     operations.push({
@@ -683,31 +790,100 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 }
             }
 
-            if (operations.length === 0) return;
+            if (operations.length === 0) {
+                alert("No items are selected to rename. Toggle at least one row on this page and try again.");
+                return;
+            }
+
+            setApplyInProgress(true);
+            setApplyOperationCount(operations.length);
 
             const result = await invoke<any>("apply_video_renames", {
                 request: {
                     operations,
+                    server_id: generateServerId(server),
                     _settings: settings,
                 }
             });
 
-            if (result.success) {
-                alert(`Successfully applied ${result.operations_applied} operations.\nRollback log saved to: ${result.rollback_log_path}`);
-            } else {
-                alert(`Applied ${result.operations_applied} operations, but ${result.operations_failed} failed.\nCheck console for details.`);
+            setLastApplySummary({
+                operationsApplied: result.operations_applied,
+                operationsFailed: result.operations_failed,
+                rollbackLogPath: result.rollback_log_path,
+                operations,
+            });
+
+            if (!result.success) {
+                // Log detailed errors to console
+                console.error("Failed to apply renames:", {
+                    operations_applied: result.operations_applied,
+                    operations_failed: result.operations_failed,
+                    rollback_log_path: result.rollback_log_path,
+                    errors: result.errors
+                });
+
+                // Show detailed errors to user
+                const errorDetails = result.errors && result.errors.length > 0
+                    ? `\n\nError details:\n${result.errors.slice(0, 5).join('\n')}${result.errors.length > 5 ? `\n... and ${result.errors.length - 5} more errors` : ''}`
+                    : '';
+
+                alert(`Applied ${result.operations_applied} operations, but ${result.operations_failed} failed.\n\nRollback log saved to: ${result.rollback_log_path}${errorDetails}\n\nCheck console (F12) for complete error details.`);
             }
         } catch (error) {
             console.error("Failed to apply renames:", error);
             alert(`Failed to apply renames: ${error}`);
         } finally {
             setLoading(false);
+            setApplyInProgress(false);
+        }
+    }
+
+    async function removeEmptyFolders() {
+        if (!lastApplySummary) return;
+
+        setCleanupInProgress(true);
+        setCleanupResult(null);
+        try {
+            const originalPaths = lastApplySummary.operations
+                .filter(op => op.operation_type === "rename")
+                .map(op => op.original_path);
+
+            if (originalPaths.length === 0) {
+                setCleanupResult({
+                    removed_directories: [],
+                    errors: ["No rename operations available to derive directories from."],
+                });
+                return;
+            }
+
+            const result = await invoke<any>("cleanup_empty_folders", {
+                request: {
+                    server_id: generateServerId(server),
+                    original_paths: originalPaths,
+                }
+            });
+
+            setCleanupResult({
+                removed_directories: result.removed_directories || [],
+                errors: result.errors || [],
+            });
+        } catch (error) {
+            console.error("Failed to remove empty folders:", error);
+            setCleanupResult({
+                removed_directories: [],
+                errors: [String(error)],
+            });
+        } finally {
+            setCleanupInProgress(false);
         }
     }
 
     async function undoLastRename() {
-        if (!confirm("This will undo the last rename operation. Continue?")) return;
+        setShowUndoConfirm(true);
+    }
 
+    async function handleUndoConfirm() {
+        setShowUndoConfirm(false);
         setLoading(true);
         try {
             const result = await invoke<any>("undo_last_rename");
@@ -717,7 +893,20 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 // Reload the page to reflect changes
                 setReloadTick(t => t + 1);
             } else {
-                alert(`Undid ${result.operations_applied} operations, but ${result.operations_failed} failed.\nCheck console for details.`);
+                // Log detailed errors to console
+                console.error("Failed to undo renames:", {
+                    operations_applied: result.operations_applied,
+                    operations_failed: result.operations_failed,
+                    rollback_log_path: result.rollback_log_path,
+                    errors: result.errors
+                });
+
+                // Show detailed errors to user
+                const errorDetails = result.errors && result.errors.length > 0
+                    ? `\n\nError details:\n${result.errors.slice(0, 5).join('\n')}${result.errors.length > 5 ? `\n... and ${result.errors.length - 5} more errors` : ''}`
+                    : '';
+
+                alert(`Undid ${result.operations_applied} operations, but ${result.operations_failed} failed.\n\nRollback log saved to: ${result.rollback_log_path}${errorDetails}\n\nCheck console (F12) for complete error details.`);
             }
         } catch (error) {
             console.error("Failed to undo renames:", error);
@@ -725,6 +914,74 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         } finally {
             setLoading(false);
         }
+    }
+
+    async function exportPreviewSnapshot() {
+        try {
+            const snapshot = {
+                server: {
+                    name: server.name,
+                    address: server.address,
+                },
+                library: {
+                    key: library.key,
+                    title: library.title,
+                    type: library.type,
+                },
+                currentShow,
+                page,
+                pageSize,
+                statusFilter,
+                searchQuery,
+                selectedSeason,
+                availableSeasons,
+                settings: {
+                    general: {
+                        encoding: settings.general.encoding,
+                        conflictHandling: settings.general.conflictHandling,
+                        safety: settings.general.safety,
+                    },
+                    templates: settings.templates,
+                    movies: settings.movies,
+                    tv: settings.tv,
+                    music: settings.music,
+                    misc: settings.misc,
+                },
+                preview: {
+                    total_rows: displayRows.length,
+                    rows: displayRows.map((r) => ({
+                        id: r.id,
+                        kind: r.kind,
+                        status: r.status,
+                        flags: r.flags,
+                        filePath: r.filePath,
+                        proposed: r.proposed,
+                        metadata: r.metadata
+                            ? {
+                                  type: (r.metadata as any).type,
+                                  ratingKey: (r.metadata as any).ratingKey,
+                                  title:
+                                      (r.metadata as any).title ||
+                                      (r.metadata as any).track ||
+                                      undefined,
+                                  showTitle: (r.metadata as any).showTitle,
+                                  season: (r.metadata as any).season,
+                                  index: (r.metadata as any).index,
+                              }
+                            : null,
+                    })),
+                },
+            };
+
+            const path = await invoke<string>("export_preview_snapshot", { snapshot });
+            alert(`Preview snapshot saved.\n\nPath: ${path}`);
+        } catch (error) {
+            alert(`Failed to export preview snapshot: ${error}`);
+        }
+    }
+
+    function handleUndoCancel() {
+        setShowUndoConfirm(false);
     }
 
     // Column resizing + fluid width support
@@ -834,7 +1091,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     ratingKey: movieRatingKey,
                     title: String(item.title ?? "Unknown"),
                     year: item.year ? Number(item.year) : undefined,
-                    file: resolvePlexFilePath(String(file), libraryFolder),
+                            file: resolvePlexFilePath(String(file), libraryFolder),
                     edition: String(item.edition ?? item.editionTitle ?? ""),
                     genre: String(item.genre ?? ""),
                     rating: String(item.contentRating ?? ""),
@@ -847,7 +1104,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     thumb: String(item.thumb ?? ""),
                 };
                 const tpl = settings.templates.movie || template;
-                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], mappings, serverId);
+                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
                 row.metadata = m; // Store original metadata for popover
                 more.push(row);
             }
@@ -889,13 +1146,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     track: String(item.title ?? "Unknown Track"),
                     trackNumber: item.index ? Number(item.index) : undefined,
                     disc: item.parentIndex ? Number(item.parentIndex) : undefined,
-                    file: resolvePlexFilePath(String(file), libraryFolder),
+                            file: resolvePlexFilePath(String(file), libraryFolder),
                     year: item.year ? Number(item.year) : undefined,
                     genre: String(item.genre ?? ""),
                     thumb: String(item.thumb ?? ""),
                 };
                 const tpl = settings.templates.music || template;
-                const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || [], mappings, serverId);
+                const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || []);
                 row.metadata = m; // Store original metadata for popover
                 more.push(row);
             }
@@ -934,7 +1191,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         title: String(item.title ?? "Episode"),
                         season: parsed.season,
                         index: parsed.index,
-                        file: resolvePlexFilePath(String(file), libraryFolder),
+                            file: resolvePlexFilePath(String(file), libraryFolder),
                         year: item.year ? Number(item.year) : undefined,
                         grandparentTitle: String(item.grandparentTitle ?? currentShow?.title ?? "Unknown Show"),
                         parentTitle: String(item.parentTitle ?? ""),
@@ -942,7 +1199,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         thumb: String(item.thumb ?? ""),
                     };
                     const tpl = settings.templates.episode || template;
-                    const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || [], mappings, serverId);
+                    const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || []);
                     row.metadata = e; // Store original metadata for popover
                     more.push(row);
                 }
@@ -954,20 +1211,22 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     }, [rows.length, server.address, currentShow, episodesPaging.size, libraryFolder, settings, template]);
 
     return (
-        <PreviewTemplate
-            server={server}
-            library={library}
-            currentShow={currentShow}
-            loading={loading}
-            searching={searching}
-            error={error}
-            rows={rows}
-            displayRows={displayRows}
-            pageRows={pageRows}
-            selectedIds={selectedIds}
-            page={page}
-            pageSize={pageSize}
-            totalPages={totalPages}
+    <PreviewTemplate
+      server={server}
+      library={library}
+      currentShow={currentShow}
+      loading={loading}
+      searching={searching}
+      error={error}
+      rows={rows}
+      displayRows={displayRows}
+      pageRows={pageRows}
+      selectedIds={selectedIds}
+      page={page}
+      pageSize={pageSize}
+      totalPages={totalPages}
+      selectedSeason={selectedSeason}
+      availableSeasons={availableSeasons}
             anyRedSelected={anyRedSelected}
             libraryFolder={libraryFolder}
             template={template}
@@ -985,6 +1244,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             onSkipReds={skipReds}
             onApplyRename={applyRename}
             onUndoLastRename={undoLastRename}
+            showUndoConfirm={showUndoConfirm}
+            onUndoConfirm={handleUndoConfirm}
+            onUndoCancel={handleUndoCancel}
             onSetSearchQuery={setSearchQuery}
             onSetStatusFilter={setStatusFilter}
             onSetPage={setPage}
@@ -1000,9 +1262,21 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             onUpdateSettings={updateSettings}
             onSetReloadTick={(fn) => setReloadTick(fn)}
             settings={settings}
+            previewLoading={previewLoading}
+            pageAllSelected={pageAllSelected}
+            onTogglePageSelection={togglePageSelection}
+            onExportPreviewSnapshot={exportPreviewSnapshot}
             onLoadMoreMovies={() => loadMoreMovies()}
             onLoadMoreMusic={() => loadMoreMusic()}
             onLoadMoreEpisodes={() => loadMoreEpisodes()}
+            onSetSelectedSeason={setSelectedSeason}
+            applyInProgress={applyInProgress}
+            applyOperationCount={applyOperationCount}
+            lastApplySummary={lastApplySummary}
+            cleanupInProgress={cleanupInProgress}
+            cleanupResult={cleanupResult}
+            onRemoveEmptyFolders={removeEmptyFolders}
+            onCloseApplySummary={clearApplySummary}
         />
     );
 }

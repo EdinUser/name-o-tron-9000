@@ -10,7 +10,7 @@ import {
     safeFolderName,
     sanitizeProposal,
 } from "./utils";
-import { extractImdbId, extractTvdbId, extractTmdbId } from "../../utils/template";
+import { extractImdbId, extractTvdbId, extractTmdbId, renderTemplate } from "../../utils/template";
 
 export async function computeEpisodeProposal(
     e: EpisodeItem,
@@ -18,9 +18,7 @@ export async function computeEpisodeProposal(
     useSeasonFolders: boolean,
     settings: any,
     libraryFolder: string | null,
-    libraryRoots: string[],
-    mappings: Array<{ server_id: string; plex_root: string; local_root: string }>,
-    serverId: string
+    libraryRoots: string[]
 ): Promise<PreviewRow> {
     const ext = extname(e.file) || ".mkv";
 
@@ -219,7 +217,6 @@ export async function computeEpisodeProposal(
 
     let templateResult = "";
     try {
-        const { renderTemplate } = await import("../../utils/template");
         templateResult = renderTemplate(dynamicTemplate, ctx);
     } catch (error) {
         console.error("Error rendering episode template:", error);
@@ -284,16 +281,20 @@ export async function computeEpisodeProposal(
         status = status === "good" ? "warning" : status;
         flags.push("non-latin");
     }
-    if (proposed.length > 255) {
-        status = "error";
-        flags.push(">255 path");
-    } else if (proposed.length > 200 && status !== "error") {
-        status = "warning";
-        flags.push(">200 path");
+    const pathLengthCheck =
+        settings.general?.safety?.pathLengthCheck ?? true;
+    if (pathLengthCheck) {
+        if (proposed.length > 255) {
+            status = "error";
+            flags.push(">255 path");
+        } else if (proposed.length > 200 && status !== "error") {
+            status = "warning";
+            flags.push(">200 path");
+        }
     }
 
     // Check if item is mapped (not in a mapped folder)
-    if (!isItemMapped(e.file, libraryRoots, mappings, serverId)) {
+    if (!isItemMapped(e.file, libraryRoots)) {
         status = "unmatched";
         flags.push("unmapped");
     }
@@ -302,6 +303,7 @@ export async function computeEpisodeProposal(
         id: e.ratingKey,
         kind: "episode",
         filePath: resolvePlexFilePath(e.file, libraryFolder),
+        plexPath: e.plexPath || e.file, // Original Plex path
         proposed,
         status,
         flags

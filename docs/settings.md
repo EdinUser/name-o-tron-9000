@@ -57,6 +57,7 @@ Throughout this document, settings options are marked with labels to help you un
   - Edit metadata for individual items through the preview interface
   - Changes persist across sessions and affect template rendering
   - Available for movies, TV episodes, and music
+  - Combined with per-page “Select all” controls in the Preview table for efficient batch selection
 
 ### Filename Encoding 🟢 Basic
 - **Keep Unicode** (•) - Recommended default
@@ -208,6 +209,17 @@ Throughout this document, settings options are marked with labels to help you un
 - **Path length check** ✓ - Monitor long paths
 - **Reserved names check** ✓ - Cross-platform compatibility
 - **Non-media detection** ✓ - Identify unsupported files
+
+---
+
+## Support & Diagnostics
+
+- **Open logs folder** ✓
+  - Quickly open the directory containing rollback and error logs
+- **Export diagnostic bundle** ✓
+  - Generate an anonymized ZIP bundle containing settings summary and recent logs for bug reports
+- **Preview snapshots** ✓
+  - From the Preview screen, export an anonymized JSON snapshot of the current preview state to attach to issues
 
 ---
 

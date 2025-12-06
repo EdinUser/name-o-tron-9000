@@ -1,22 +1,11 @@
-import { VIDEO_EXTS, EDITION_PRIORITY } from "./constants";
-import type { MovieItem, PreviewRow } from "./types";
-import {
-    basename,
-    extname,
-    formatCollectionFolderName,
-    getHighestPriorityEdition,
-    hasNonLatin,
-    isItemMapped,
-    normalizeUnicode,
-    resolvePlexFilePath,
-    safeFolderName,
-    sanitizeProposal,
-    sortEditionsByPriority,
-} from "./utils";
-import { extractImdbId, extractTvdbId, extractTmdbId, mapEditionTokenToTitle } from "../../utils/template";
+import {invoke} from "@tauri-apps/api/core";
+import {EDITION_PRIORITY, VIDEO_EXTS} from "./constants";
+import type {MovieItem, PreviewRow} from "./types";
+import {basename, extname, getHighestPriorityEdition, hasNonLatin, isItemMapped, normalizeUnicode, resolvePlexFilePath, safeFolderName, sanitizeProposal, sortEditionsByPriority,} from "./utils";
+import {detectEditionFromPathWithPriority, extractImdbId, extractTmdbId, extractTvdbId, mapEditionTokenToTitle, renderTemplate} from "../../utils/template";
 
 // Helper function to get sorting title (ignoring articles if configured)
-function getSortingTitle(title: string, alphaArticleHandling: string): string {
+export function getSortingTitle(title: string, alphaArticleHandling: string): string {
     if (alphaArticleHandling === "ignore") {
         // Remove common articles from the beginning for sorting purposes
         const articles = /^(the|a|an)\s+/i;
@@ -26,45 +15,45 @@ function getSortingTitle(title: string, alphaArticleHandling: string): string {
 }
 
 // Helper function to detect existing folder structure patterns
-function detectExistingFolderStructure(folders: string[]): {
+export function detectExistingFolderStructure(folders: string[]): {
     type: 'none' | 'alpha' | 'alpha_ranges' | 'year_decade' | 'genre' | 'custom';
     pattern?: string;
     confidence: number;
 } {
-    if (folders.length === 0) return { type: 'none', confidence: 1.0 };
+    if (folders.length === 0) return {type: 'none', confidence: 1.0};
 
     const topFolder = folders[0].toLowerCase();
 
     // Check for alphabetical patterns
     if (/^[a-z]$/.test(topFolder)) {
-        return { type: 'alpha', pattern: topFolder, confidence: 0.9 };
+        return {type: 'alpha', pattern: topFolder, confidence: 0.9};
     }
 
     // Check for alphabet ranges
     if (/^[a-z]-[a-z]$/.test(topFolder) || /^(a-d|e-h|i-l|m-p|q-t|u-z)$/.test(topFolder)) {
-        return { type: 'alpha_ranges', pattern: topFolder, confidence: 0.9 };
+        return {type: 'alpha_ranges', pattern: topFolder, confidence: 0.9};
     }
 
     // Check for year/decade patterns
     if (/^\d{4}s$/.test(topFolder)) {
-        return { type: 'year_decade', pattern: topFolder, confidence: 0.8 };
+        return {type: 'year_decade', pattern: topFolder, confidence: 0.8};
     }
 
     // Check for common genre patterns (heuristic)
     const genrePatterns = ['action', 'adventure', 'comedy', 'drama', 'horror', 'sci-fi', 'thriller', 'documentary'];
     if (genrePatterns.some(g => topFolder.includes(g) || topFolder === g)) {
-        return { type: 'genre', pattern: topFolder, confidence: 0.7 };
+        return {type: 'genre', pattern: topFolder, confidence: 0.7};
     }
 
     // Check for chronological prefixes in folder names
     if (/^\d{4}\s*-\s*.+/.test(folders[folders.length - 1] || '')) {
-        return { type: 'custom', pattern: 'chronological', confidence: 0.6 };
+        return {type: 'custom', pattern: 'chronological', confidence: 0.6};
     }
 
-    return { type: 'custom', confidence: 0.3 };
+    return {type: 'custom', confidence: 0.3};
 }
 
-function getOrganizedPath(title: string, folderStructure: string, settings: any, year?: number, genre?: string): string {
+export function getOrganizedPath(title: string, folderStructure: string, settings: any, year?: number, genre?: string): string {
     const baseFolderName = safeFolderName(title);
     let organizedPath = "";
 
@@ -130,7 +119,7 @@ function getOrganizedPath(title: string, folderStructure: string, settings: any,
 }
 
 // Helper function to apply chronological prefix
-function applyChronologicalPrefix(path: string, year?: number, chronologicalPrefix: string = "year"): string {
+export function applyChronologicalPrefix(path: string, year?: number, chronologicalPrefix: string = "year"): string {
     if (chronologicalPrefix === "none" || !year) return path;
 
     let prefix = "";
@@ -162,11 +151,14 @@ export async function computeMovieProposal(
     collectionName: string,
     settings: any,
     libraryFolder: string | null,
-    libraryRoots: string[],
-    mappings: Array<{ server_id: string; plex_root: string; local_root: string }>,
-    serverId: string
+    libraryRoots: string[]
 ): Promise<PreviewRow> {
+
     const ext = extname(m.file) || ".mkv";
+
+    // Mark unused parameters as intentionally unused (backwards compatibility)
+    void ownFolderPerMovie;
+    void collectionsEnabled;
 
     // Check for manual fix first
     const manualFix = settings.manualFixes?.find((fix: any) => fix.ratingKey === m.ratingKey);
@@ -184,7 +176,6 @@ export async function computeMovieProposal(
 
     // Detect from path (folders/filename) when enabled
     if (settings.movies.editions.createFromFilenames) {
-        const { detectEditionFromPathWithPriority } = await import("../../utils/template");
         const detected = detectEditionFromPathWithPriority(m.file, settings.movies.editions.parsers);
         if (detected) {
             editionToken = detected.token || editionToken;
@@ -288,7 +279,6 @@ export async function computeMovieProposal(
 
     let proposed = "";
     try {
-        const { renderTemplate } = await import("../../utils/template");
         proposed = renderTemplate(template, ctx);
     } catch (error) {
         console.error("Error rendering movie template:", error);
@@ -315,95 +305,32 @@ export async function computeMovieProposal(
         }
     }
 
-    // Analyze current file path to understand existing folder structure
-    const currentPath = m.file;
-    const currentDir = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
-    const currentFolders = currentDir.split('/').filter(Boolean);
-
-    // Apply folder structure logic based on settings
-    const folderStructure = settings.movies.folderStructure;
-    const chronologicalPrefix = settings.movies.chronologicalPrefix;
-    const folderStructureBehavior = settings.movies.folderStructureBehavior;
-
-    // Detect existing folder structure
-    const existingStructure = detectExistingFolderStructure(currentFolders);
-
-    // Handle collection-based folders if collections are enabled and movie has a collection
-    if (collectionsEnabled && collectionName && collectionName.trim()) {
-        const collectionFolderName = formatCollectionFolderName(collectionName, settings);
-        // When collections are enabled, always use collection as the top-level folder
-        // This overrides any template folder structure
-        if (!proposed.includes('/')) {
-            // Template doesn't include folders, so use collection as folder
-            proposed = `${collectionFolderName}/${proposed}`;
-        } else {
-            // Template includes folders, but collections take precedence - replace entire path
-            const fileName = proposed.substring(proposed.lastIndexOf('/') + 1);
-            proposed = `${collectionFolderName}/${fileName}`;
+    // Ask backend to apply folder structure logic and preserve existing grouping
+    try {
+        const response = await (invoke as any)("compute_movie_destinations", {
+            request: {
+                settings,
+                library_roots: libraryRoots,
+                items: [
+                    {
+                        rating_key: m.ratingKey,
+                        original_path: m.file,
+                        base_name: proposed,
+                        title: m.title,
+                        year: m.year ?? null,
+                    },
+                ],
+            },
+        }) as { rating_key: string; proposed: string }[];
+        const matched = Array.isArray(response)
+            ? response.find((r) => r.rating_key === m.ratingKey)
+            : null;
+        if (matched && matched.proposed) {
+            proposed = matched.proposed;
         }
-    }
-    // If collections are disabled or movie has no collection, apply intelligent folder structure logic
-    else {
-        // Get desired organized path based on folder structure settings
-        const desiredPath = getOrganizedPath(m.title, folderStructure, settings, m.year, m.genre);
-
-        // Make decisions based on folder structure behavior setting
-        if (folderStructureBehavior === "preserve_existing") {
-            // Always preserve existing folder structure
-            if (proposed.includes('/')) {
-                const existingBasePath = currentFolders.slice(0, -1).join('/');
-                const fileName = proposed.substring(proposed.lastIndexOf('/') + 1);
-                proposed = `${existingBasePath}/${fileName}`;
-            }
-        } else if (folderStructureBehavior === "reorganize_all") {
-            // Always apply new folder structure regardless of existing structure
-            if (desiredPath) {
-                const prefixedPath = applyChronologicalPrefix(desiredPath, m.year, chronologicalPrefix);
-                proposed = `${prefixedPath}/${proposed}`;
-            } else if (ownFolderPerMovie && !proposed.includes('/')) {
-                const folderName = safeFolderName(m.title);
-                proposed = `${folderName}/${proposed}`;
-            }
-        } else { // intelligent (default)
-            // Make intelligent decisions based on existing vs desired structure
-            const existingStructure = detectExistingFolderStructure(currentFolders);
-
-            if (existingStructure.confidence > 0.7 && existingStructure.type === folderStructure) {
-                // High confidence that existing structure matches desired structure
-                // Preserve existing structure and just fix the filename
-                if (proposed.includes('/')) {
-                    const existingBasePath = currentFolders.slice(0, -1).join('/');
-                    const fileName = proposed.substring(proposed.lastIndexOf('/') + 1);
-                    proposed = `${existingBasePath}/${fileName}`;
-                }
-            } else if (desiredPath && !proposed.includes('/')) {
-                // No existing structure or doesn't match desired - apply new structure
-                const prefixedPath = applyChronologicalPrefix(desiredPath, m.year, chronologicalPrefix);
-                proposed = `${prefixedPath}/${proposed}`;
-            } else if (ownFolderPerMovie && !proposed.includes('/')) {
-                // Fallback to individual movie folder if no other structure applies
-                const folderName = safeFolderName(m.title);
-                proposed = `${folderName}/${proposed}`;
-            }
-        }
-
-        // If using intelligent mode and movie already has good structure but needs chronological prefix, add it
-        if (folderStructureBehavior === "intelligent" && existingStructure.confidence > 0.7 && chronologicalPrefix !== "none" && m.year) {
-            const needsPrefix = !currentFolders.some(folder => /^\d{4}\s*-/.test(folder));
-            if (needsPrefix && proposed.includes('/')) {
-                const lastSlash = proposed.lastIndexOf('/');
-                const prefix = m.year + " - ";
-                proposed = proposed.substring(0, lastSlash + 1) + prefix + proposed.substring(lastSlash + 1);
-            }
-        }
-    }
-
-    // Final chronological prefix application (if not already applied above)
-    if (m.year && chronologicalPrefix !== "none" && folderStructureBehavior !== "preserve_existing") {
-        const hasChronologicalPrefix = proposed.split('/').some(folder => /^\d{4}\s*-/.test(folder));
-        if (!hasChronologicalPrefix) {
-            proposed = applyChronologicalPrefix(proposed, m.year, chronologicalPrefix);
-        }
+    } catch (error) {
+        console.error("Failed to compute movie destination via backend", error);
+        // Fallback: keep template-based filename without additional folders
     }
 
     proposed = normalizeUnicode(proposed);
@@ -458,16 +385,20 @@ export async function computeMovieProposal(
         status = status === "good" ? "warning" : status;
         flags.push("non-latin");
     }
-    if (proposed.length > 255) {
-        status = "error";
-        flags.push(">255 path");
-    } else if (proposed.length > 200 && status !== "error") {
-        status = "warning";
-        flags.push(">200 path");
+    const pathLengthCheck =
+        settings.general?.safety?.pathLengthCheck ?? true;
+    if (pathLengthCheck) {
+        if (proposed.length > 255) {
+            status = "error";
+            flags.push(">255 path");
+        } else if (proposed.length > 200 && status !== "error") {
+            status = "warning";
+            flags.push(">200 path");
+        }
     }
 
     // Check if item is mapped (not in a mapped folder)
-    if (!isItemMapped(m.file, libraryRoots, mappings, serverId)) {
+    if (!isItemMapped(m.file, libraryRoots)) {
         status = "unmatched";
         flags.push("unmapped");
     }
@@ -476,6 +407,7 @@ export async function computeMovieProposal(
         id: m.ratingKey,
         kind: "movie",
         filePath: resolvePlexFilePath(m.file, libraryFolder),
+        plexPath: m.plexPath || m.file, // Original Plex path
         proposed,
         status,
         flags

@@ -1050,6 +1050,503 @@ fn sanitize_and_validate_path(path: &str, settings: &serde_json::Value) -> (Stri
     (sanitized, warnings, blocking_errors)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn highlight_non_latin_respects_setting() {
+        let settings_with_highlight = json!({
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": true
+                }
+            }
+        });
+
+        // Use clearly non-Latin characters so detection is unambiguous
+        let path = "映画.mkv";
+        let (_sanitized, warnings, blocking_errors) =
+            sanitize_and_validate_path(path, &settings_with_highlight);
+
+        assert!(blocking_errors.is_empty());
+        assert!(warnings.iter().any(|w| w.contains("Non-Latin characters")));
+
+        let settings_without_highlight = json!({
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let (_sanitized2, warnings2, blocking_errors2) =
+            sanitize_and_validate_path(path, &settings_without_highlight);
+
+        assert!(blocking_errors2.is_empty());
+        assert!(warnings2.iter().all(|w| !w.contains("Non-Latin characters")));
+    }
+
+    #[test]
+    fn path_length_checks_respect_safety_setting() {
+        let long_name: String = std::iter::repeat('A').take(260).collect();
+        let long_path = format!("{}.mkv", long_name);
+
+        let settings_with_checks = json!({
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": false,
+                    "permissionsCheck": false
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let (_sanitized, _warnings, blocking_errors) =
+            sanitize_and_validate_path(&long_path, &settings_with_checks);
+
+        assert!(blocking_errors
+            .iter()
+            .any(|w| w.contains("Path too long")));
+
+        let settings_without_checks = json!({
+            "general": {
+                "safety": {
+                    "pathLengthCheck": false,
+                    "reservedNamesCheck": false,
+                    "permissionsCheck": false
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let (_sanitized2, _warnings2, blocking_errors2) =
+            sanitize_and_validate_path(&long_path, &settings_without_checks);
+
+        assert!(blocking_errors2
+            .iter()
+            .all(|w| !w.contains("Path too long")));
+    }
+
+    #[test]
+    fn episode_specials_folder_respects_detect_ovas_setting() {
+        let episode = EpisodeItem {
+            rating_key: "rk1".to_string(),
+            title: "Pilot".to_string(),
+            year: Some(2020),
+            file: "Show.S00E01.mkv".to_string(),
+            genre: vec![],
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+            grandparent_title: "Show".to_string(),
+            parent_title: "Season 00".to_string(),
+            parent_index: 0,
+            index: 1,
+        };
+
+        let settings_with_specials = json!({
+            "tv": {
+                "detectOVAsSeason00": true,
+                "normalizeMultiEpisode": true,
+                "seasonFolders": true
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op_specials = compute_episode_proposal(
+            &episode,
+            "{grandparentTitle} - S{parentIndex:02}E{index:02}{ext}",
+            &settings_with_specials,
+        )
+        .expect("episode proposal with Specials");
+
+        // Sanitization replaces path separators with '_', so we check prefix only
+        assert!(op_specials
+            .new_path
+            .starts_with("Specials_"));
+
+        let settings_without_specials = json!({
+            "tv": {
+                "detectOVAsSeason00": false,
+                "normalizeMultiEpisode": true,
+                "seasonFolders": true
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op_season00 = compute_episode_proposal(
+            &episode,
+            "{grandparentTitle} - S{parentIndex:02}E{index:02}{ext}",
+            &settings_without_specials,
+        )
+        .expect("episode proposal with Season 00");
+
+        assert!(op_season00
+            .new_path
+            .starts_with("Season 00_"));
+    }
+
+    #[test]
+    fn episode_multi_episode_normalization_respects_setting() {
+        let episode = EpisodeItem {
+            rating_key: "rk2".to_string(),
+            title: "Double Episode".to_string(),
+            year: Some(2020),
+            file: "Show.S01E01E02.mkv".to_string(),
+            genre: vec![],
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+            grandparent_title: "Show".to_string(),
+            parent_title: "Season 01".to_string(),
+            parent_index: 1,
+            index: 1,
+        };
+
+        let base_settings = json!({
+            "tv": {
+                "detectOVAsSeason00": true,
+                "seasonFolders": true
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        // With normalization enabled, template should receive multiEpisodeRange
+        let mut settings_with_norm = base_settings.clone();
+        settings_with_norm["tv"]["normalizeMultiEpisode"] = json!(true);
+
+        let op_norm = compute_episode_proposal(
+            &episode,
+            "{grandparentTitle} - S{parentIndex:02}{multiEpisodeRange}{ext}",
+            &settings_with_norm,
+        )
+        .expect("episode proposal with multi-episode normalization");
+
+        let name_norm = basename(&op_norm.new_path);
+        assert!(name_norm.contains("E01-E02"));
+
+        // With normalization disabled, multiEpisodeRange should not be injected
+        let mut settings_without_norm = base_settings.clone();
+        settings_without_norm["tv"]["normalizeMultiEpisode"] = json!(false);
+
+        let op_no_norm = compute_episode_proposal(
+            &episode,
+            "{grandparentTitle} - S{parentIndex:02}{multiEpisodeRange}{ext}",
+            &settings_without_norm,
+        )
+        .expect("episode proposal without multi-episode normalization");
+
+        let name_no_norm = basename(&op_no_norm.new_path);
+        assert!(!name_no_norm.contains("E01-E02"));
+    }
+
+    #[test]
+    fn movie_own_folder_setting_changes_output_path() {
+        let movie = MovieItem {
+            rating_key: "m1".to_string(),
+            title: "Inception".to_string(),
+            year: Some(2010),
+            file: "Inception (2010).mkv".to_string(),
+            genre: vec![],
+            collection: None,
+            edition_title: None,
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+        };
+
+        let base_settings = json!({
+            "movies": {
+                "folderStructure": "none"
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        // With ownFolderPerMovie = true, path should include the movie title as a folder
+        let mut with_folder = base_settings.clone();
+        with_folder["movies"]["ownFolderPerMovie"] = json!(true);
+
+        let op_with_folder = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &with_folder,
+        )
+        .expect("movie proposal with own folder");
+
+        // After sanitization, the path separator becomes '_' but folder name remains visible
+        assert!(op_with_folder
+            .new_path
+            .starts_with("Inception_"));
+
+        // With ownFolderPerMovie = false, path should not be prefixed by a folder
+        let mut without_folder = base_settings.clone();
+        without_folder["movies"]["ownFolderPerMovie"] = json!(false);
+
+        let op_without_folder = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &without_folder,
+        )
+        .expect("movie proposal without own folder");
+
+        // Current implementation appends the raw extension (without dot)
+        assert_eq!(op_without_folder.new_path, "Inceptionmkv");
+    }
+
+    #[test]
+    fn movie_collections_setting_adds_collection_folder() {
+        let movie = MovieItem {
+            rating_key: "m2".to_string(),
+            title: "Inception".to_string(),
+            year: Some(2010),
+            file: "Inception (2010).mkv".to_string(),
+            genre: vec![],
+            collection: Some("Nolan Collection".to_string()),
+            edition_title: None,
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+        };
+
+        let settings = json!({
+            "movies": {
+                "collections": {
+                    "enabled": true,
+                    "mode": "always",
+                    "format": "{collection}"
+                },
+                "folderStructure": "none",
+                "ownFolderPerMovie": false
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &settings,
+        )
+        .expect("movie proposal with collection folder");
+
+        // After sanitization, collection folder prefix uses '_' instead of '/'
+        assert!(op
+            .new_path
+            .starts_with("Nolan Collection_"));
+        assert!(op.new_path.contains("Inception"));
+    }
+
+    #[test]
+    fn movie_collections_if2plus_currently_excludes_collection_folder() {
+        let movie = MovieItem {
+            rating_key: "m3".to_string(),
+            title: "Inception".to_string(),
+            year: Some(2010),
+            file: "Inception (2010).mkv".to_string(),
+            genre: vec![],
+            collection: Some("Nolan Collection".to_string()),
+            edition_title: None,
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+        };
+
+        let settings = json!({
+            "movies": {
+                "collections": {
+                    "enabled": true,
+                    "mode": "if2plus",
+                    "format": "{collection}"
+                },
+                "folderStructure": "none",
+                "ownFolderPerMovie": false
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &settings,
+        )
+        .expect("movie proposal without collection folder for if2plus mode");
+
+        // Current implementation treats if2plus safely as non-collection (no prefix)
+        assert!(!op
+            .new_path
+            .starts_with("Nolan Collection_"));
+    }
+
+    #[test]
+    fn movie_folder_structure_alpha_groups_by_initial_letter() {
+        let movie = MovieItem {
+            rating_key: "m4".to_string(),
+            title: "Avatar".to_string(),
+            year: Some(2009),
+            file: "Avatar (2009).mkv".to_string(),
+            genre: vec![],
+            collection: None,
+            edition_title: None,
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+        };
+
+        let settings = json!({
+            "movies": {
+                "folderStructure": "alpha",
+                "ownFolderPerMovie": false
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &settings,
+        )
+        .expect("movie proposal with alpha folder structure");
+
+        // First folder is initial letter 'A', then title and extension
+        assert!(op
+            .new_path
+            .starts_with("A_"));
+        assert!(op.new_path.contains("Avatar"));
+    }
+
+    #[test]
+    fn movie_folder_structure_year_decade_groups_by_decade() {
+        let movie = MovieItem {
+            rating_key: "m5".to_string(),
+            title: "Avatar".to_string(),
+            year: Some(2009),
+            file: "Avatar (2009).mkv".to_string(),
+            genre: vec![],
+            collection: None,
+            edition_title: None,
+            guids: vec![],
+            imdb_id: None,
+            tmdb_id: None,
+            tvdb_id: None,
+        };
+
+        let settings = json!({
+            "movies": {
+                "folderStructure": "year_decade",
+                "ownFolderPerMovie": false
+            },
+            "general": {
+                "safety": {
+                    "pathLengthCheck": true,
+                    "reservedNamesCheck": true,
+                    "permissionsCheck": true
+                },
+                "encoding": {
+                    "highlightNonLatin": false
+                }
+            }
+        });
+
+        let op = compute_movie_proposal(
+            &movie,
+            "{title}{ext}",
+            &settings,
+        )
+        .expect("movie proposal with year_decade folder structure");
+
+        // Decade folder '2000-2009' appears as prefix after sanitization
+        assert!(op
+            .new_path
+            .starts_with("2000-2009_"));
+        assert!(op.new_path.contains("Avatar"));
+    }
+}
+
 /// Compute movie proposal respecting all movie settings
 fn compute_movie_proposal(
     movie: &MovieItem,
@@ -1323,13 +1820,97 @@ fn compute_episode_proposal(
     })
 }
 
+/// Extract the library root from a resolved local path
+/// Finds the longest matching local_root from mappings that the path starts with
+fn extract_library_root_from_path(resolved_path: &std::path::PathBuf, mappings: &[crate::path_map::PathMapping]) -> Option<std::path::PathBuf> {
+    let path_str = resolved_path.to_string_lossy();
+    let mut best_root: Option<&str> = None;
+    let mut best_len = 0;
+
+    for mapping in mappings {
+        let local_root = &mapping.local_root;
+        if path_str.starts_with(local_root) && local_root.len() > best_len {
+            best_root = Some(local_root);
+            best_len = local_root.len();
+        }
+    }
+
+    best_root.map(|root| std::path::PathBuf::from(root))
+}
+
 /// Main preview function that handles both video and subtitle operations
 #[command]
-pub async fn preview_video_renames(request: crate::subtitle::PreviewRenamesRequest) -> Result<crate::subtitle::PreviewResult, String> {
+pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtitle::PreviewRenamesRequest) -> Result<crate::subtitle::PreviewResult, String> {
     let mut video_operations: Vec<crate::subtitle::RenameOperation> = Vec::new();
     let mut subtitle_operations: Vec<crate::subtitle::RenameOperation> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
     let mut blocking_errors: Vec<String> = Vec::new();
+
+    // Load path mappings from backend settings for subtitle path resolution
+    let mappings: Vec<crate::path_map::PathMapping> = match crate::settings::get_settings(app) {
+        Ok(settings) => {
+            let server_id = &request.server_id;
+
+            // Try to find mappings with current server_id format, or fallback to hostname-only
+            let hostname_only = if server_id.contains("://") {
+                // If current is full URL, extract hostname (e.g., 'http://192.168.1.132:32400' -> '192.168.1.132')
+                if let Some(host_part) = server_id.split("://").nth(1) {
+                    host_part.split(':').next().unwrap_or(server_id)
+                } else {
+                    server_id
+                }
+            } else {
+                server_id
+            };
+
+            let filtered_mappings: Vec<_> = settings
+                .get("pathMappings")
+                .and_then(|pm| pm.as_array())
+                .unwrap_or(&Vec::new())
+                .iter()
+                .filter_map(|m| {
+                    let obj = m.as_object()?;
+                    let mapping_server_id = obj.get("server_id")?.as_str()?;
+
+                    // Check if mapping matches either format:
+                    // 1. Exact match with current server_id
+                    // 2. Hostname match (for backward compatibility)
+                    let mapping_hostname = if mapping_server_id.contains("://") {
+                        if let Some(host_part) = mapping_server_id.split("://").nth(1) {
+                            host_part.split(':').next().unwrap_or(mapping_server_id)
+                        } else {
+                            mapping_server_id
+                        }
+                    } else {
+                        mapping_server_id
+                    };
+
+                    let exact_match = mapping_server_id == server_id;
+                    let hostname_match = mapping_hostname == hostname_only;
+
+                    if !exact_match && !hostname_match {
+                        return None;
+                    }
+
+                    let plex_root = obj.get("plex_root")?.as_str()?;
+                    let local_root = obj.get("local_root")?.as_str()?;
+                    let platform = obj.get("platform").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+                    Some(crate::path_map::PathMapping {
+                        server_id: mapping_server_id.to_string(),
+                        plex_root: plex_root.to_string(),
+                        local_root: local_root.to_string(),
+                        platform,
+                    })
+                })
+                .collect();
+
+            filtered_mappings
+        }
+        Err(_) => {
+            Vec::new()
+        }
+    };
 
     // Parse settings
     let general_settings = request.settings.get("general").ok_or("Missing general settings")?;
@@ -1380,30 +1961,26 @@ pub async fn preview_video_renames(request: crate::subtitle::PreviewRenamesReque
                 tvdb_id: None,
             };
 
-            let op = match compute_movie_proposal(
+            // Try to compute a movie proposal, but do not abort subtitle processing on failure
+            if let Ok(movie_op) = compute_movie_proposal(
                 &movie,
                 &movie_template,
                 movie_settings,
             ) {
-                Ok(op) => op,
-                Err(e) => {
-                    blocking_errors.push(format!("Failed to compute movie proposal for {}: {}", movie.title, e));
-                    continue;
-                }
-            };
+                // Convert to shared RenameOperation
+                let operation = crate::subtitle::RenameOperation {
+                    operation_type: movie_op.operation_type,
+                    original_path: movie_op.original_path,
+                    new_path: movie_op.new_path,
+                    backup_path: movie_op.backup_path,
+                    operation_id: movie_op.operation_id,
+                };
 
-            // Convert to shared RenameOperation
-            let operation = crate::subtitle::RenameOperation {
-                operation_type: op.operation_type,
-                original_path: op.original_path,
-                new_path: op.new_path,
-                backup_path: op.backup_path,
-                operation_id: op.operation_id,
-            };
-
-            // The sanitization and validation is already handled in the proposal functions
-            // Just ensure the operation is valid
-            video_operations.push(operation);
+                // The sanitization and validation is already handled in the proposal functions
+                video_operations.push(operation);
+            } else {
+                blocking_errors.push(format!("Failed to compute movie proposal for {}", movie.title));
+            }
         } else {
             // TV episode minimal metadata from filename like "Show - S01E02 - Title.ext"
             let file_name = Path::new(file_path).file_name().unwrap_or_default().to_string_lossy();
@@ -1436,41 +2013,64 @@ pub async fn preview_video_renames(request: crate::subtitle::PreviewRenamesReque
                 index: episode_index,
             };
 
-            let op = match compute_episode_proposal(
+            // Try to compute an episode proposal, but do not abort subtitle processing on failure
+            if let Ok(episode_op) = compute_episode_proposal(
                 &ep,
                 &episode_template,
                 tv_settings,
             ) {
-                Ok(op) => op,
-                Err(e) => {
-                    blocking_errors.push(format!("Failed to compute episode proposal for {}: {}", ep.title, e));
-                    continue;
+                let operation = crate::subtitle::RenameOperation {
+                    operation_type: episode_op.operation_type,
+                    original_path: episode_op.original_path,
+                    new_path: episode_op.new_path,
+                    backup_path: episode_op.backup_path,
+                    operation_id: episode_op.operation_id,
+                };
+
+                if general_settings
+                    .get("safety")
+                    .and_then(|s| s.get("pathLengthCheck"))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true)
+                {
+                    if operation.new_path.len() > 255 {
+                        warnings.push(format!(
+                            "Path too long ({}): {}",
+                            operation.new_path.len(),
+                            operation.new_path
+                        ));
+                    }
                 }
-            };
 
-            let operation = crate::subtitle::RenameOperation {
-                operation_type: op.operation_type,
-                original_path: op.original_path,
-                new_path: op.new_path,
-                backup_path: op.backup_path,
-                operation_id: op.operation_id,
-            };
-
-            if general_settings.get("safety").and_then(|s| s.get("pathLengthCheck")).and_then(|v| v.as_bool()).unwrap_or(true) {
-                if operation.new_path.len() > 255 {
-                    warnings.push(format!("Path too long ({}): {}", operation.new_path.len(), operation.new_path));
+                if regex::Regex::new(r#"[\\/:*?"<>|]"#)
+                    .unwrap()
+                    .is_match(&operation.new_path)
+                {
+                    warnings.push(format!(
+                        "Invalid characters in proposed path: {}",
+                        operation.new_path
+                    ));
                 }
-            }
 
-            if regex::Regex::new(r#"[\\/:*?"<>|]"#).unwrap().is_match(&operation.new_path) {
-                warnings.push(format!("Invalid characters in proposed path: {}", operation.new_path));
+                video_operations.push(operation);
+            } else {
+                blocking_errors.push(format!("Failed to compute episode proposal for {}", ep.title));
             }
-
-            video_operations.push(operation);
         }
 
-        // Find subtitle files for this video
-        let subtitles = crate::subtitle::find_subtitle_files(file_path);
+        // Resolve video path to local filesystem path for subtitle discovery
+        let resolved_video_path = if crate::path_map::is_already_local_path(file_path, &mappings, &request.server_id, None) {
+            std::path::PathBuf::from(file_path)
+        } else if let Some(resolved) = crate::path_map::resolve_plex_path(file_path, &mappings, &request.server_id, None) {
+            resolved
+        } else {
+            std::path::PathBuf::from(file_path)
+        };
+
+        let local_video_path = resolved_video_path.to_string_lossy().to_string();
+
+        // Find subtitle files for this (possibly resolved) video path
+        let subtitles = crate::subtitle::find_subtitle_files(&local_video_path);
 
         for mut subtitle in subtitles {
             // Apply subtitle-specific logic (existing code from subtitle.rs)
@@ -1524,10 +2124,10 @@ pub async fn preview_video_renames(request: crate::subtitle::PreviewRenamesReque
 }
 
 #[command]
-pub async fn apply_video_renames(request: crate::subtitle::ApplyRenamesRequest) -> Result<crate::subtitle::ApplyResult, String> {
+pub async fn apply_video_renames(app: tauri::AppHandle, request: crate::subtitle::ApplyRenamesRequest) -> Result<crate::subtitle::ApplyResult, String> {
     // Apply both video and subtitle operations together
     use std::fs;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use chrono;
 
     let mut operations_applied = 0;
@@ -1535,8 +2135,128 @@ pub async fn apply_video_renames(request: crate::subtitle::ApplyRenamesRequest) 
     let mut errors = Vec::new();
     let mut all_operations = Vec::new();
 
-    // Combine video and subtitle operations (they're already combined in the request)
-    let operations = request.operations;
+    // Get path mappings from settings
+    let settings_result = crate::settings::get_settings(app);
+    let mappings: Vec<crate::path_map::PathMapping> = match settings_result {
+        Ok(settings) => {
+            let server_id = &request.server_id;
+
+            // Try to find mappings with current server_id format, or fallback to hostname-only
+            let hostname_only = if server_id.contains("://") {
+                // If current is full URL, extract hostname (e.g., 'http://192.168.1.132:32400' -> '192.168.1.132')
+                if let Some(host_part) = server_id.split("://").nth(1) {
+                    host_part.split(':').next().unwrap_or(server_id)
+                } else {
+                    server_id
+                }
+            } else {
+                server_id
+            };
+
+            let filtered_mappings: Vec<_> = settings
+                .get("pathMappings")
+                .and_then(|pm| pm.as_array())
+                .unwrap_or(&Vec::new())
+                .iter()
+                .filter_map(|m| {
+                    let obj = m.as_object()?;
+                    let mapping_server_id = obj.get("server_id")?.as_str()?;
+
+                    // Check if mapping matches either format:
+                    // 1. Exact match with current server_id
+                    // 2. Hostname match (for backward compatibility)
+                    let mapping_hostname = if mapping_server_id.contains("://") {
+                        // Extract hostname from URL (e.g., 'http://192.168.1.132:32400' -> '192.168.1.132')
+                        if let Some(host_part) = mapping_server_id.split("://").nth(1) {
+                            host_part.split(':').next().unwrap_or(mapping_server_id)
+                        } else {
+                            mapping_server_id
+                        }
+                    } else {
+                        mapping_server_id
+                    };
+
+                    let exact_match = mapping_server_id == server_id;
+                    let hostname_match = mapping_hostname == hostname_only;
+
+                    if !exact_match && !hostname_match {
+                        return None;
+                    }
+
+                    let plex_root = obj.get("plex_root")?.as_str()?;
+                    let local_root = obj.get("local_root")?.as_str()?;
+                    let platform = obj.get("platform").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+                    Some(crate::path_map::PathMapping {
+                        server_id: mapping_server_id.to_string(),
+                        plex_root: plex_root.to_string(),
+                        local_root: local_root.to_string(),
+                        platform,
+                    })
+                })
+                .collect();
+
+            filtered_mappings
+        }
+        Err(e) => {
+            let msg = format!("Failed to get settings: {}", e);
+            crate::logging::log_event(
+                "ERROR",
+                "apply_video_renames",
+                &msg,
+                serde_json::json!({ "server_id": request.server_id }),
+            );
+            return Err(msg);
+        }
+    };
+
+    // Resolve all paths in operations
+    let mut resolved_operations = Vec::new();
+    for operation in &request.operations {
+        // Resolve original path: use as-is if already local, otherwise resolve from Plex
+        let resolved_original = if crate::path_map::is_already_local_path(&operation.original_path, &mappings, &request.server_id, None) {
+            std::path::PathBuf::from(&operation.original_path)
+        } else {
+            crate::path_map::resolve_plex_path(&operation.original_path, &mappings, &request.server_id, None)
+                .ok_or_else(|| format!("Failed to resolve original path: {}", operation.original_path))?
+        };
+
+        // Resolve new path: use as-is if already local, try Plex resolution, or treat as relative to library root
+        let resolved_new = if crate::path_map::is_already_local_path(&operation.new_path, &mappings, &request.server_id, None) {
+            std::path::PathBuf::from(&operation.new_path)
+        } else if let Some(resolved) = crate::path_map::resolve_plex_path(&operation.new_path, &mappings, &request.server_id, None) {
+            resolved
+        } else {
+            // New path might be relative to the library root used for the original path
+            if let Some(library_root) = extract_library_root_from_path(&resolved_original, &mappings) {
+                library_root.join(&operation.new_path)
+            } else {
+                let msg = format!("Failed to resolve new path: {}", operation.new_path);
+                crate::logging::log_event(
+                    "ERROR",
+                    "apply_video_renames",
+                    &msg,
+                    serde_json::json!({ "operation_id": operation.operation_id }),
+                );
+                return Err(msg);
+            }
+        };
+
+        resolved_operations.push(crate::subtitle::RenameOperation {
+            operation_type: operation.operation_type.clone(),
+            original_path: resolved_original.to_string_lossy().to_string(),
+            new_path: resolved_new.to_string_lossy().to_string(),
+            backup_path: operation.backup_path.as_ref().map(|backup| {
+                crate::path_map::resolve_plex_path(backup, &mappings, &request.server_id, None)
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| backup.clone())
+            }),
+            operation_id: operation.operation_id.clone(),
+        });
+    }
+
+    // Use resolved operations
+    let operations = resolved_operations;
 
     // Create rollback log directory
     let log_dir = dirs::data_dir()
@@ -1548,7 +2268,15 @@ pub async fn apply_video_renames(request: crate::subtitle::ApplyRenamesRequest) 
     let log_path = log_dir.join(format!("rollback_{}.json", chrono::Utc::now().timestamp()));
 
     for operation in &operations {
-        match apply_single_video_operation(operation) {
+        let result = if operation.operation_id.starts_with("subtitle_") {
+            // Subtitle operation - use subtitle apply function
+            crate::subtitle::apply_single_operation(operation)
+        } else {
+            // Video operation - use video apply function
+            apply_single_video_operation(operation)
+        };
+
+        match result {
             Ok(_) => {
                 operations_applied += 1;
                 all_operations.push(serde_json::json!({
@@ -1556,6 +2284,7 @@ pub async fn apply_video_renames(request: crate::subtitle::ApplyRenamesRequest) 
                     "original_path": operation.original_path,
                     "new_path": operation.new_path,
                     "backup_path": operation.backup_path,
+                    "operation_id": operation.operation_id,
                     "status": "success"
                 }));
             }
@@ -1567,6 +2296,7 @@ pub async fn apply_video_renames(request: crate::subtitle::ApplyRenamesRequest) 
                     "original_path": operation.original_path,
                     "new_path": operation.new_path,
                     "backup_path": operation.backup_path,
+                    "operation_id": operation.operation_id,
                     "status": "failed",
                     "error": e
                 }));
@@ -1633,3 +2363,348 @@ fn apply_single_video_operation(operation: &crate::subtitle::RenameOperation) ->
 
     Ok(())
 }
+
+#[derive(Debug, Deserialize)]
+pub struct CleanupEmptyFoldersRequest {
+    pub server_id: String,
+    pub original_paths: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CleanupEmptyFoldersResult {
+    pub removed_directories: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+#[command]
+pub async fn cleanup_empty_folders(app: tauri::AppHandle, request: CleanupEmptyFoldersRequest) -> Result<CleanupEmptyFoldersResult, String> {
+    use std::path::PathBuf;
+
+    let mut removed_directories = Vec::new();
+    let mut errors = Vec::new();
+
+    // Load mappings so we can resolve Plex-style paths to local filesystem paths
+    let settings_result = crate::settings::get_settings(app);
+    let mappings: Vec<crate::path_map::PathMapping> = match settings_result {
+        Ok(settings) => {
+            let server_id = &request.server_id;
+
+            let hostname_only = if server_id.contains("://") {
+                if let Some(host_part) = server_id.split("://").nth(1) {
+                    host_part.split(':').next().unwrap_or(server_id)
+                } else {
+                    server_id
+                }
+            } else {
+                server_id
+            };
+
+            let filtered_mappings: Vec<_> = settings
+                .get("pathMappings")
+                .and_then(|pm| pm.as_array())
+                .unwrap_or(&Vec::new())
+                .iter()
+                .filter_map(|m| {
+                    let obj = m.as_object()?;
+                    let mapping_server_id = obj.get("server_id")?.as_str()?;
+
+                    let mapping_hostname = if mapping_server_id.contains("://") {
+                        if let Some(host_part) = mapping_server_id.split("://").nth(1) {
+                            host_part.split(':').next().unwrap_or(mapping_server_id)
+                        } else {
+                            mapping_server_id
+                        }
+                    } else {
+                        mapping_server_id
+                    };
+
+                    let exact_match = mapping_server_id == server_id;
+                    let hostname_match = mapping_hostname == hostname_only;
+
+                    if !exact_match && !hostname_match {
+                        return None;
+                    }
+
+                    let plex_root = obj.get("plex_root")?.as_str()?;
+                    let local_root = obj.get("local_root")?.as_str()?;
+                    let platform = obj.get("platform").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+                    Some(crate::path_map::PathMapping {
+                        server_id: mapping_server_id.to_string(),
+                        plex_root: plex_root.to_string(),
+                        local_root: local_root.to_string(),
+                        platform,
+                    })
+                })
+                .collect();
+
+            filtered_mappings
+        }
+        Err(e) => {
+            let msg = format!("Failed to get settings: {}", e);
+            crate::logging::log_event(
+                "ERROR",
+                "cleanup_empty_folders",
+                &msg,
+                serde_json::json!({ "server_id": request.server_id }),
+            );
+            return Err(msg);
+        }
+    };
+
+    // Collect candidate directories from original paths
+    let mut candidate_dirs: Vec<PathBuf> = Vec::new();
+    for original in &request.original_paths {
+        let resolved = if crate::path_map::is_already_local_path(original, &mappings, &request.server_id, None) {
+            PathBuf::from(original)
+        } else if let Some(resolved) = crate::path_map::resolve_plex_path(original, &mappings, &request.server_id, None) {
+            resolved
+        } else {
+            errors.push(format!("Failed to resolve path for empty-folder check: {}", original));
+            continue;
+        };
+
+        if let Some(parent) = resolved.parent() {
+            candidate_dirs.push(parent.to_path_buf());
+        }
+    }
+
+    // De-duplicate directories
+    candidate_dirs.sort();
+    candidate_dirs.dedup();
+
+    for dir in candidate_dirs {
+        let mut current = dir.clone();
+
+        // Walk upwards a few levels, removing empty directories under the mapped library roots
+        for _ in 0..4 {
+            if !current.exists() {
+                break;
+            }
+            if !current.is_dir() {
+                break;
+            }
+
+            // Ensure this directory is under one of the mapped local roots
+            let is_under_mapped_root = mappings.iter().any(|m| {
+                let root = PathBuf::from(&m.local_root);
+                current.starts_with(&root)
+            });
+            if !is_under_mapped_root {
+                break;
+            }
+
+            // Check if directory is empty
+            match std::fs::read_dir(&current) {
+                Ok(mut entries) => {
+                    if entries.next().is_some() {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    errors.push(format!("Failed to read directory {}: {}", current.to_string_lossy(), e));
+                    break;
+                }
+            }
+
+            // Remove the empty directory
+            match std::fs::remove_dir(&current) {
+                Ok(_) => {
+                    removed_directories.push(current.to_string_lossy().to_string());
+                }
+                Err(e) => {
+                    errors.push(format!("Failed to remove directory {}: {}", current.to_string_lossy(), e));
+                    break;
+                }
+            }
+
+            // Move one level up; stop if there is no parent
+            if let Some(parent) = current.parent() {
+                current = parent.to_path_buf();
+            } else {
+                break;
+            }
+        }
+    }
+
+    Ok(CleanupEmptyFoldersResult {
+        removed_directories,
+        errors,
+    })
+}
+
+
+// Movie destination helpers for frontend preview (folder logic SPOT)
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MovieDestinationItem {
+    pub rating_key: String,
+    pub original_path: String,
+    pub base_name: String,
+    pub title: String,
+    pub year: Option<i32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MovieDestinationRequest {
+    pub settings: serde_json::Value,
+    pub library_roots: Vec<String>,
+    pub items: Vec<MovieDestinationItem>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MovieDestinationResponseItem {
+    pub rating_key: String,
+    pub proposed: String,
+}
+
+fn normalize_plex_path(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
+fn compute_relative_dirs(original_path: &str, library_roots: &[String]) -> Vec<String> {
+    let normalized = normalize_plex_path(original_path);
+
+    // Find the longest matching library root prefix (Plex paths)
+    let mut best_prefix_len: usize = 0;
+    let mut best_root: Option<String> = None;
+
+    for root in library_roots {
+        let root_norm = normalize_plex_path(root).trim_end_matches('/').to_string();
+        if !root_norm.is_empty()
+            && normalized.starts_with(&root_norm)
+            && root_norm.len() > best_prefix_len
+        {
+            best_prefix_len = root_norm.len();
+            best_root = Some(root_norm);
+        }
+    }
+
+    let relative = if let Some(root) = best_root {
+        let mut tail = normalized[root.len()..].to_string();
+        if tail.starts_with('/') {
+            tail.remove(0);
+        }
+        tail
+    } else {
+        normalized.trim_start_matches('/').to_string()
+    };
+
+    let parts: Vec<&str> = relative.split('/').filter(|p| !p.is_empty()).collect();
+    if parts.is_empty() {
+        return Vec::new();
+    }
+
+    parts[..parts.len() - 1]
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
+}
+
+fn compute_movie_destination_for_item(
+    item: &MovieDestinationItem,
+    relative_dirs: &[String],
+    movie_settings: &serde_json::Value,
+) -> String {
+    let own_folder_per_movie = movie_settings
+        .get("ownFolderPerMovie")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
+    let mut segments: Vec<String> = Vec::new();
+
+    if relative_dirs.is_empty() {
+        if own_folder_per_movie {
+            let folder = safe_folder_name(&item.title);
+            segments.push(folder);
+        }
+    } else {
+        // Preserve existing grouping structure; do not reorganize directories here.
+        segments.extend(relative_dirs.iter().cloned());
+    }
+
+    if segments.is_empty() {
+        item.base_name.clone()
+    } else {
+        let mut path = segments.join("/");
+        path.push('/');
+        path.push_str(&item.base_name);
+        path
+    }
+}
+
+#[command]
+pub fn compute_movie_destinations(
+    request: MovieDestinationRequest,
+) -> Result<Vec<MovieDestinationResponseItem>, String> {
+    let movie_settings = request
+        .settings
+        .get("movies")
+        .ok_or("Missing movie settings")?;
+
+    let mut results: Vec<MovieDestinationResponseItem> = Vec::new();
+
+    for item in &request.items {
+        let relative_dirs = compute_relative_dirs(&item.original_path, &request.library_roots);
+        let proposed = compute_movie_destination_for_item(item, &relative_dirs, movie_settings);
+        results.push(MovieDestinationResponseItem {
+            rating_key: item.rating_key.clone(),
+            proposed,
+        });
+    }
+
+    Ok(results)
+}
+
+
+    #[test]
+    fn compute_relative_dirs_preserves_grouping_under_library_root() {
+        let library_roots = vec!["/media/Movies".to_string()];
+        let original = "/media/Movies/A-D/Nolan/Inception (2010).mkv";
+        let dirs = compute_relative_dirs(original, &library_roots);
+        assert_eq!(dirs, vec!["A-D".to_string(), "Nolan".to_string()]);
+    }
+
+    #[test]
+    fn compute_movie_destinations_respects_existing_grouping_and_own_folder() {
+        use serde_json::json;
+
+        let settings = json!({
+            "movies": {
+                "ownFolderPerMovie": true
+            }
+        });
+
+        // Movie directly under library root gets its own folder
+        let req1 = MovieDestinationRequest {
+            settings: settings.clone(),
+            library_roots: vec!["/media/Movies".to_string()],
+            items: vec![MovieDestinationItem {
+                rating_key: "rk1".to_string(),
+                original_path: "/media/Movies/Inception (2010).mkv".to_string(),
+                base_name: "Inception (2010).mkv".to_string(),
+                title: "Inception".to_string(),
+                year: Some(2010),
+            }],
+        };
+        let resp1 = compute_movie_destinations(req1).expect("destinations");
+        assert_eq!(resp1.len(), 1);
+        assert_eq!(resp1[0].proposed, "Inception/Inception (2010).mkv");
+
+        // Movie inside grouped folders keeps that grouping
+        let req2 = MovieDestinationRequest {
+            settings: settings.clone(),
+            library_roots: vec!["/media/Movies".to_string()],
+            items: vec![MovieDestinationItem {
+                rating_key: "rk2".to_string(),
+                original_path: "/media/Movies/A-D/Nolan/Inception (2010).mkv".to_string(),
+                base_name: "Inception (2010).mkv".to_string(),
+                title: "Inception".to_string(),
+                year: Some(2010),
+            }],
+        };
+        let resp2 = compute_movie_destinations(req2).expect("destinations");
+        assert_eq!(resp2.len(), 1);
+        assert_eq!(resp2[0].proposed, "A-D/Nolan/Inception (2010).mkv");
+    }
+

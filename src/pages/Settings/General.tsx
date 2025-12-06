@@ -2,6 +2,8 @@ import React from "react";
 import Toggle from "../../components/Toggle";
 import Radio from "../../components/Radio";
 import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { type Settings, type EncodingMode } from "../../state/settings";
 
 function Section({title, children}: { title: string; children: React.ReactNode }) {
@@ -35,6 +37,38 @@ export function General({s, onChange}: { s: Settings; onChange: (v: Settings["ge
         try { await invoke("save_settings", { settings: { auth: { plexToken: null } } }); } catch {}
         try { localStorage.removeItem("plexToken"); } catch {}
         // no toast system here; silent success
+    }
+
+    async function openLogsFolder() {
+        try {
+            const dir = await invoke<string>("get_logs_directory_path");
+            await revealItemInDir(dir);
+        } catch (error) {
+            alert(`Failed to open logs folder: ${error}`);
+        }
+    }
+
+    async function exportDiagnostics() {
+        try {
+            const suggested = `name-o-tron-9000-diagnostics-${new Date().toISOString().slice(0, 10)}.zip`;
+            const target = await save({
+                defaultPath: suggested,
+                filters: [
+                    {
+                        name: "Diagnostic bundles",
+                        extensions: ["zip"],
+                    },
+                ],
+            });
+
+            if (!target) return; // user cancelled
+
+            const path = target.endsWith(".zip") ? target : `${target}.zip`;
+            const finalPath = await invoke<string>("export_diagnostic_bundle_zip", { targetPath: path });
+            alert(`Diagnostic bundle saved.\n\nPath: ${finalPath}`);
+        } catch (error) {
+            alert(`Failed to export diagnostic bundle: ${error}`);
+        }
     }
 
     return (
@@ -82,6 +116,27 @@ export function General({s, onChange}: { s: Settings; onChange: (v: Settings["ge
                 </Row>
                 <Row label="Auto-create rollback log (undo)">
                     <Toggle checked={g.autoRollbackLog} onChange={(checked) => set({autoRollbackLog: checked})}/>
+                </Row>
+            </Section>
+
+            <Section title="Support & Diagnostics">
+                <Row label="Export diagnostic bundle for bug reports">
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={exportDiagnostics}
+                            className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
+                        >
+                            Export bundle
+                        </button>
+                        <button
+                            type="button"
+                            onClick={openLogsFolder}
+                            className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
+                        >
+                            Open logs folder
+                        </button>
+                    </div>
                 </Row>
             </Section>
 

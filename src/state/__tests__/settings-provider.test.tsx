@@ -59,6 +59,10 @@ describe('SettingsProvider and useSettings hook', () => {
       ui: {
         general: {
           theme: 'light',
+          encoding: {
+            mode: 'unicode',
+            highlightNonLatin: false,
+          },
         },
       },
     });
@@ -76,6 +80,52 @@ describe('SettingsProvider and useSettings hook', () => {
 
     // Should merge Tauri settings with local settings
     expect(result.current.settings.general.theme).toBe('light');
+    expect(result.current.settings.general.encoding.highlightNonLatin).toBe(false);
+  });
+
+  it('should persist settings changes to Tauri backend with updated values', async () => {
+    const { invoke } = await import('@tauri-apps/api/core');
+    (invoke as any).mockResolvedValue({ ui: {} });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <SettingsProvider>{children}</SettingsProvider>
+    );
+
+    const { result } = renderHook(() => useSettings(), { wrapper });
+
+    // Wait for initial Tauri settings load effect to run
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    // Trigger an update and give saveSettings' dynamic import time to run
+    await act(async () => {
+      const current = result.current.settings;
+      result.current.updateSettings({
+        ...current,
+        general: {
+          ...current.general,
+          encoding: {
+            ...current.general.encoding,
+            highlightNonLatin: !current.general.encoding.highlightNonLatin,
+          },
+        },
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    expect(invoke as any).toHaveBeenCalledWith('save_settings', {
+      settings: {
+        ui: expect.objectContaining({
+          general: expect.objectContaining({
+            encoding: expect.objectContaining({
+              highlightNonLatin: expect.any(Boolean),
+            }),
+          }),
+        }),
+      },
+    });
   });
 
   it('should handle Tauri backend errors gracefully', async () => {

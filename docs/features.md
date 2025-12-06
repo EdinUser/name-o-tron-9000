@@ -27,6 +27,7 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 - **Filter by Status**: Dropdown filter to show only specific status types (all, good, warning, error, unmatched)
 - **Quick Overview**: Focus on problematic items or review only compliant files
 - **Combined Search**: Status filtering works with search functionality for precise item selection
+- **Per-Page Select All**: Header toggle selects or deselects all rows on the current page without affecting other pages
 
 [traffic_light.png]
 
@@ -86,9 +87,9 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 
 ### Recovery Options
 - **One-Click Undo**: Restore all files from the last rename operation
-- **Selective Retry**: Re-run only skipped or failed items
-- **Export Capabilities**: Export logs as TXT, CSV, or JSON formats
+- **Export Capabilities**: Export logs as TXT, CSV, or JSON formats based on General settings
 - **Backup Files**: Optional `filenames_backup.json` before operations
+- **Diagnostic Bundles**: Export anonymized diagnostic ZIP bundles (settings + recent logs) from the Settings → General tab for bug reports
 
 ### Storage Locations
 - **Cross-Platform**: OS-appropriate application data directories
@@ -123,6 +124,7 @@ For detailed guidance on setting up and troubleshooting path mappings, see [Path
 ### Performance & Usability
 - **Debounced Search**: 500ms delay for responsive filtering
 - **Pagination**: Efficient handling of large libraries (20 items per page for TV shows, 200 for movies/music)
+- **Season Filtering**: For TV libraries, filter preview rows by season (or view all seasons) while browsing episodes
 - **Real-time Updates**: Immediate preview recalculation when settings change
 - **Progress Indicators**: Visual feedback during long operations
 - **TV Show Caching**: Automatic caching of TV show mapping status and metadata for improved browsing performance

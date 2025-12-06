@@ -94,7 +94,16 @@ pub async fn fetch_library_content(
         .danger_accept_invalid_certs(true)
         .user_agent(format!("Name-o-Tron-9000/{}", env!("CARGO_PKG_VERSION")))
         .build()
-        .map_err(|e| format!("http client error: {e:?}"))?;
+        .map_err(|e| {
+            let msg = format!("http client error: {e:?}");
+            crate::logging::log_event(
+                "ERROR",
+                "fetch_library_content",
+                &msg,
+                serde_json::json!({ "server": server, "library_key": library_key }),
+            );
+            msg
+        })?;
 
     // Normalize bases and try both http/https like list_libraries
     let base_in = server.trim_end_matches('/');
@@ -213,34 +222,72 @@ pub async fn fetch_library_content(
                                 return Ok(serde_json::Value::String(body));
                             }
                         } else {
-                            let len = resp.into_string().unwrap_or_default().len();
+                            let _len = resp.into_string().unwrap_or_default().len();
                             continue;
                         }
                     }
                     Err(e) => {
+                        crate::logging::log_event(
+                            "ERROR",
+                            "fetch_library_content",
+                            &format!("ureq error: {e}"),
+                            serde_json::json!({ "url": url, "attempt": i }),
+                        );
                     }
                 }
             }
-            return Err(format!(
+            let msg = format!(
                 "fetch_library_content failed: {} | ureq fallback also failed",
-                last_reqwest_err.unwrap_or_else(|| "unknown".into())
-            ));
+                last_reqwest_err.clone().unwrap_or_else(|| "unknown".into())
+            );
+            crate::logging::log_event(
+                "ERROR",
+                "fetch_library_content",
+                &msg,
+                serde_json::json!({ "server": server, "library_key": library_key }),
+            );
+            return Err(msg);
         }
     };
 
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        return Err(format!("HTTP {}: {}", status, body));
+        let msg = format!("HTTP {}: {}", status, body);
+        crate::logging::log_event(
+            "ERROR",
+            "fetch_library_content",
+            &msg,
+            serde_json::json!({ "server": server, "library_key": library_key }),
+        );
+        return Err(msg);
     }
 
-    let text = response.text().await.map_err(|e| format!("read response error: {e}"))?;
+    let text = response.text().await.map_err(|e| {
+        let msg = format!("read response error: {e}");
+        crate::logging::log_event(
+            "ERROR",
+            "fetch_library_content",
+            &msg,
+            serde_json::json!({ "server": server, "library_key": library_key }),
+        );
+        msg
+    })?;
     let trimmed = text.trim();
     // Prefer JSON if possible
     if trimmed.starts_with('{') || trimmed.starts_with('[') {
         match serde_json::from_str::<serde_json::Value>(trimmed) {
             Ok(v) => return Ok(v),
-            Err(e) => return Err(format!("JSON parse error: {}", e)),
+            Err(e) => {
+                let msg = format!("JSON parse error: {}", e);
+                crate::logging::log_event(
+                    "ERROR",
+                    "fetch_library_content",
+                    &msg,
+                    serde_json::json!({ "server": server, "library_key": library_key }),
+                );
+                return Err(msg);
+            }
         }
     }
 
@@ -249,6 +296,12 @@ pub async fn fetch_library_content(
         if let Some(json) = xml_media_to_json(&text) {
             return Ok(json);
         } else {
+            crate::logging::log_event(
+                "ERROR",
+                "fetch_library_content",
+                "XML parse fallback failed",
+                serde_json::json!({ "server": server, "library_key": library_key }),
+            );
         }
     }
 
@@ -298,7 +351,7 @@ fn xml_collections_to_json(xml: &str) -> Option<serde_json::Value> {
                 }
             }
             Ok(Event::Eof) => break,
-            Err(e) => {
+            Err(_) => {
                 return None;
             }
             _ => {}
@@ -358,7 +411,7 @@ fn xml_collection_items_to_json(xml: &str) -> Option<serde_json::Value> {
                 }
             }
             Ok(Event::Eof) => break,
-            Err(e) => {
+            Err(_) => {
                 return None;
             }
             _ => {}
@@ -626,7 +679,7 @@ async fn http_get_with_variants(
         .map_err(|e| format!("http client error: {e:?}"))?;
 
     let mut last_err: Option<String> = None;
-    for (i, url) in urls.iter().enumerate() {
+    for url in urls {
         let mut req = with_plex_headers(client.get(url), client_id)
             .header("Accept", "application/json, application/xml;q=0.9")
             .header("Accept-Encoding", "identity")
@@ -980,7 +1033,16 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
         .danger_accept_invalid_certs(true)
         .user_agent(format!("Name-o-Tron-9000/{}", env!("CARGO_PKG_VERSION")))
         .build()
-        .map_err(|e| format!("http client error: {e:?}"))?;
+        .map_err(|e| {
+            let msg = format!("http client error: {e:?}");
+            crate::logging::log_event(
+                "ERROR",
+                "list_libraries",
+                &msg,
+                serde_json::json!({ "server": server }),
+            );
+            msg
+        })?;
 
     let base = server.trim_end_matches('/');
     // Build HTTP and HTTPS candidates (Self-signed certs accepted).
@@ -1018,7 +1080,16 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
             .header("Connection", "close");
         match req.send().await {
             Ok(r) => { resp_opt = Some(r); break; }
-            Err(e) => { last_err = Some(format!("{e:?} @ {}", url)); }
+            Err(e) => {
+                let msg = format!("{e:?} @ {}", url);
+                crate::logging::log_event(
+                    "ERROR",
+                    "list_libraries",
+                    &msg,
+                    serde_json::json!({ "server": server }),
+                );
+                last_err = Some(msg);
+            }
         }
     }
     // If all HTTP attempts failed with reqwest, try a ureq fallback
@@ -1028,10 +1099,17 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
             if let Ok(out) = fetch_sections_with_ureq(&bases[0], &urls, token.as_deref(), &client_id) {
                 return Ok(out);
             }
-            return Err(format!(
+            let msg = format!(
                 "libraries request error: {} | ureq fallback also failed",
-                last_err.unwrap_or_else(|| "unknown".into())
-            ));
+                last_err.clone().unwrap_or_else(|| "unknown".into())
+            );
+            crate::logging::log_event(
+                "ERROR",
+                "list_libraries",
+                &msg,
+                serde_json::json!({ "server": server }),
+            );
+            return Err(msg);
         }
     };
 
@@ -1040,6 +1118,12 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
         Ok(text) => text,
         Err(e) => {
             let error = format!("Failed to read response text: {}", e);
+            crate::logging::log_event(
+                "ERROR",
+                "list_libraries",
+                &error,
+                serde_json::json!({ "server": server }),
+            );
             return Err(error);
         }
     };
@@ -1053,7 +1137,7 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                     retry_urls.push(format!("{}/library/sections?X-Plex-Token={}", b, urlencoding::encode(&server_tok)));
                     retry_urls.push(format!("{}/library/sections/?X-Plex-Token={}", b, urlencoding::encode(&server_tok)));
                 }
-                for (i, u) in retry_urls.iter().enumerate() {
+                for u in retry_urls.iter() {
                     let req = with_plex_headers(client.get(u), &client_id)
                         .header("Accept", "application/json, application/xml;q=0.9")
                         .header("Accept-Encoding", "identity")
@@ -1077,8 +1161,7 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                             } else {
                             }
                         }
-                        Err(e) => {
-                        }
+                        Err(_) => {}
                     }
                 }
             } else {
@@ -1088,6 +1171,12 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
 
     if !status.is_success() {
         let error = format!("HTTP {}: {}", status, response_text);
+        crate::logging::log_event(
+            "ERROR",
+            "list_libraries",
+            &error,
+            serde_json::json!({ "server": server }),
+        );
         return Err(error);
     }
 
@@ -1190,7 +1279,7 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
             Ok(_) => {
                 // Handle other event types (Text, Comment, etc.)
             }
-            Err(e) => {
+            Err(_) => {
                 break;
             }
         }

@@ -46,6 +46,9 @@ type TemplateProps = {
     onSkipReds: () => void;
     onApplyRename: () => void;
     onUndoLastRename: () => void;
+    showUndoConfirm: boolean;
+    onUndoConfirm: () => void;
+    onUndoCancel: () => void;
     onSetSearchQuery: (query: string) => void;
     onSetStatusFilter: (filter: string) => void;
     onSetPage: (page: number) => void;
@@ -61,9 +64,37 @@ type TemplateProps = {
     onUpdateSettings: (settings: any) => void;
     onSetReloadTick: (fn: (prev: number) => number) => void;
     settings: any;
+    previewLoading: boolean;
+    pageAllSelected: boolean;
+    onTogglePageSelection: () => void;
+    onExportPreviewSnapshot: () => void;
     onLoadMoreMovies: () => void;
     onLoadMoreMusic: () => void;
     onLoadMoreEpisodes: () => void;
+    selectedSeason: number | "all" | null;
+    availableSeasons: number[];
+    onSetSelectedSeason: (season: number | "all" | null) => void;
+    applyInProgress: boolean;
+    applyOperationCount: number;
+    lastApplySummary: {
+        operationsApplied: number;
+        operationsFailed: number;
+        rollbackLogPath: string;
+        operations: {
+            operation_type: string;
+            original_path: string;
+            new_path: string;
+            backup_path: string | null;
+            operation_id: string;
+        }[];
+    } | null;
+    cleanupInProgress: boolean;
+    cleanupResult: {
+        removed_directories: string[];
+        errors: string[];
+    } | null;
+    onRemoveEmptyFolders: () => void;
+    onCloseApplySummary: () => void;
 };
 
 export default function PreviewTemplate({
@@ -97,6 +128,9 @@ export default function PreviewTemplate({
     onSkipReds,
     onApplyRename,
     onUndoLastRename,
+    showUndoConfirm,
+    onUndoConfirm,
+    onUndoCancel,
     onSetSearchQuery,
     onSetStatusFilter,
     onSetPage,
@@ -112,9 +146,23 @@ export default function PreviewTemplate({
     onUpdateSettings,
     onSetReloadTick,
     settings,
+    previewLoading,
+    pageAllSelected,
+    onTogglePageSelection,
+    onExportPreviewSnapshot,
     onLoadMoreMovies,
     onLoadMoreMusic,
     onLoadMoreEpisodes,
+    selectedSeason,
+    availableSeasons,
+    onSetSelectedSeason,
+    applyInProgress,
+    applyOperationCount,
+    lastApplySummary,
+    cleanupInProgress,
+    cleanupResult,
+    onRemoveEmptyFolders,
+    onCloseApplySummary,
 }: TemplateProps) {
     return (
         <main className="min-h-screen bg-neutral-900 text-neutral-100" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
@@ -141,6 +189,9 @@ export default function PreviewTemplate({
                         </button>
                         <button onClick={onUndoLastRename} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             ↶ Undo
+                        </button>
+                        <button onClick={onExportPreviewSnapshot} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+                            Export snapshot
                         </button>
                         <input
                             value={template}
@@ -207,16 +258,8 @@ export default function PreviewTemplate({
             </header>
 
             <section className="mx-auto px-6 py-6">
-                {/* Library info, search, and load more buttons on the same line */}
-                <div className="mb-4 flex items-center justify-between gap-4">
-                    <div className="text-sm text-neutral-400">
-                        Server: <span className="text-neutral-200">{server.name}</span> — Library: <span className="text-neutral-200">{library.title}</span>
-                        {currentShow && (
-                            <>
-                                {" "}— Show: <span className="text-neutral-200">{currentShow.title}</span>
-                            </>
-                        )}
-                    </div>
+                {/* Search and load more buttons */}
+                <div className="mb-4 flex items-center justify-end gap-2">
                     <div className="flex items-center gap-2">
                         {/* Reload button */}
                         <button title="Reload library" onClick={() => onSetReloadTick((prev: number) => prev + 1)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
@@ -260,7 +303,25 @@ export default function PreviewTemplate({
                         )}
 
                         {library.type === "show" && currentShow && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2">
+                                {/* Season Filter Dropdown - only show for multi-season shows */}
+                                {availableSeasons.length > 1 && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-neutral-400">Season:</span>
+                                        <Select
+                                            value={selectedSeason === null ? 1 : selectedSeason}
+                                            onChange={(value) => onSetSelectedSeason(value === 1 && selectedSeason === null ? null : value)}
+                                            options={[
+                                                ...availableSeasons.map(season => ({
+                                                    value: season,
+                                                    label: `Season ${season}`
+                                                })),
+                                                { value: "all" as const, label: "View all seasons" }
+                                            ]}
+                                            className="w-auto"
+                                        />
+                                    </div>
+                                )}
                                 <button
                                     onClick={onLoadMoreEpisodes}
                                     className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
@@ -326,17 +387,17 @@ export default function PreviewTemplate({
                 </div>
 
 
-                {(loading || searching) && (
-                    <p className="text-center text-neutral-400">
-                        {searchQuery.trim() || searching ? 'Searching…' : 'Loading preview…'}
-                    </p>
-                )}
                 {error && <p className="text-center text-red-300">Error: {error}</p>}
 
-                {!loading && !error && (
-                    <div ref={containerRef} className="overflow-auto rounded-xl border border-neutral-800">
+                <div ref={containerRef} className="overflow-auto rounded-xl border border-neutral-800 mt-4">
                         <div className="grid items-center gap-2 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm font-semibold" style={{gridTemplateColumns: gridTemplate}}>
-                            <div/>
+                            <div className="flex items-center justify-center" title="Select or deselect all rows on this page">
+                                <Toggle
+                                    checked={pageAllSelected}
+                                    onChange={() => onTogglePageSelection()}
+                                    aria-label="Select or deselect all rows on this page"
+                                />
+                            </div>
                             <div className="relative select-none">
                                 <span>Current</span>
                                 <span onMouseDown={(e) => onStartResize("current", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize"/>
@@ -347,7 +408,19 @@ export default function PreviewTemplate({
                             </div>
                             <div></div>
                         </div>
-                        {pageRows.map((r) => (
+                        {((loading || previewLoading || searching) && displayRows.length === 0) && (
+                            <div className="px-3 py-4 text-center text-sm text-neutral-400">
+                                {searchQuery.trim() || searching
+                                    ? 'Searching…'
+                                    : library.type === 'movie'
+                                        ? 'Loading movies…'
+                                        : library.type === 'show'
+                                            ? 'Loading episodes…'
+                                            : 'Loading items…'}
+                            </div>
+                        )}
+
+                        {displayRows.length > 0 && pageRows.map((r) => (
                             <div
                                 key={r.id}
                                 className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40 dark:hover:bg-neutral-800/40 light:hover:bg-neutral-50/40"
@@ -407,14 +480,23 @@ export default function PreviewTemplate({
                                     )}
                                 </div>
                             ))}
-                        {displayRows.length === 0 && <p className="px-3 py-2 text-neutral-400">No items to preview.</p>}
+                        {!loading && !previewLoading && !searching && displayRows.length === 0 && (
+                            <p className="px-3 py-2 text-neutral-400">No items to preview.</p>
+                        )}
                     </div>
-                )}
 
-                {/* Library folder mapping helper - show the actual mapped local folder */}
+                {/* Library info and folder mapping helper */}
                 <div className="mt-3 flex items-center justify-between text-sm text-neutral-300">
-                    <div>
-                        <span className="text-neutral-400">Local folder:</span>{" "}
+                    <div className="text-neutral-300">
+                        <span className="text-neutral-400">
+                            Server: <span className="text-neutral-200">{server.name}</span> — Library: <span className="text-neutral-200">{library.title}</span>
+                            {currentShow && (
+                                <>
+                                    {" "}— Show: <span className="text-neutral-200">{currentShow.title}</span>
+                                </>
+                            )}
+                            {" "}— Local folder:
+                        </span>{" "}
                         <span className="text-neutral-200">{libraryFolder ?? "Not mapped"}</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -664,6 +746,123 @@ export default function PreviewTemplate({
                 position={popoverData.position}
                 plexServerUrl={server.address}
             />
+
+            {/* Undo Confirmation Modal */}
+            {showUndoConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center" style={{ zIndex: 10000 }}>
+                    <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-6 shadow-2xl max-w-md w-full mx-4">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-8 h-8 bg-amber-500/20 rounded-full flex items-center justify-center">
+                                <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-lg font-semibold text-neutral-100">Confirm Undo</h3>
+                        </div>
+                        <p className="text-neutral-300 mb-6">
+                            This will undo the last rename operation. This action cannot be undone. Continue?
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={onUndoCancel}
+                                className="px-4 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={onUndoConfirm}
+                                className="px-4 py-2 text-sm bg-red-600 text-white hover:bg-red-700 rounded"
+                            >
+                                Undo Last Rename
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Apply progress overlay */}
+            {applyInProgress && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center" style={{ zIndex: 12000 }}>
+                    <div className="bg-neutral-900 border border-neutral-700 rounded-lg px-6 py-5 max-w-sm w-full mx-4">
+                        <h3 className="text-lg font-semibold text-neutral-100 mb-2">Applying renames…</h3>
+                        <p className="text-sm text-neutral-300 mb-3">
+                            {applyOperationCount > 0
+                                ? `Processing ${applyOperationCount} filesystem operations (videos and subtitles).`
+                                : "Processing filesystem operations (videos and subtitles)."}
+                        </p>
+                        <div className="h-2 w-full bg-neutral-800 rounded">
+                            <div className="h-2 w-full bg-cyan-600 rounded" />
+                        </div>
+                        <p className="mt-3 text-xs text-neutral-500">
+                            This may take a moment. Please keep Name‑o‑Tron 9000 open until it completes.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Apply summary + remove empty folders modal */}
+            {lastApplySummary && !applyInProgress && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center" style={{ zIndex: 12000 }}>
+                    <div className="bg-neutral-900 border border-neutral-700 rounded-lg px-6 py-5 max-w-lg w-full mx-4">
+                        <h3 className="text-lg font-semibold text-neutral-100 mb-3">Rename summary</h3>
+                        <p className="text-sm text-neutral-300 mb-1">
+                            Operations applied: <span className="font-semibold text-neutral-100">{lastApplySummary.operationsApplied}</span>
+                        </p>
+                        <p className="text-sm text-neutral-300 mb-3">
+                            Operations failed: <span className="font-semibold text-neutral-100">{lastApplySummary.operationsFailed}</span>
+                        </p>
+                        <p className="text-xs text-neutral-400 mb-4">
+                            Rollback log: <span className="font-mono break-all">{lastApplySummary.rollbackLogPath}</span>
+                        </p>
+
+                        <div className="border-t border-neutral-800 pt-3 mt-2">
+                            <h4 className="text-sm font-semibold text-neutral-100 mb-2">Remove empty folders?</h4>
+                            <p className="text-sm text-neutral-300 mb-3">
+                                You can clean up folders that became completely empty as a result of this rename batch. Only truly empty
+                                directories under the affected library paths will be removed.
+                            </p>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={onRemoveEmptyFolders}
+                                    disabled={cleanupInProgress}
+                                    className="px-4 py-2 text-sm rounded-md bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
+                                >
+                                    {cleanupInProgress ? "Removing empty folders…" : "Remove empty folders"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={onCloseApplySummary}
+                                    className="px-4 py-2 text-sm border border-neutral-700 text-neutral-300 hover:bg-neutral-800 rounded"
+                                >
+                                    Close
+                                </button>
+                            </div>
+
+                            {cleanupResult && (
+                                <div className="mt-3 text-xs text-neutral-300">
+                                    <p className="mb-1">
+                                        Removed folders:{" "}
+                                        <span className="font-semibold">
+                                            {cleanupResult.removed_directories.length}
+                                        </span>
+                                    </p>
+                                    {cleanupResult.errors.length > 0 && (
+                                        <div className="mt-1 text-red-300">
+                                            {cleanupResult.errors.slice(0, 3).map((err, idx) => (
+                                                <div key={idx}>• {err}</div>
+                                            ))}
+                                            {cleanupResult.errors.length > 3 && (
+                                                <div>• …and more errors (see logs)</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }
