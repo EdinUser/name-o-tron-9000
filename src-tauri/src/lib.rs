@@ -149,7 +149,7 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
         });
     }
 
-    // 3) Optional direct IP hints (e.g., 192.168.1.132)
+    // 3) Optional direct IP hints (e.g., 192.168.1.132) — only include when reachable
     if let Some(list) = hints {
         for h in list {
             let host = h.trim();
@@ -161,8 +161,6 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
                 format!("http://{}:32400", host)
             };
 
-            // Use reachability check on host part. Even if unreachable now, include as a candidate
-            // so the user can still proceed (network flakiness/SSDP issues). UI can validate later.
             let host_for_check = host
                 .trim_start_matches("http://")
                 .trim_start_matches("https://")
@@ -171,15 +169,15 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
                 .next()
                 .unwrap_or(host);
             let reachable = is_reachable(host_for_check);
+            if !reachable {
+                continue;
+            }
             servers.push(PlexServerDto {
                 name: format!("Plex ({})", host_for_check),
                 address: normalized,
                 machine_identifier: None,
                 owned: None,
             });
-            if !reachable {
-                // keep, but don't add duplicates; the subsequent dedup will handle it
-            }
         }
     }
 

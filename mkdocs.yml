@@ -16,6 +16,7 @@ nav:
   - Settings: settings.md
   - Tips & Best Practices: tips.md
   - FAQ: faq.md
+  - Community: https://name-o-tron.kirilov.dev/community/public/
 markdown_extensions:
   - admonition
   - toc:

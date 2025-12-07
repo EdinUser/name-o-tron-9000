@@ -78,6 +78,7 @@ Name-o-Tron 9000 is designed specifically for Plex users who want to maintain pr
 5. [Configuration & Settings](settings.md)
 6. [Tips & Best Practices](tips.md)
 7. [FAQ & Troubleshooting](faq.md)
+8. [Community](#community)
 
 ---
 
@@ -193,3 +194,7 @@ For comprehensive information about rollback capabilities, logging, and recovery
 All operations logged with timestamps. Export as TXT, CSV, or JSON for analysis.
 
 👉 Continue to [Features Overview](features.md) for detailed capabilities.
+
+## Community
+
+Looking for help or want to share feedback? Join the Community forum (Flarum-powered) for Q&A, bug reports, and release updates: [https://name-o-tron.kirilov.dev/community/public/](https://name-o-tron.kirilov.dev/community/public/).
