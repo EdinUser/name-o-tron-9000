@@ -379,13 +379,12 @@ fn perform_scan(
         let include_https = include_https;
         handles.push(std::thread::spawn(move || {
             loop {
-                let next_ip = {
+                let ip_string = {
                     let guard = work_rx_clone.lock().unwrap();
-                    guard.recv()
-                };
-                let ip_string = match next_ip {
-                    Ok(v) => v,
-                    Err(_) => break,
+                    match guard.recv() {
+                        Ok(v) => v,
+                        Err(_) => break,
+                    }
                 };
                 let res = probe_host(ip_string, port, timeout_ms, include_https);
                 let _ = tx_clone.send(res);
@@ -393,8 +392,6 @@ fn perform_scan(
         }));
     }
 
-    // Drop extra sender clone to allow completion detection
-    drop(tx.clone());
 
     for ip in candidates {
         let _ = work_tx.send(ip);
