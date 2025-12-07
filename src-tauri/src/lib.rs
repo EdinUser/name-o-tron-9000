@@ -1,5 +1,6 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::Serialize;
+use tauri::Emitter;
 use plex_api::list_libraries;
 mod plex_auth;
 use plex_auth::{plex_login, plex_login_status, plex_logout};
@@ -31,6 +32,22 @@ pub struct PlexServerDto {
     #[serde(rename = "machineIdentifier")]
     pub machine_identifier: Option<String>,
     pub owned: Option<bool>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct ScanResult {
+    pub ip: String,
+    pub address: String,
+    pub reachable: bool,
+    pub is_plex: bool,
+    pub name: Option<String>,
+    pub details: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct ScanProgress {
+    pub run_id: Option<String>,
+    pub result: ScanResult,
 }
 
 #[tauri::command]
@@ -185,6 +202,232 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
     servers.sort_by(|a, b| a.address.cmp(&b.address));
     servers.dedup_by(|a, b| a.address.eq(&b.address));
     servers
+}
+
+fn collect_gateway_hints(max: usize) -> Vec<String> {
+    use local_ip_address::list_afinet_netifas;
+    let mut out: Vec<String> = Vec::new();
+    if let Ok(list) = list_afinet_netifas() {
+        for (_name, ip) in list {
+            if let std::net::IpAddr::V4(v4) = ip {
+                let octets = v4.octets();
+                let is_private = octets[0] == 10
+                    || octets[0] == 192 && octets[1] == 168
+                    || octets[0] == 172 && (16..=31).contains(&octets[1]);
+                if !is_private {
+                    continue;
+                }
+                let base = (octets[0], octets[1], octets[2]);
+                let self_host = octets[3];
+
+                // Priority candidates: gateway-ish + self + near neighbors
+                let mut priority: Vec<u8> = vec![
+                    1,
+                    2,
+                    254,
+                    self_host,
+                    self_host.saturating_sub(1),
+                    self_host.saturating_sub(2),
+                    self_host.saturating_add(1),
+                    self_host.saturating_add(2),
+                ];
+                priority.retain(|h| *h > 0 && *h < 255);
+                priority.sort_unstable();
+                priority.dedup();
+
+                for host in priority {
+                    let ip_str = format!("{}.{}.{}.{}", base.0, base.1, base.2, host);
+                    if !out.contains(&ip_str) {
+                        out.push(ip_str);
+                    }
+                    if out.len() >= max {
+                        return out;
+                    }
+                }
+
+                // Fill remainder by sweeping the /24 to catch non-gateway hosts (e.g., 192.168.x.132)
+                for host in 1u16..255 {
+                    let h = host as u8;
+                    let ip_str = format!("{}.{}.{}.{}", base.0, base.1, base.2, h);
+                    if !out.contains(&ip_str) {
+                        out.push(ip_str);
+                    }
+                    if out.len() >= max {
+                        return out;
+                    }
+                }
+            }
+        }
+    }
+    // Common fallbacks
+    for ip in ["192.168.0.1", "192.168.1.1", "10.0.0.1"] {
+        if !out.contains(&ip.to_string()) {
+            out.push(ip.to_string());
+        }
+        if out.len() >= max {
+            break;
+        }
+    }
+    out.truncate(max);
+    out
+}
+
+fn probe_identity(address: &str, timeout: std::time::Duration) -> (bool, Option<String>, Option<String>) {
+    // returns (is_plex, name, details)
+    let client = match reqwest::blocking::Client::builder()
+        .timeout(timeout)
+        .danger_accept_invalid_certs(true)
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return (false, None, Some(format!("Client build failed: {e}"))),
+    };
+
+    let url = format!("{}/identity", address.trim_end_matches('/'));
+    match client.get(&url).send() {
+        Ok(resp) => {
+            if !resp.status().is_success() {
+                return (false, None, Some(format!("HTTP {}", resp.status())));
+            }
+            let headers = resp.headers().clone();
+            let name = headers
+                .get("X-Plex-Device-Name")
+                .or_else(|| headers.get("X-Plex-Device"))
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string());
+            let text = resp.text().unwrap_or_default();
+            let looks_like_plex = text.contains("MediaContainer")
+                || text.contains("machineIdentifier")
+                || headers.contains_key("X-Plex-Protocol");
+            (looks_like_plex, name, None)
+        }
+        Err(e) => (false, None, Some(format!("Request failed: {e}"))),
+    }
+}
+
+fn probe_host(ip: String, port: u16, timeout_ms: u64, include_https: bool) -> ScanResult {
+    use std::net::{TcpStream, ToSocketAddrs};
+    use std::time::Duration;
+
+    let timeout = Duration::from_millis(timeout_ms);
+    let mut reachable = false;
+    let mut details: Option<String> = None;
+    let mut is_plex = false;
+    let mut name: Option<String> = None;
+
+    let addrs = format!("{}:{}", ip, port);
+    if let Ok(mut iter) = addrs.to_socket_addrs() {
+        if let Some(sockaddr) = iter.next() {
+            if TcpStream::connect_timeout(&sockaddr, timeout).is_ok() {
+                reachable = true;
+                let address_http = format!("http://{}", addrs);
+                let mut err: Option<String> = None;
+
+                let (plex_http, found_name, err_http) = probe_identity(&address_http, timeout);
+                is_plex = plex_http;
+                name = found_name;
+                if err_http.is_some() && !plex_http {
+                    err = err_http;
+                }
+
+                if include_https && !is_plex {
+                    let address_https = format!("https://{}", addrs);
+                    let (plex_https, found_name_https, err_https) = probe_identity(&address_https, timeout);
+                    if plex_https {
+                        is_plex = true;
+                        name = found_name_https.or(name);
+                        err = None;
+                    } else if err_https.is_some() && !is_plex {
+                        err = err_https;
+                    }
+                }
+
+                if err.is_some() && !is_plex {
+                    details = err;
+                }
+            }
+        }
+    }
+
+    ScanResult {
+        ip,
+        address: format!("http://{}", addrs),
+        reachable,
+        is_plex,
+        name,
+        details,
+    }
+}
+
+fn perform_scan(
+    candidates: Vec<String>,
+    timeout_ms: u64,
+    include_https: bool,
+    port: u16,
+    emitter: Option<(&tauri::AppHandle, Option<String>)>,
+) -> Vec<ScanResult> {
+    let (tx, rx) = std::sync::mpsc::channel::<ScanResult>();
+    let mut handles = Vec::new();
+    for ip in candidates {
+        let tx_clone = tx.clone();
+        let ip_string = ip.clone();
+        handles.push(std::thread::spawn(move || {
+            let res = probe_host(ip_string, port, timeout_ms, include_https);
+            let _ = tx_clone.send(res);
+        }));
+    }
+    drop(tx);
+
+    let mut results: Vec<ScanResult> = Vec::new();
+    for res in rx {
+        if let Some((app, run_id)) = emitter.as_ref() {
+            let progress = ScanProgress { run_id: run_id.clone(), result: res.clone() };
+            let _ = app.emit("scan_progress", progress);
+        }
+        results.push(res);
+    }
+
+    for h in handles {
+        let _ = h.join();
+    }
+
+    // Dedup by IP (safety)
+    results.sort_by(|a, b| a.ip.cmp(&b.ip));
+    results.dedup_by(|a, b| a.ip == b.ip);
+    results
+}
+
+#[tauri::command]
+async fn plex_scan_subnet(
+    app: tauri::AppHandle,
+    timeout_ms: Option<u64>,
+    max_hosts: Option<usize>,
+    include_https: Option<bool>,
+    run_id: Option<String>,
+    hosts: Option<Vec<String>>,
+    port: Option<u16>,
+) -> Vec<ScanResult> {
+    let timeout = timeout_ms.unwrap_or(250).clamp(50, 1500);
+    let cap = max_hosts.unwrap_or(256).clamp(16, 512);
+    let allow_https = include_https.unwrap_or(true);
+    let port = port.unwrap_or(32400);
+    let mut candidates = if let Some(list) = hosts {
+        list.into_iter().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+    } else {
+        collect_gateway_hints(cap)
+    };
+    candidates.truncate(cap);
+    perform_scan(candidates, timeout, allow_https, port, Some((&app, run_id)))
+}
+
+// Helper for tests: deterministic scan without Tauri app handle
+pub fn plex_scan_hosts_for_test(
+    hosts: Vec<String>,
+    timeout_ms: u64,
+    include_https: bool,
+    port: u16,
+) -> Vec<ScanResult> {
+    perform_scan(hosts, timeout_ms, include_https, port, None)
 }
 
 #[tauri::command]
@@ -407,6 +650,7 @@ pub fn run() {
             diagnostics::export_diagnostic_bundle,
             diagnostics::export_diagnostic_bundle_zip,
             diagnostics::export_preview_snapshot,
+            plex_scan_subnet,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,5 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {invoke} from "@tauri-apps/api/core";
+import {listen} from "@tauri-apps/api/event";
 import { useSettings } from "../../state/settings";
 import { useTheme } from "../../state/theme";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -8,6 +9,15 @@ import HomeTemplate from "./HomeTemplate";
 
 type Props = {
     onSelectServer: (server: PlexServer) => void;
+};
+
+type ScanResult = {
+    ip: string;
+    address: string;
+    reachable: boolean;
+    is_plex: boolean;
+    name?: string | null;
+    details?: string | null;
 };
 
 export default function HomeContainer({onSelectServer}: Props) {
@@ -21,6 +31,14 @@ export default function HomeContainer({onSelectServer}: Props) {
     const [loginStatus, setLoginStatus] = useState<"idle" | "pending" | "authorized" | "expired" | "error">("idle");
     const [loginToken, setLoginToken] = useState<string | null>(null);
     const discoverRun = useRef(0);
+    const [advancedOpen, setAdvancedOpen] = useState(false);
+    const [scanRunning, setScanRunning] = useState(false);
+    const [scanResults, setScanResults] = useState<ScanResult[]>([]);
+    const [scanError, setScanError] = useState<string | null>(null);
+    const [scanOverlayOpen, setScanOverlayOpen] = useState(false);
+    const [advancedPort, setAdvancedPort] = useState("32400");
+    const [advancedHosts, setAdvancedHosts] = useState("");
+    const scanListener = useRef<null | (() => void)>(null);
 
     const selected = useMemo(() =>
             selectedIdx != null ? servers[selectedIdx] : null,
@@ -79,6 +97,81 @@ export default function HomeContainer({onSelectServer}: Props) {
                 await new Promise((r) => setTimeout(r, minMs - elapsed));
             }
             if (discoverRun.current === runId) setDiscovering(false);
+        }
+    }
+
+    async function runAdvancedScan() {
+        setAdvancedOpen(false);
+        setScanOverlayOpen(true);
+        setScanError(null);
+        setScanResults([]);
+        setScanRunning(true);
+        // Unique run id to filter progress events
+        const runId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const portNum = (() => {
+            const n = parseInt(advancedPort.trim() || "32400", 10);
+            return Number.isFinite(n) && n > 0 && n < 65536 ? n : 32400;
+        })();
+        const hostList = advancedHosts.trim()
+            ? advancedHosts.split(/[\s,]+/).map((h) => h.trim()).filter(Boolean)
+            : undefined;
+        // Subscribe to progress events for this run
+        try {
+            if (scanListener.current) {
+                scanListener.current();
+                scanListener.current = null;
+            }
+            scanListener.current = await listen<{ run_id?: string; result: ScanResult }>("scan_progress", (event) => {
+                const payload = event.payload as any;
+                if (!payload) return;
+                if (payload.run_id && payload.run_id !== runId) return;
+                const res = payload.result as ScanResult;
+                setScanResults((prev) => {
+                    const exists = prev.some((p) => p.ip === res.ip);
+                    if (exists) return prev.map((p) => (p.ip === res.ip ? res : p));
+                    return [...prev, res];
+                });
+            });
+        } catch { /* ignore */ }
+        try {
+            const results = await invoke<ScanResult[]>("plex_scan_subnet", {
+                timeoutMs: 300,
+                maxHosts: hostList ? hostList.length : 256,
+                includeHttps: true,
+                runId,
+                hosts: hostList,
+                port: portNum,
+            });
+            const plexHits = (results || []).filter((r) => r.reachable && r.is_plex);
+            setScanResults(results || []);
+            if (plexHits.length === 0) {
+                setError("Advanced scan did not find any Plex servers. You can try manual add or ensure Plex is reachable on port 32400.");
+                return;
+            }
+            const mapped: PlexServer[] = plexHits.map((r) => ({
+                name: r.name || `Plex (${r.ip})`,
+                address: r.address,
+            }));
+            const merged = [...servers, ...mapped];
+            const seen = new Set<string>();
+            const unique = merged.filter((s) => {
+                const key = (s.address || "").toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+            setServers(unique);
+            try { sessionStorage.setItem("discoveredServers", JSON.stringify(unique)); } catch {}
+            try { await invoke("save_settings", { settings: { discovery: { servers: unique } } }); } catch { /* ignore */ }
+            if (unique.length && selectedIdx == null) setSelectedIdx(0);
+        } catch (e: any) {
+            setScanError(e?.message ?? String(e));
+        } finally {
+            setScanRunning(false);
+            if (scanListener.current) {
+                scanListener.current();
+                scanListener.current = null;
+            }
         }
     }
 
@@ -341,6 +434,31 @@ export default function HomeContainer({onSelectServer}: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Cleanup scan listener on unmount
+    useEffect(() => {
+        return () => {
+            if (scanListener.current) {
+                scanListener.current();
+                scanListener.current = null;
+            }
+        };
+    }, []);
+
+    function closeScanOverlay() {
+        setScanOverlayOpen(false);
+        setScanResults([]);
+        setScanError(null);
+        setScanRunning(false);
+    }
+
+    async function clearServers() {
+        setServers([]);
+        setSelectedIdx(null);
+        try { sessionStorage.removeItem("discoveredServers"); } catch {}
+        try { sessionStorage.removeItem("selectedServerAddress"); } catch {}
+        try { await invoke("save_settings", { settings: { discovery: { servers: [], lastSelectedAddress: null } } }); } catch { /* ignore */ }
+    }
+
     return (
         <HomeTemplate
             discovering={discovering}
@@ -352,6 +470,19 @@ export default function HomeContainer({onSelectServer}: Props) {
             selected={selected}
             resolvedTheme={resolvedTheme}
             onDiscoverServers={discoverServers}
+            onAdvancedScan={() => setAdvancedOpen(true)}
+            onConfirmAdvanced={runAdvancedScan}
+            onCancelAdvanced={() => { setAdvancedOpen(false); closeScanOverlay(); }}
+            advancedOpen={advancedOpen}
+            scanRunning={scanRunning}
+            scanResults={scanResults}
+            scanError={scanError}
+            onCloseScanResults={closeScanOverlay}
+            scanOverlayOpen={scanOverlayOpen}
+            advancedPort={advancedPort}
+            advancedHosts={advancedHosts}
+            onSetAdvancedPort={setAdvancedPort}
+            onSetAdvancedHosts={setAdvancedHosts}
             onAddManualServer={addManualServer}
             onCancelDiscovery={cancelDiscovery}
             onLoginWithPlex={loginWithPlex}
@@ -360,6 +491,7 @@ export default function HomeContainer({onSelectServer}: Props) {
             onSetSelectedIdx={setSelectedIdx}
             onSetManualAddr={setManualAddr}
             onToggleTheme={toggleTheme}
+            onClearServers={clearServers}
         />
     );
 }
