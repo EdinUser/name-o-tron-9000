@@ -12,6 +12,19 @@ type Props = {
     selected: any;
     resolvedTheme: string;
     onDiscoverServers: () => void;
+    onAdvancedScan: () => void;
+    onConfirmAdvanced: () => void;
+    onCancelAdvanced: () => void;
+    advancedOpen: boolean;
+    scanRunning: boolean;
+    scanResults: any[];
+    scanError: string | null;
+    onCloseScanResults: () => void;
+    scanOverlayOpen: boolean;
+    advancedPort: string;
+    advancedHosts: string;
+    onSetAdvancedPort: (v: string) => void;
+    onSetAdvancedHosts: (v: string) => void;
     onAddManualServer: () => void;
     onCancelDiscovery: () => void;
     onLoginWithPlex: () => void;
@@ -20,6 +33,7 @@ type Props = {
     onSetSelectedIdx: (idx: number) => void;
     onSetManualAddr: (addr: string) => void;
     onToggleTheme: () => void;
+    onClearServers: () => void;
 };
 
 export default function HomeTemplate({
@@ -32,6 +46,19 @@ export default function HomeTemplate({
     selected,
     resolvedTheme,
     onDiscoverServers,
+    onAdvancedScan,
+    onConfirmAdvanced,
+    onCancelAdvanced,
+    advancedOpen,
+    scanRunning,
+    scanResults,
+    scanError,
+    onCloseScanResults,
+    scanOverlayOpen,
+    advancedPort,
+    advancedHosts,
+    onSetAdvancedPort,
+    onSetAdvancedHosts,
     onAddManualServer,
     onCancelDiscovery,
     onLoginWithPlex,
@@ -40,6 +67,7 @@ export default function HomeTemplate({
     onSetSelectedIdx,
     onSetManualAddr,
     onToggleTheme,
+    onClearServers,
 }: Props) {
     return (
         <main className="min-h-screen bg-neutral-900 text-neutral-100" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
@@ -57,6 +85,10 @@ export default function HomeTemplate({
                                 <IconRefresh className="h-5 w-5 text-cyan-300"/>
                             )}
                             {discovering ? "Discovering…" : "Discover"}
+                        </button>
+                        <button onClick={onAdvancedScan} disabled={discovering || scanRunning} className="inline-flex items-center gap-2 rounded-md border border-yellow-700/70 bg-neutral-800 px-3 py-1.5 text-sm text-yellow-100 hover:bg-neutral-700 disabled:opacity-50">
+                            <IconBolt className="h-5 w-5 text-yellow-300"/>
+                            Advanced Scan
                         </button>
                         {loginStatus === "authorized" ? (
                             <button onClick={onLogoutPlex} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
@@ -106,13 +138,29 @@ export default function HomeTemplate({
                 )}
 
                 <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                        <IconServer className="h-5 w-5 text-cyan-300"/>
-                        <h2 className="text-lg font-semibold">Discovered Servers</h2>
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <IconServer className="h-5 w-5 text-cyan-300"/>
+                            <h2 className="text-lg font-semibold">Discovered Servers</h2>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={onClearServers} className="rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs text-neutral-200 hover:bg-neutral-700">Clear list</button>
+                        </div>
                     </div>
 
                     {servers.length === 0 ? (
-                        <p className="text-neutral-400">{discovering ? "Scanning your network for Plex servers…" : "No servers found yet. Try Discover again or login with Plex."}</p>
+                        <div className="space-y-2 text-sm text-neutral-300">
+                            <p>{discovering ? "Scanning your network for Plex servers…" : "No servers found via discovery."}</p>
+                            {!discovering && (
+                                <p className="text-neutral-400">
+                                    Try{" "}
+                                    <button onClick={onAdvancedScan} className="text-cyan-300 underline hover:text-cyan-200">
+                                        Advanced Scan
+                                    </button>{" "}
+                                    to probe your local subnet, or add a server manually.
+                                </p>
+                            )}
+                        </div>
                     ) : (
                         <ul className="grid list-none grid-cols-1 gap-3 p-0 md:grid-cols-2">
                             {servers.map((s, i) => (
@@ -169,6 +217,90 @@ export default function HomeTemplate({
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" aria-hidden="true"/>
                         <div className="text-sm text-neutral-300">Discovering Plex servers on your network…</div>
                         <button onClick={onCancelDiscovery} className="mt-1 inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs text-neutral-200 hover:bg-neutral-700">Cancel</button>
+                    </div>
+                </div>
+            )}
+
+            {advancedOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                    <div className="w-full max-w-lg rounded-xl border border-yellow-800/60 bg-neutral-900/95 p-5 shadow-xl">
+                        <div className="text-lg font-semibold text-yellow-200">Advanced Scan</div>
+                        <p className="mt-2 text-sm text-neutral-200">Probes your local subnet for Plex on port 32400 (or a custom port). You can narrow the scan to specific hosts (comma or space separated).</p>
+                        <div className="mt-4 space-y-3">
+                            <label className="flex flex-col gap-1 text-sm text-neutral-200">
+                                Target port (default 32400)
+                                <input
+                                    type="text"
+                                    value={advancedPort}
+                                    onChange={(e) => onSetAdvancedPort(e.target.value)}
+                                    className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 outline-none focus:border-cyan-500"
+                                    placeholder="32400"
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1 text-sm text-neutral-200">
+                                Hosts to scan (optional)
+                                <input
+                                    type="text"
+                                    value={advancedHosts}
+                                    onChange={(e) => onSetAdvancedHosts(e.target.value)}
+                                    className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 outline-none focus:border-cyan-500"
+                                    placeholder="e.g., 192.168.1.132 192.168.1.10"
+                                />
+                                <span className="text-xs text-neutral-400">Leave blank to scan the local /24; provide hosts to limit scanning.</span>
+                            </label>
+                        </div>
+                        <div className="mt-4 flex justify-end gap-2">
+                            <button onClick={onCancelAdvanced} className="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700">Cancel</button>
+                            <button onClick={onConfirmAdvanced} className="rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-neutral-900 hover:bg-yellow-300">OK</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {scanOverlayOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                    <div className="w-full max-w-2xl rounded-xl border border-neutral-800 bg-neutral-900/95 p-5 shadow-xl">
+                        <div className="flex items-center justify-between">
+                            <div className="text-lg font-semibold text-neutral-100">Advanced scan</div>
+                            <button onClick={onCloseScanResults} className="rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs text-neutral-200 hover:bg-neutral-700">Close</button>
+                        </div>
+                        {scanRunning ? (
+                            <div className="mt-4 flex items-center gap-3 text-sm text-neutral-200">
+                                <span className="h-5 w-5 animate-spin rounded-full border-2 border-cyan-300 border-t-transparent" aria-hidden="true"/>
+                                Scanning local subnet for Plex…
+                            </div>
+                        ) : (
+                            <>
+                                {scanError && <div className="mt-3 rounded-md border border-red-800/60 bg-red-900/30 px-3 py-2 text-sm text-red-200">{scanError}</div>}
+                                <div className="mt-3 max-h-64 overflow-auto rounded-md border border-neutral-800 bg-neutral-900/80">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="bg-neutral-800 text-neutral-300">
+                                            <tr>
+                                                <th className="px-3 py-2">IP</th>
+                                                <th className="px-3 py-2">Status</th>
+                                                <th className="px-3 py-2">Details</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {scanResults.length === 0 && (
+                                                <tr>
+                                                    <td className="px-3 py-2 text-neutral-400" colSpan={3}>No results.</td>
+                                                </tr>
+                                            )}
+                                            {scanResults.map((r, idx) => (
+                                                <tr key={`${r.ip}-${idx}`} className="border-t border-neutral-800">
+                                                    <td className="px-3 py-2 font-mono text-xs text-neutral-100">{r.ip}</td>
+                                                    <td className="px-3 py-2 text-sm">
+                                                        {r.is_plex ? <span className="text-emerald-400">Plex found</span> : r.reachable ? <span className="text-yellow-300">Reached, not Plex</span> : <span className="text-red-400">No response</span>}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-xs text-neutral-400">{r.name || r.details || ""}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

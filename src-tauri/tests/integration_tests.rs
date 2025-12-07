@@ -2,7 +2,7 @@ use wiremock::{MockServer, Mock, ResponseTemplate};
 use wiremock::matchers::{method, path};
 use serde_json::json;
 use std::time::Duration;
-use name_o_tron_9000_lib::{plex_api, path_map};
+use name_o_tron_9000_lib::{plex_api, path_map, plex_scan_hosts_for_test, ScanResult};
 
 async fn start_mock_server_or_skip(test_name: &str) -> Option<MockServer> {
     if std::env::var("WIREMOCK_DISABLED").is_ok() {
@@ -93,7 +93,7 @@ async fn test_error_handling_integration() {
         Ok(resp) => {
             assert_eq!(resp.status().as_u16(), 500);
         }
-        Err(e) => {
+        Err(_) => {
             // Network error is also acceptable in this test
         }
     }
@@ -144,6 +144,49 @@ async fn test_concurrent_http_requests() {
         assert_eq!(value.get("status").unwrap(), "ok");
     }
 
+}
+
+#[tokio::test]
+async fn test_advanced_scan_finds_plex_like_identity() {
+    let mock_server = match start_mock_server_or_skip("test_advanced_scan_finds_plex_like_identity").await {
+        Some(s) => s,
+        None => return,
+    };
+
+    // Plex-like /identity
+    Mock::given(method("GET"))
+        .and(path("/identity"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string("<MediaContainer machineIdentifier=\"abc\"/>")
+                .insert_header("X-Plex-Protocol", "1.0"),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let uri = mock_server.uri(); // http://127.0.0.1:PORT
+    let trimmed = uri.trim_start_matches("http://");
+    let mut parts = trimmed.split(':');
+    let host = parts.next().unwrap().to_string();
+    let port: u16 = parts.next().unwrap().parse().unwrap();
+
+    let results: Vec<ScanResult> = plex_scan_hosts_for_test(vec![host.clone()], 400, true, port);
+    assert_eq!(results.len(), 1, "Expected a single scan result");
+    let res = &results[0];
+    assert!(res.reachable, "Host should be reachable");
+    assert!(res.is_plex, "Should be identified as Plex via /identity");
+    assert!(res.address.contains(&port.to_string()), "Address should include port");
+}
+
+#[tokio::test]
+async fn test_advanced_scan_marks_unreachable_host() {
+    // Reserved TEST-NET-3 address should be unreachable in normal environments
+    let host = "203.0.113.99".to_string();
+    let results: Vec<ScanResult> = plex_scan_hosts_for_test(vec![host.clone()], 200, false, 32400);
+    assert_eq!(results.len(), 1);
+    let res = &results[0];
+    assert!(!res.reachable, "Host should not be reachable");
+    assert!(!res.is_plex, "Should not be identified as Plex");
 }
 
 #[tokio::test]
