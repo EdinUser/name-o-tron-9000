@@ -60,6 +60,7 @@ jobs:
           rsync -avz --delete \
             --exclude 'downloads/' \
             --exclude 'release.json' \
+            --exclude 'community/' \
             -e "ssh -i ~/.ssh/vps_key -p 10222 -o StrictHostKeyChecking=no" \
             site/ root@"$VPS_HOST":/var/www/name-o-tron.kirilov.dev/web/
 
