@@ -26,6 +26,12 @@ export default function HomeContainer({onSelectServer}: Props) {
             selectedIdx != null ? servers[selectedIdx] : null,
         [selectedIdx, servers]);
 
+    const isLegacyMockServer = (s: PlexServer) => {
+        const name = (s.name || "").toLowerCase();
+        const addr = (s.address || "").replace(/\/+$/, "").toLowerCase();
+        return name.includes("mock plex") || addr === "http://localhost:32400";
+    };
+
     // Mapping moved to Select Library screen
 
     async function discoverServers() {
@@ -34,20 +40,15 @@ export default function HomeContainer({onSelectServer}: Props) {
         setDiscovering(true);
         const started = Date.now();
         try {
-            // Always include local mock server for tests
-            const initial: PlexServer[] = [
-                {name: "Mock Plex (Local)", address: "http://localhost:32400", owned: true},
-            ];
-
             // Try real Tauri discovery if backend implemented; merge unique results
             let found: PlexServer[] | null = null;
             try {
-                found = await invoke<PlexServer[]>("plex_discover", { hints: ["192.168.1.132"] });
+                found = await invoke<PlexServer[]>("plex_discover");
             } catch (e: any) {
                 setError(`Discovery failed: ${e?.message ?? String(e)}`);
                 found = null;
             }
-            const merged = Array.isArray(found) ? [...initial, ...found] : initial;
+            const merged = Array.isArray(found) ? found : [];
 
             // Deduplicate by address
             const seen = new Set<string>();
@@ -57,6 +58,13 @@ export default function HomeContainer({onSelectServer}: Props) {
                 seen.add(key);
                 return true;
             });
+            // If nothing was discovered, keep existing list instead of wiping it
+            if (unique.length === 0) {
+                if (!servers.length) {
+                    setError("No Plex servers found. Ensure the server is running and reachable, then try Discover or Add Manual.");
+                }
+                return;
+            }
             if (discoverRun.current !== runId) return; // cancelled or superseded
             setServers(unique);
             try { sessionStorage.setItem("discoveredServers", JSON.stringify(unique)); } catch {}
@@ -287,7 +295,7 @@ export default function HomeContainer({onSelectServer}: Props) {
         try {
             const raw = sessionStorage.getItem("discoveredServers");
             if (raw) {
-                const parsed = JSON.parse(raw) as PlexServer[];
+                const parsed = (JSON.parse(raw) as PlexServer[]).filter((s) => !isLegacyMockServer(s));
                 if (Array.isArray(parsed) && parsed.length) {
                     setServers(parsed);
                     const sel = sessionStorage.getItem("selectedServerAddress");
@@ -302,9 +310,8 @@ export default function HomeContainer({onSelectServer}: Props) {
         } catch { /* ignore */ }
         (async () => {
             try {
-                if (servers.length > 0) return;
                 const all: any = await invoke("get_settings");
-                const saved = Array.isArray(all?.discovery?.servers) ? all.discovery.servers as PlexServer[] : [];
+                const saved = Array.isArray(all?.discovery?.servers) ? (all.discovery.servers as PlexServer[]).filter((s) => !isLegacyMockServer(s)) : [];
                 if (saved.length) {
                     setServers(saved);
                     const sel = all?.discovery?.lastSelectedAddress as string | undefined;
@@ -323,8 +330,8 @@ export default function HomeContainer({onSelectServer}: Props) {
         autoScheduled.current = true;
         // Auto-discover shortly after first paint to avoid navigation lag
         const t = setTimeout(() => {
-            // Skip if a discovery is already in progress or we already have servers
-            if (!discovering && servers.length === 0) discoverServers();
+            // Always refresh discovery; cached entries may be stale
+            if (!discovering) discoverServers();
         }, 350);
         return () => {
             clearTimeout(t);
