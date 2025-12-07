@@ -145,7 +145,7 @@ export default function HomeContainer({onSelectServer}: Props) {
             const plexHits = (results || []).filter((r) => r.reachable && r.is_plex);
             setScanResults(results || []);
             if (plexHits.length === 0) {
-                setError("Advanced scan did not find any Plex servers. You can try manual add or ensure Plex is reachable on port 32400.");
+                setScanError("Advanced scan did not find any Plex servers. You can try manual add or ensure Plex is reachable on the specified port.");
                 return;
             }
             const mapped: PlexServer[] = plexHits.map((r) => ({

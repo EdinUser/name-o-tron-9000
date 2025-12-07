@@ -206,7 +206,9 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
 
 fn collect_gateway_hints(max: usize) -> Vec<String> {
     use local_ip_address::list_afinet_netifas;
+    use std::collections::HashSet;
     let mut out: Vec<String> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
     if let Ok(list) = list_afinet_netifas() {
         for (_name, ip) in list {
             if let std::net::IpAddr::V4(v4) = ip {
@@ -237,36 +239,31 @@ fn collect_gateway_hints(max: usize) -> Vec<String> {
 
                 for host in priority {
                     let ip_str = format!("{}.{}.{}.{}", base.0, base.1, base.2, host);
-                    if !out.contains(&ip_str) {
+                    if seen.insert(ip_str.clone()) {
                         out.push(ip_str);
                     }
-                    if out.len() >= max {
-                        return out;
-                    }
+                    if out.len() >= max { return out; }
                 }
 
                 // Fill remainder by sweeping the /24 to catch non-gateway hosts (e.g., 192.168.x.132)
                 for host in 1u16..255 {
                     let h = host as u8;
                     let ip_str = format!("{}.{}.{}.{}", base.0, base.1, base.2, h);
-                    if !out.contains(&ip_str) {
+                    if seen.insert(ip_str.clone()) {
                         out.push(ip_str);
                     }
-                    if out.len() >= max {
-                        return out;
-                    }
+                    if out.len() >= max { return out; }
                 }
             }
         }
     }
     // Common fallbacks
     for ip in ["192.168.0.1", "192.168.1.1", "10.0.0.1"] {
-        if !out.contains(&ip.to_string()) {
-            out.push(ip.to_string());
+        let s = ip.to_string();
+        if seen.insert(s.clone()) {
+            out.push(s);
         }
-        if out.len() >= max {
-            break;
-        }
+        if out.len() >= max { break; }
     }
     out.truncate(max);
     out
@@ -316,11 +313,12 @@ fn probe_host(ip: String, port: u16, timeout_ms: u64, include_https: bool) -> Sc
     let mut name: Option<String> = None;
 
     let addrs = format!("{}:{}", ip, port);
+    let mut preferred_address = format!("http://{}", addrs);
     if let Ok(mut iter) = addrs.to_socket_addrs() {
         if let Some(sockaddr) = iter.next() {
             if TcpStream::connect_timeout(&sockaddr, timeout).is_ok() {
                 reachable = true;
-                let address_http = format!("http://{}", addrs);
+                let address_http = preferred_address.clone();
                 let mut err: Option<String> = None;
 
                 let (plex_http, found_name, err_http) = probe_identity(&address_http, timeout);
@@ -336,6 +334,7 @@ fn probe_host(ip: String, port: u16, timeout_ms: u64, include_https: bool) -> Sc
                     if plex_https {
                         is_plex = true;
                         name = found_name_https.or(name);
+                        preferred_address = address_https;
                         err = None;
                     } else if err_https.is_some() && !is_plex {
                         err = err_https;
@@ -351,7 +350,7 @@ fn probe_host(ip: String, port: u16, timeout_ms: u64, include_https: bool) -> Sc
 
     ScanResult {
         ip,
-        address: format!("http://{}", addrs),
+        address: preferred_address,
         reachable,
         is_plex,
         name,
@@ -366,19 +365,45 @@ fn perform_scan(
     port: u16,
     emitter: Option<(&tauri::AppHandle, Option<String>)>,
 ) -> Vec<ScanResult> {
+    use std::sync::{Arc, Mutex};
     let (tx, rx) = std::sync::mpsc::channel::<ScanResult>();
-    let mut handles = Vec::new();
-    for ip in candidates {
+    let (work_tx, work_rx) = std::sync::mpsc::channel::<String>();
+
+    let worker_count = std::cmp::min(std::cmp::max(1, candidates.len()), 64);
+    let mut handles = Vec::with_capacity(worker_count);
+    let shared_rx = Arc::new(Mutex::new(work_rx));
+
+    for _ in 0..worker_count {
+        let work_rx_clone = Arc::clone(&shared_rx);
         let tx_clone = tx.clone();
-        let ip_string = ip.clone();
+        let include_https = include_https;
         handles.push(std::thread::spawn(move || {
-            let res = probe_host(ip_string, port, timeout_ms, include_https);
-            let _ = tx_clone.send(res);
+            loop {
+                let next_ip = {
+                    let guard = work_rx_clone.lock().unwrap();
+                    guard.recv()
+                };
+                let ip_string = match next_ip {
+                    Ok(v) => v,
+                    Err(_) => break,
+                };
+                let res = probe_host(ip_string, port, timeout_ms, include_https);
+                let _ = tx_clone.send(res);
+            }
         }));
     }
+
+    // Drop extra sender clone to allow completion detection
+    drop(tx.clone());
+
+    for ip in candidates {
+        let _ = work_tx.send(ip);
+    }
+    drop(work_tx);
     drop(tx);
 
     let mut results: Vec<ScanResult> = Vec::new();
+    // Collect exactly the number of sent tasks to avoid hanging on channel close nuances.
     for res in rx {
         if let Some((app, run_id)) = emitter.as_ref() {
             let progress = ScanProgress { run_id: run_id.clone(), result: res.clone() };

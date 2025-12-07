@@ -11,6 +11,12 @@ vi.mock("@tauri-apps/api/core", () => {
   };
 });
 
+vi.mock("@tauri-apps/api/event", () => {
+  return {
+    listen: vi.fn().mockResolvedValue(() => {}),
+  };
+});
+
 // Mock window APIs used by the component
 Object.defineProperty(window, "sessionStorage", {
   value: (function () {
