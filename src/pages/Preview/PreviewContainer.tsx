@@ -25,6 +25,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [error, setError] = useState<string | null>(null);
     const [rows, setRows] = useState<PreviewRow[]>([]);
     const rowsRef = useRef<PreviewRow[]>([]);
+    const rawItemsRef = useRef<Array<MovieItem | EpisodeItem | MusicItem>>([]);
+    const reloadTriggeredRef = useRef(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
@@ -41,6 +43,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         setPage(1);
     }, [pageSize]);
     const [episodesPaging, setEpisodesPaging] = useState({ start: 0, size: 50, total: null as number | null, exhausted: false });
+    const seasonLoadRequestIdRef = useRef(0);
     const containerRef = useRef<HTMLDivElement>(null);
     const [colWidths, setColWidths] = useState<{ current: number; proposed: number; flags: number }>({ current: 480, proposed: 480, flags: 0 });
     // Template is computed from current settings
@@ -536,9 +539,40 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         loadRawData();
     }, [server.address, library.key, library.type, reloadTick, currentShow?.ratingKey, pageSize]);
 
+    // For TV shows, Reload should *not* clear the season selector. It should force a refetch
+    // of episodes for the currently selected season and clear the preview table state.
+    useEffect(() => {
+        if (library.type !== "show") return;
+
+        console.log("[TV Reload] Starting TV reload - clearing state");
+
+        // Cancel any in-flight season loads so older responses can't overwrite the reloaded state
+        seasonLoadRequestIdRef.current += 1;
+        console.log("[TV Reload] Incremented requestId to:", seasonLoadRequestIdRef.current);
+
+        // Keep showSeasons + selectedSeason so the dropdown stays visible.
+        setEpisodesPaging(prev => ({ ...prev, start: 0, total: null, exhausted: false }));
+
+        processedCountRef.current = 0;
+        setRawItems([]);
+        setRows([]);
+        setSelectedIds(new Set());
+        setPage(1);
+
+        // Immediately clear the ref too so the season effect sees the cleared state
+        rawItemsRef.current = [];
+        reloadTriggeredRef.current = true;
+
+        console.log("[TV Reload] State cleared - rawItems/rows reset, page=1, selectedSeason:", selectedSeason, "showSeasons count:", showSeasons.length, "rawItemsRef.current.length:", rawItemsRef.current.length);
+    }, [reloadTick, library.type]);
+
     // Handle season changes - reload episodes when user selects different season
     useEffect(() => {
-        if (library.type !== "show" || !currentShow || showSeasons.length === 0) return;
+        console.log("[Season Change] Effect running - library.type:", library.type, "currentShow:", !!currentShow, "showSeasons.length:", showSeasons.length);
+        if (library.type !== "show" || !currentShow || showSeasons.length === 0) {
+            console.log("[Season Change] Skipping - preconditions not met");
+            return;
+        }
 
         const loadEpisodesForSeason = async () => {
             const targetSeason = selectedSeason === "all" ? null : selectedSeason;
@@ -550,7 +584,19 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 return;
             }
 
-            console.log("[Season Load] Loading episodes for season:", targetSeason, "using key:", seasonData.key);
+            // Mark this request as the latest; used to ignore stale/out-of-order responses.
+            const requestId = ++seasonLoadRequestIdRef.current;
+
+            console.log("[Season Load] Loading episodes for season:", targetSeason, "using key:", seasonData.key, "requestId:", requestId);
+
+            // Reset paging + UI state immediately to avoid mixing seasons and to keep pagination sane.
+            processedCountRef.current = 0;
+            setRows([]);
+            setSelectedIds(new Set());
+            setRawItems([]);
+            setEpisodesPaging(prev => ({ ...prev, start: 0, total: null, exhausted: false }));
+            setPage(1);
+
             setLoading(true);
             setPageLoading(true);
 
@@ -558,9 +604,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 // Check if this is a virtual season (key === show key + /children)
                 // If so, we already have all episodes loaded, just filter them
                 const showChildrenKey = `/library/metadata/${currentShow.ratingKey}/children`;
-                if (seasonData.key === showChildrenKey && rawItems.length > 0) {
+                if (seasonData.key === showChildrenKey && rawItemsRef.current.length > 0) {
                     console.log("[Season Load] Using virtual season - filtering existing episodes");
-                    const filteredEpisodes = rawItems.filter(item =>
+                    const filteredEpisodes = rawItemsRef.current.filter(item =>
                         item.type === "episode" && (item as EpisodeItem).season === targetSeason
                     );
                     console.log("[Season Load] Found", filteredEpisodes.length, "episodes for season", targetSeason);
@@ -592,6 +638,12 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         start: 0,
                         size: episodesPaging.size,
                     });
+
+                    // Ignore out-of-order responses (user switched seasons quickly)
+                    if (seasonLoadRequestIdRef.current !== requestId) {
+                        console.log("[Season Load] Ignoring stale response for requestId:", requestId);
+                        return;
+                    }
 
                     console.log("[Season Load] Response received:", JSON.stringify(epsResp, null, 2));
 
@@ -649,28 +701,56 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 console.error("[Season Load] Failed to load episodes for season:", error);
                 setError(`Failed to load episodes: ${error}`);
             } finally {
-                setLoading(false);
-                setPageLoading(false);
+                // Only clear loading state if this is still the latest request
+                if (seasonLoadRequestIdRef.current === requestId) {
+                    setLoading(false);
+                    setPageLoading(false);
+                }
             }
         };
 
         // Check if we already have episodes loaded for this season
-        const hasEpisodesForSeason = rawItems.some(item => item.type === "episode" && (item as EpisodeItem).season === selectedSeason);
+        const hasEpisodesForSeason = rawItemsRef.current.some(item => item.type === "episode" && (item as EpisodeItem).season === selectedSeason);
         const isFirstSeason = selectedSeason === showSeasons[0]?.index;
 
-        console.log("[Season Change] selectedSeason:", selectedSeason, "firstSeason:", showSeasons[0]?.index, "hasEpisodes:", hasEpisodesForSeason, "rawItems count:", rawItems.length, "isFirstSeason:", isFirstSeason);
+        console.log("[Season Change] selectedSeason:", selectedSeason, "firstSeason:", showSeasons[0]?.index, "hasEpisodes:", hasEpisodesForSeason, "rawItems count:", rawItemsRef.current.length, "isFirstSeason:", isFirstSeason);
 
-        // Load episodes if:
-        // 1. We don't have episodes for this season, OR
-        // 2. This is the first season and we haven't loaded anything yet
-        if (selectedSeason !== null && selectedSeason !== undefined && (!hasEpisodesForSeason || (isFirstSeason && rawItems.length === 0))) {
+        // Always reload episodes on Reload click (reloadTick), even if we previously had episodes for this season.
+        // Ensures Reload (which clears rawItems) triggers a refetch.
+        const shouldForceReload = rawItemsRef.current.length === 0;
+        const wasReloadTriggered = reloadTriggeredRef.current;
+
+        console.log("[Season Change] Checking if should load - selectedSeason:", selectedSeason, "shouldForceReload:", shouldForceReload, "hasEpisodes:", hasEpisodesForSeason, "isFirstSeason:", isFirstSeason, "rawItemsRef.current.length:", rawItemsRef.current.length, "wasReloadTriggered:", wasReloadTriggered);
+
+        if (wasReloadTriggered) {
+            // Reset the flag since we're handling the reload
+            reloadTriggeredRef.current = false;
+        }
+
+        if (
+            selectedSeason !== null &&
+            selectedSeason !== undefined &&
+            (
+                wasReloadTriggered || // Force reload if reload was triggered
+                shouldForceReload ||
+                !hasEpisodesForSeason ||
+                (isFirstSeason && rawItemsRef.current.length === 0)
+            )
+        ) {
             console.log("[Season Change] Loading episodes for season:", selectedSeason);
             loadEpisodesForSeason();
+        } else {
+            console.log("[Season Change] Skipping load - conditions not met");
         }
-    }, [selectedSeason, showSeasons, currentShow, library.type, server.address, episodesPaging.size]);
+    }, [selectedSeason, showSeasons, currentShow, library.type, server.address, episodesPaging.size, reloadTick]);
 
     // State for raw items
     const [rawItems, setRawItems] = useState<Array<MovieItem | EpisodeItem | MusicItem>>([]);
+
+    // Keep a ref of raw items for async season loaders (prevents stale closures / racey reads)
+    useEffect(() => {
+        rawItemsRef.current = rawItems;
+    }, [rawItems]);
 
     // Helper function to fetch poster images
     const fetchPoster = useCallback(async (thumb: string, ratingKey: string): Promise<string | null> => {
