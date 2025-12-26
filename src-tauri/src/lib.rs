@@ -19,7 +19,9 @@ pub mod logging;
 // Re-export functions used by frontend
 pub use plex_api::fetch_library_content;
 pub use plex_api::fetch_tv_shows;
+pub use plex_api::fetch_show_seasons;
 pub use plex_api::fetch_show_episodes;
+pub use plex_api::fetch_plex_metadata;
 pub use plex_api::search_content;
 pub use plex_api::sanitize_filename_cmd;
 pub use path_map::test_mapping;
@@ -642,7 +644,9 @@ pub fn run() {
             list_libraries,
             plex_api::fetch_library_content,
             plex_api::fetch_tv_shows,
+            plex_api::fetch_show_seasons,
             plex_api::fetch_show_episodes,
+            plex_api::fetch_plex_metadata,
             plex_api::fetch_collections,
             plex_api::fetch_collection_items,
             plex_api::search_content,

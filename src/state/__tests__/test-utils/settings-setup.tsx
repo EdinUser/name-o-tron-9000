@@ -67,6 +67,10 @@ export const createDefaultSettings = (overrides: any = {}) => ({
       backupBeforeConversion: true,
       skipUncertainEncoding: true,
     },
+    viewMode: {
+      movies: 'table' as const,
+      tv: 'blocks' as const,
+    },
   },
   movies: {
     collections: { enabled: true, mode: 'always' as const, naming: 'original' as const },

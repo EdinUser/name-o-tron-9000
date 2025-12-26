@@ -30,6 +30,11 @@ export type GeneralSettings = {
     backupBeforeConversion: boolean;
     skipUncertainEncoding: boolean;
   };
+  /** View mode preferences for preview pages */
+  viewMode: {
+    movies: "table" | "blocks";
+    tv: "table" | "blocks";
+  };
 };
 
 export type EditionParser = {
@@ -163,7 +168,7 @@ const defaultSettings: Settings = {
     conflictHandling: "skip",
     safety: { pathLengthCheck: true, reservedNamesCheck: true, permissionsCheck: true },
     pagination: {
-      defaultMovieLimit: 200,
+      defaultMovieLimit: 25,
       defaultShowLimit: 20,
       defaultMusicLimit: 200,
     },
@@ -175,6 +180,10 @@ const defaultSettings: Settings = {
       convertToUtf8: false,
       backupBeforeConversion: true,
       skipUncertainEncoding: true,
+    },
+    viewMode: {
+      movies: "table",
+      tv: "blocks",
     },
   },
   movies: {
