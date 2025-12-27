@@ -99,7 +99,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     // Season filtering for TV shows
     const [selectedSeason, setSelectedSeason] = useState<number | "all" | null>(null);
     const [availableSeasons, setAvailableSeasons] = useState<number[]>([]);
-    const [showSeasons, setShowSeasons] = useState<Array<{index: number, title: string, leafCount: number, ratingKey: string, key: string}>>([]);
+    const [seasonList, setSeasonList] = useState<Array<{index: number, title: string, leafCount: number, ratingKey: string, key: string}>>([]);
 
     const [reloadTick, setReloadTick] = useState(0);
 
@@ -398,7 +398,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         }
 
                         // First, load seasons for the show (fast, usually just a few seasons)
-                        if (showSeasons.length === 0) {
+                        if (seasonList.length === 0) {
                             console.log("[Seasons Load] Loading seasons for show:", showToLoad.title, "ratingKey:", showToLoad.ratingKey);
                             const seasonsResp = await invoke<any>("fetch_show_seasons", {
                                 server: server.address,
@@ -424,10 +424,10 @@ export default function PreviewContainer({server, library, onBack}: Props) {
 
                             console.log("[Seasons Load] Processed seasonData:", seasonData);
 
-                            setShowSeasons(seasonData);
+                            setSeasonList(seasonData);
                             setAvailableSeasons(seasonData.map((s: {index: number}) => s.index));
 
-                            console.log("[Seasons Load] Set showSeasons with", seasonData.length, "seasons");
+                            console.log("[Seasons Load] Set seasonList with", seasonData.length, "seasons");
 
                             // If no seasons found in Plex, fall back to loading all episodes and creating virtual seasons
                             if (seasonData.length === 0) {
@@ -475,7 +475,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
 
                                         console.log("[Fallback] Created virtual seasons:", virtualSeasons);
 
-                                        setShowSeasons(virtualSeasons);
+                                        setSeasonList(virtualSeasons);
                                         setAvailableSeasons(virtualSeasons.map((s: {index: number}) => s.index));
 
                                         // Auto-select the first available season
@@ -485,12 +485,12 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                         }
                                     } else {
                                         console.log("[Fallback] No episodes found in Plex for this show");
-                                        setShowSeasons([]);
+                                        setSeasonList([]);
                                         setAvailableSeasons([]);
                                     }
                                 } catch (fallbackError) {
                                     console.error("[Fallback] Error loading episodes:", fallbackError);
-                                    setShowSeasons([]);
+                                    setSeasonList([]);
                                     setAvailableSeasons([]);
                                 }
                             } else {
@@ -550,7 +550,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         seasonLoadRequestIdRef.current += 1;
         console.log("[TV Reload] Incremented requestId to:", seasonLoadRequestIdRef.current);
 
-        // Keep showSeasons + selectedSeason so the dropdown stays visible.
+        // Keep seasonList + selectedSeason so the dropdown stays visible.
         setEpisodesPaging(prev => ({ ...prev, start: 0, total: null, exhausted: false }));
 
         processedCountRef.current = 0;
@@ -563,13 +563,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         rawItemsRef.current = [];
         reloadTriggeredRef.current = true;
 
-        console.log("[TV Reload] State cleared - rawItems/rows reset, page=1, selectedSeason:", selectedSeason, "showSeasons count:", showSeasons.length, "rawItemsRef.current.length:", rawItemsRef.current.length);
+        console.log("[TV Reload] State cleared - rawItems/rows reset, page=1, selectedSeason:", selectedSeason, "seasonList count:", seasonList.length, "rawItemsRef.current.length:", rawItemsRef.current.length);
     }, [reloadTick, library.type]);
 
     // Handle season changes - reload episodes when user selects different season
     useEffect(() => {
-        console.log("[Season Change] Effect running - library.type:", library.type, "currentShow:", !!currentShow, "showSeasons.length:", showSeasons.length);
-        if (library.type !== "show" || !currentShow || showSeasons.length === 0) {
+        console.log("[Season Change] Effect running - library.type:", library.type, "currentShow:", !!currentShow, "seasonList.length:", seasonList.length);
+        if (library.type !== "show" || !currentShow || seasonList.length === 0) {
             console.log("[Season Change] Skipping - preconditions not met");
             return;
         }
@@ -578,7 +578,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             const targetSeason = selectedSeason === "all" ? null : selectedSeason;
             if (targetSeason === null) return; // Handle "all seasons" case later if needed
 
-            const seasonData = showSeasons.find(s => s.index === targetSeason);
+            const seasonData = seasonList.find(s => s.index === targetSeason);
             if (!seasonData) {
                 console.log("[Season Load] No season data found for season:", targetSeason);
                 return;
@@ -711,9 +711,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
 
         // Check if we already have episodes loaded for this season
         const hasEpisodesForSeason = rawItemsRef.current.some(item => item.type === "episode" && (item as EpisodeItem).season === selectedSeason);
-        const isFirstSeason = selectedSeason === showSeasons[0]?.index;
+        const isFirstSeason = selectedSeason === seasonList[0]?.index;
 
-        console.log("[Season Change] selectedSeason:", selectedSeason, "firstSeason:", showSeasons[0]?.index, "hasEpisodes:", hasEpisodesForSeason, "rawItems count:", rawItemsRef.current.length, "isFirstSeason:", isFirstSeason);
+        console.log("[Season Change] selectedSeason:", selectedSeason, "firstSeason:", seasonList[0]?.index, "hasEpisodes:", hasEpisodesForSeason, "rawItems count:", rawItemsRef.current.length, "isFirstSeason:", isFirstSeason);
 
         // Always reload episodes on Reload click (reloadTick), even if we previously had episodes for this season.
         // Ensures Reload (which clears rawItems) triggers a refetch.
@@ -742,7 +742,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         } else {
             console.log("[Season Change] Skipping load - conditions not met");
         }
-    }, [selectedSeason, showSeasons, currentShow, library.type, server.address, episodesPaging.size, reloadTick]);
+    }, [selectedSeason, seasonList, currentShow, library.type, server.address, episodesPaging.size, reloadTick]);
 
     // State for raw items
     const [rawItems, setRawItems] = useState<Array<MovieItem | EpisodeItem | MusicItem>>([]);
@@ -1701,7 +1701,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
       totalPages={totalPages}
       selectedSeason={selectedSeason}
       availableSeasons={availableSeasons}
-      showSeasons={showSeasons}
+      seasonList={seasonList}
             anyRedSelected={anyRedSelected}
             libraryFolder={libraryFolder}
             template={template}

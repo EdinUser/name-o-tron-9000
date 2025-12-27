@@ -1059,7 +1059,7 @@ pub async fn fetch_show_episodes(
     for b in &bases {
         if let Some(t) = token.as_ref() {
             let tok = urlencoding::encode(t);
-            // Try /children first (for seasons), then fall back to /allLeaves (for shows)
+            // Try /children first (returns episodes grouped by seasons), then fall back to /allLeaves (returns all episodes flattened)
             urls.push(format!("{}/library/metadata/{}/children?{}&X-Plex-Token={}", b, show_rating_key, paging, tok));
             urls.push(format!("{}/library/metadata/{}/allLeaves?{}&X-Plex-Token={}", b, show_rating_key, paging, tok));
             urls.push(format!("{}/library/metadata/{}/children?X-Plex-Token={}", b, show_rating_key, tok));

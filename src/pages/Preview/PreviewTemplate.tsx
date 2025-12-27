@@ -73,7 +73,7 @@ type TemplateProps = {
     onLoadMoreMusic: () => void;
     selectedSeason: number | "all" | null;
     availableSeasons: number[];
-    showSeasons: Array<{index: number, title: string, leafCount: number, ratingKey: string, key: string}>;
+    seasonList: Array<{index: number, title: string, leafCount: number, ratingKey: string, key: string}>;
     onSetSelectedSeason: (season: number | "all" | null) => void;
     applyInProgress: boolean;
     applyOperationCount: number;
@@ -155,7 +155,7 @@ export default function PreviewTemplate({
     onExportPreviewSnapshot,
     onLoadMoreMusic,
     selectedSeason,
-    showSeasons,
+    seasonList,
     onSetSelectedSeason,
     applyInProgress,
     applyOperationCount,
@@ -326,18 +326,18 @@ export default function PreviewTemplate({
                         {library.type === "show" && currentShow && (
                             <div className="flex items-center gap-2">
                                 {/* Season Filter Dropdown - show as soon as seasons are loaded */}
-                                {showSeasons.length > 0 && (
+                                {seasonList.length > 0 && (
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm text-neutral-400">Season:</span>
                                         <Select
                                             value={selectedSeason || "all"}
                                             onChange={(value) => onSetSelectedSeason(value === "all" && selectedSeason === null ? null : value)}
                                             options={[
-                                                ...showSeasons.map(season => ({
+                                                ...seasonList.map(season => ({
                                                     value: season.index,
                                                     label: `${season.title} (${season.leafCount} episodes)`
                                                 })),
-                                                ...(showSeasons.length > 1 ? [{ value: "all" as const, label: "View all seasons" }] : [])
+                                                ...(seasonList.length > 1 ? [{ value: "all" as const, label: "View all seasons" }] : [])
                                             ]}
                                             className="w-auto"
                                         />
