@@ -155,7 +155,6 @@ export default function PreviewTemplate({
     onExportPreviewSnapshot,
     onLoadMoreMusic,
     selectedSeason,
-    availableSeasons,
     showSeasons,
     onSetSelectedSeason,
     applyInProgress,
@@ -331,8 +330,8 @@ export default function PreviewTemplate({
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm text-neutral-400">Season:</span>
                                         <Select
-                                            value={selectedSeason}
-                                            onChange={(value) => onSetSelectedSeason(value)}
+                                            value={selectedSeason || "all"}
+                                            onChange={(value) => onSetSelectedSeason(value === "all" && selectedSeason === null ? null : value)}
                                             options={[
                                                 ...showSeasons.map(season => ({
                                                     value: season.index,
