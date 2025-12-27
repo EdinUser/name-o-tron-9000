@@ -166,6 +166,9 @@ export default function PreviewTemplate({
     onRemoveEmptyFolders,
     onCloseApplySummary,
 }: TemplateProps) {
+    // Calculate view mode for use in controls
+    const isTableView = settings.general.viewMode[library.type === "movie" ? "movies" : "tv"] === "table";
+
     return (
         <main className="min-h-screen bg-neutral-900 text-neutral-100" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
             <header className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-900/80 backdrop-blur" style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -261,7 +264,20 @@ export default function PreviewTemplate({
 
             <section className="mx-auto px-6 py-6">
                 {/* Search and load more buttons */}
-                <div className="mb-4 flex items-center justify-end gap-2">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                    {/* Left side - Select All toggle */}
+                    {!isTableView && displayRows.length > 0 && (
+                        <div className="flex items-center gap-2">
+                            <Toggle
+                                checked={pageAllSelected}
+                                onChange={() => onTogglePageSelection()}
+                                aria-label="Select or deselect all items on this page"
+                            />
+                            <span className="text-sm text-neutral-400">Select all</span>
+                        </div>
+                    )}
+
+                    {/* Right side - other controls */}
                     <div className="flex items-center gap-2">
                         {/* Reload button */}
                         <button title="Reload library" onClick={() => onSetReloadTick((prev: number) => prev + 1)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
@@ -394,8 +410,6 @@ export default function PreviewTemplate({
                 {error && <p className="text-center text-red-300">Error: {error}</p>}
 
                 {(() => {
-                    const isTableView = settings.general.viewMode[library.type === "movie" ? "movies" : "tv"] === "table";
-
                     if (isTableView) {
                         // Table View
                         return (

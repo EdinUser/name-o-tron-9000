@@ -60,12 +60,19 @@ function App() {
     }
 
     if (screen === "shows" && server && library) {
+      // Get saved page for this library (session-based, resets on app restart)
+      const savedPage = sessionStorage.getItem(`showPage_${library.key}`);
+      const initialPage = savedPage ? parseInt(savedPage, 10) : undefined;
+
       return (
         <ShowSelectionContainer
           server={server}
           library={library}
+          initialPage={initialPage}
           onBack={() => setScreen("libraries")}
-          onSelectShow={(show) => {
+          onSelectShow={(show, currentPage) => {
+            // Store current page for this library (session-based)
+            sessionStorage.setItem(`showPage_${library.key}`, currentPage.toString());
             // pass through to Preview; it can start from this show
             (window as any).__initialShow = show;
             setPreviewFrom("shows");
