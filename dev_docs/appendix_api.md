@@ -16,6 +16,12 @@ plex_discover(hints?: string[]): Promise<Array<{
   owned?: boolean;
 }>>
 
+advanced_scan(args: {
+  port?: number;
+  hosts?: string[];
+  run_id: string;
+}): Promise<void>
+
 // Authentication
 plex_login(): Promise<{
   status: string;
@@ -45,6 +51,20 @@ fetch_library_content(args: {
 fetch_tv_shows(args: {
   server: string;
   library_key: string;
+  token?: string;
+  start?: number;
+  size?: number;
+}): Promise<any>
+
+fetch_show_seasons(args: {
+  server: string;
+  show_rating_key: string;
+  token?: string;
+}): Promise<any>
+
+fetch_show_episodes(args: {
+  server: string;
+  show_rating_key: string;
   token?: string;
   start?: number;
   size?: number;

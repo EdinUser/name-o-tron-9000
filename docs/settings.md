@@ -60,9 +60,16 @@ Throughout this document, settings options are marked with labels to help you un
   - Combined with per-page “Select all” controls in the Preview table for efficient batch selection
 
 ### Pagination & Search 🟢 Basic
-- **Default page sizes**: Movies 200, TV 20, Music 200 (client-side pagination).
+- **Default page sizes**: Movies 25, TV 20, Music 200 (client-side pagination).
 - **Debounced search**: 500ms debounce filters the current page immediately.
 - **Remote search fallback**: If a preview search returns zero local matches and the initial load is idle, the app queries Plex `/hubs/search`; those rows are flagged as `remote-search` to distinguish them from local items.
+
+### View Modes 🟢 Basic
+- **Movies view mode**: Choose between Table and Blocks view for movie libraries
+- **TV view mode**: Choose between Table and Blocks view for TV show libraries
+- **Table view**: Traditional spreadsheet layout with detailed information columns
+- **Blocks view**: Card-based layout with poster thumbnails and compact information
+- **Per-library preference**: Settings are remembered separately for Movies and TV Shows
 
 ### Filename Encoding 🟢 Basic
 - **Keep Unicode** (•) - Recommended default

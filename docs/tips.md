@@ -14,6 +14,12 @@ This guide provides practical advice for getting the most out of Name-o-Tron 900
 [tips_manual_server.png]
 - **Token Persistence**: Choose "Secure (System Keyring)" for production use - it stores tokens encrypted in your OS credential store.
 
+### Advanced Network Scanning
+- **Complex Networks**: Use "Advanced Scan" when automatic discovery fails due to custom ports or network segmentation.
+- **Custom Ports**: Specify alternative Plex Media Server ports (default is 32400).
+- **Manual Hosts**: Provide specific IP addresses or hostnames to scan directly.
+- **Progress Monitoring**: The scan overlay shows real-time progress and discovered servers.
+
 ### Library Organization
 - **Consistent Naming**: Before using the app, ensure your Plex library is well-organized with consistent naming patterns.
 - **Metadata Quality**: High-quality Plex metadata improves rename accuracy. Run "Refresh Metadata" in Plex if results seem inconsistent.
@@ -169,6 +175,19 @@ This guide provides practical advice for getting the most out of Name-o-Tron 900
 - **Server Not Found**: Check network connectivity and Plex server status.
 - **Authentication Failed**: Verify Plex account credentials and server access.
 - **Metadata Mismatch**: Refresh Plex library metadata if files aren't matching correctly.
+
+## UI & View Modes
+
+### Choosing View Modes
+- **Table View**: Best for detailed inspection, sorting, and bulk operations on large libraries.
+- **Blocks View**: Ideal for visual browsing, poster previews, and focused work on smaller sets of items.
+- **Per-Library Preferences**: Set different view modes for Movies vs TV Shows based on your workflow.
+
+### Blocks View Tips
+- **Poster Loading**: Posters load progressively for better performance with large libraries.
+- **Select All**: Use the left-aligned "Select all" toggle to quickly select all visible items on the current page.
+- **Compact Information**: Hover over items for detailed metadata in popover cards.
+- **Efficient for Reviews**: Perfect for final quality checks before applying renames.
 
 ## Advanced Recipes & Use Cases
 
