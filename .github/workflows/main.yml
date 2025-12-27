@@ -12,6 +12,8 @@ jobs:
   # =====================================================
   build-linux:
     runs-on: [self-hosted, mint]
+    permissions:
+      contents: write
     env:
       SKIP_APT_INSTALL: "true"
 
@@ -121,6 +123,8 @@ jobs:
     # Temporarily disabled while testing Linux-only builds.
     # Remove or change this condition to re-enable Windows builds.
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
