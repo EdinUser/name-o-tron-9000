@@ -7,6 +7,7 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 ### Server Discovery & Authentication
 - **Automatic Discovery**: Uses SSDP multicast to find Plex servers on your local network
 - **Manual Server Addition**: Add servers manually by IP address or hostname
+- **Advanced Network Scanning**: Custom port scanning and manual host specification for complex networks
 - **PIN Authentication**: Secure Plex account authentication via browser-based PIN flow
 - **Token Management**: Secure token storage with optional encryption
  - **Plex library rename focus**: Everything downstream is optimized for Plex metadata-driven renaming.
@@ -30,6 +31,12 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 - **Quick Overview**: Focus on problematic items or review only compliant files
 - **Combined Search**: Status filtering works with search functionality for precise item selection
 - **Per-Page Select All**: Header toggle selects or deselects all rows on the current page without affecting other pages
+
+### View Modes
+- **Table View**: Traditional spreadsheet-style layout with sortable columns and detailed information
+- **Blocks View**: Card-based layout with poster thumbnails, optimized for visual browsing
+- **Per-Library Settings**: Choose your preferred view mode separately for Movies and TV Shows
+- **Select All in Blocks**: Left-aligned toggle in blocks view for selecting all visible items on the current page
 
 [traffic_light.png]
 

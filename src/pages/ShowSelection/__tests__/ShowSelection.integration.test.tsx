@@ -559,7 +559,7 @@ describe('ShowSelection Integration Tests', () => {
     // Click on Breaking Bad show
     await userEvent.click(screen.getByText('Breaking Bad'));
 
-    // The callback receives the full show object with metadata
+    // The callback receives the full show object with metadata and current page
     expect(mockOnSelectShow).toHaveBeenCalledWith({
       ratingKey: 'show1',
       title: 'Breaking Bad',
@@ -573,7 +573,7 @@ describe('ShowSelection Integration Tests', () => {
       isMapped: true,
       location: '/media/TV Shows/Breaking Bad/Season 1/Breaking Bad - S01E01 - Pilot.mkv',
       mappingStatus: 'checked',
-    });
+    }, 1); // currentPage defaults to 1
   });
 
   it('handles pagination correctly', async () => {

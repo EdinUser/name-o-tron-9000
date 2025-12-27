@@ -50,7 +50,8 @@ type Props = {
   server: PlexServer;
   library: PlexLibrary; // must be type "show"
   onBack: () => void;
-  onSelectShow: (show: { ratingKey: string; title: string }) => void;
+  onSelectShow: (show: { ratingKey: string; title: string }, currentPage: number) => void;
+  initialPage?: number;
 };
 
 type TvShow = {
@@ -68,7 +69,8 @@ type TvShow = {
   yearsRunning?: string;
 };
 
-export default function ShowSelectionContainer({ server, library, onBack, onSelectShow }: Props) {
+export default function ShowSelectionContainer({ server, library, onBack, onSelectShow, initialPage }: Props) {
+
   const { resolvedTheme, toggleTheme } = useTheme();
   const { settings } = useSettings();
   const [loading, setLoading] = useState(false);
@@ -81,14 +83,17 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   const [serverId, setServerId] = useState<string>("");
   const paging = useRef({ start: 0, size: settings.general.pagination.defaultShowLimit, exhausted: false });
   const [queryState, setQueryState] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(initialPage || 1);
   const itemsPerPage = 20;
+
 
   // Track active request id to avoid race-condition UI flicker
   // Bump this on every load() call to ignore stale responses
   const activeRequestIdRef = useRef(0);
   // Track number of in-flight load() calls
   const inFlightCountRef = useRef(0);
+  // Track if we've restored the initial page for this navigation
+  const initialPageRestoredRef = useRef(false);
 
   // Wrapper for setQuery
   const setQuery = (value: string) => {
@@ -97,6 +102,24 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
   // Use the state value for all operations
   const query = queryState;
+
+  const filteredShows = useMemo(() => {
+    if (!query.trim()) return shows;
+    const searchQuery = query.toLowerCase();
+    return shows.filter(s =>
+      s.title.toLowerCase().includes(searchQuery)
+    );
+  }, [shows, query]);
+
+  const totalPages = useMemo(() => {
+    const len = filteredShows.length;
+    return Math.max(1, Math.ceil(len / itemsPerPage));
+  }, [filteredShows.length]);
+
+  const pagedShows = useMemo(() => {
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    return filteredShows.slice(startIdx, startIdx + itemsPerPage);
+  }, [filteredShows, currentPage]);
 
   const debounce = useRef<number | null>(null);
 
@@ -485,36 +508,28 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryState]);
 
+  // Reset the restoration flag when initialPage changes (new navigation)
+  useEffect(() => {
+    initialPageRestoredRef.current = false;
+  }, [initialPage]);
+
+  // Update currentPage when initialPage changes (e.g., when navigating back)
+  // Only restore once per navigation to avoid interfering with user pagination
+  useEffect(() => {
+    if (initialized && initialPage && !initialPageRestoredRef.current && initialPage <= totalPages) {
+      setCurrentPage(initialPage);
+      initialPageRestoredRef.current = true;
+    }
+  }, [initialPage, initialized, totalPages]);
+
   // Reset to first page when query changes
   useEffect(() => {
     setCurrentPage(1);
   }, [queryState]);
 
-  const filteredShows = useMemo(() => {
-    if (!query.trim()) return shows;
-
-    const searchQuery = query.toLowerCase();
-    return shows.filter(s =>
-      s.title.toLowerCase().includes(searchQuery)
-    );
-  }, [shows, queryState]);
-
-  const totalPages = useMemo(() => {
-    const len = filteredShows.length;
-    return Math.max(1, Math.ceil(len / itemsPerPage));
-  }, [filteredShows.length]);
-
-  // Clamp current page within range when data size changes
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [totalPages]);
-
-  const pagedShows = useMemo(() => {
-    const startIdx = (currentPage - 1) * itemsPerPage;
-    return filteredShows.slice(startIdx, startIdx + itemsPerPage);
-  }, [filteredShows, currentPage]);
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   return (
     <ShowSelectionTemplate
@@ -536,7 +551,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       onSelectShow={onSelectShow}
       onSetQuery={setQuery}
       onLoad={load}
-      onPageChange={setCurrentPage}
+      onPageChange={handlePageChange}
       onToggleTheme={toggleTheme}
     />
   );

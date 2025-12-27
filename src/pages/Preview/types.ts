@@ -27,6 +27,7 @@ export type MovieItem = {
     imdbId?: string;
     thetvdbId?: string;
     thumb?: string;
+    cachedPosterUrl?: string; // Base64 encoded poster image
 };
 
 export type EpisodeItem = {
@@ -46,6 +47,7 @@ export type EpisodeItem = {
     imdbId?: string;
     thetvdbId?: string;
     thumb?: string;
+    cachedPosterUrl?: string; // Base64 encoded poster image
 };
 
 export type MusicItem = {
@@ -62,6 +64,7 @@ export type MusicItem = {
     genre?: string;
     guid?: string;
     thumb?: string;
+    cachedPosterUrl?: string; // Base64 encoded poster image
 };
 
 export type PreviewRow = {

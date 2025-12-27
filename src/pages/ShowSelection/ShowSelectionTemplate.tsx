@@ -32,7 +32,7 @@ type Props = {
   currentPage: number;
   totalPages: number;
   onBack: () => void;
-  onSelectShow: (show: { ratingKey: string; title: string }) => void;
+  onSelectShow: (show: { ratingKey: string; title: string }, currentPage: number) => void;
   onSetQuery: (query: string) => void;
   onLoad: (reset?: boolean) => void;
   onPageChange: (page: number) => void;
@@ -162,10 +162,10 @@ export default function ShowSelectionTemplate({
                               target.parentElement!.innerHTML = 'Poster';
                               target.parentElement!.className = 'w-16 h-24 bg-neutral-700 rounded-md flex items-center justify-center text-neutral-400 text-xs';
                             }}
-                            onClick={() => onSelectShow(s)}
+                            onClick={() => onSelectShow(s, currentPage)}
                           />
                         ) : (
-                          <div onClick={() => onSelectShow(s)}>Poster</div>
+                          <div onClick={() => onSelectShow(s, currentPage)}>Poster</div>
                         )}
                       </div>
                     </div>
@@ -175,7 +175,7 @@ export default function ShowSelectionTemplate({
                       <div className="mb-1">
                         <div
                           className="font-medium truncate cursor-pointer hover:text-cyan-300 transition-colors"
-                          onClick={() => onSelectShow(s)}
+                          onClick={() => onSelectShow(s, currentPage)}
                         >
                           {s.title}
                         </div>

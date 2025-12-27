@@ -1,5 +1,5 @@
 // Components
-import {IconArrowBack, IconBolt, IconEdit, IconHome, IconInfo, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch, IconStatusGood, IconStatusWarning, IconStatusError, IconSun, IconMoon} from "../../components/icons";
+import {IconArrowBack, IconBolt, IconEdit, IconHome, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch, IconStatusGood, IconStatusWarning, IconStatusError, IconSun, IconMoon} from "../../components/icons";
 import Select from "../../components/Select";
 import PathMappingModal from "../../components/PathMappingModal";
 import TemplateHelpModal from "../../components/TemplateHelpModal";
@@ -38,6 +38,8 @@ type TemplateProps = {
     editingItem: PreviewRow | null;
     popoverData: { metadata: any; position: { x: number; y: number } };
     searchQuery: string;
+    pageLoading: boolean;
+    pageTransitionLoading: boolean;
     statusFilter: string;
     resolvedTheme: string;
     containerRef: React.RefObject<HTMLDivElement>;
@@ -68,11 +70,10 @@ type TemplateProps = {
     pageAllSelected: boolean;
     onTogglePageSelection: () => void;
     onExportPreviewSnapshot: () => void;
-    onLoadMoreMovies: () => void;
     onLoadMoreMusic: () => void;
-    onLoadMoreEpisodes: () => void;
     selectedSeason: number | "all" | null;
     availableSeasons: number[];
+    seasonList: Array<{index: number, title: string, leafCount: number, ratingKey: string, key: string}>;
     onSetSelectedSeason: (season: number | "all" | null) => void;
     applyInProgress: boolean;
     applyOperationCount: number;
@@ -102,6 +103,7 @@ export default function PreviewTemplate({
     library,
     currentShow,
     loading,
+    pageLoading,
     searching,
     error,
     rows,
@@ -120,6 +122,7 @@ export default function PreviewTemplate({
     editingItem,
     popoverData,
     searchQuery,
+    pageTransitionLoading,
     statusFilter,
     resolvedTheme,
     containerRef,
@@ -150,11 +153,9 @@ export default function PreviewTemplate({
     pageAllSelected,
     onTogglePageSelection,
     onExportPreviewSnapshot,
-    onLoadMoreMovies,
     onLoadMoreMusic,
-    onLoadMoreEpisodes,
     selectedSeason,
-    availableSeasons,
+    seasonList,
     onSetSelectedSeason,
     applyInProgress,
     applyOperationCount,
@@ -164,6 +165,9 @@ export default function PreviewTemplate({
     onRemoveEmptyFolders,
     onCloseApplySummary,
 }: TemplateProps) {
+    // Calculate view mode for use in controls
+    const isTableView = settings.general.viewMode[library.type === "movie" ? "movies" : "tv"] === "table";
+
     return (
         <main className="min-h-screen bg-neutral-900 text-neutral-100" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
             <header className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-900/80 backdrop-blur" style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -259,7 +263,20 @@ export default function PreviewTemplate({
 
             <section className="mx-auto px-6 py-6">
                 {/* Search and load more buttons */}
-                <div className="mb-4 flex items-center justify-end gap-2">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                    {/* Left side - Select All toggle */}
+                    {!isTableView && displayRows.length > 0 && (
+                        <div className="flex items-center gap-2">
+                            <Toggle
+                                checked={pageAllSelected}
+                                onChange={() => onTogglePageSelection()}
+                                aria-label="Select or deselect all items on this page"
+                            />
+                            <span className="text-sm text-neutral-400">Select all</span>
+                        </div>
+                    )}
+
+                    {/* Right side - other controls */}
                     <div className="flex items-center gap-2">
                         {/* Reload button */}
                         <button title="Reload library" onClick={() => onSetReloadTick((prev: number) => prev + 1)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
@@ -267,72 +284,89 @@ export default function PreviewTemplate({
                             Reload
                         </button>
 
-                        {/* Load more buttons */}
+                        {/* View Mode Toggle - moved here from top */}
                         {library.type === "movie" && (
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={onLoadMoreMovies}
-                                    className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
-                                >
-                                    Load more movies
-                                </button>
-                                <div className="group relative">
-                                    <IconInfo className="h-4 w-4 text-neutral-400 hover:text-neutral-200 cursor-help" />
-                                    <div className="invisible group-hover:visible absolute right-0 mt-2 w-48 rounded-md bg-neutral-800 p-2 text-xs text-neutral-200 shadow-lg z-20">
-                                        {rows.length} movies loaded
-                                    </div>
-                                </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-neutral-400">View:</span>
+                                <Select
+                                    value={settings.general.viewMode.movies}
+                                    onChange={(value) => {
+                                        const updated = {
+                                            ...settings,
+                                            general: {
+                                                ...settings.general,
+                                                viewMode: {
+                                                    ...settings.general.viewMode,
+                                                    movies: value
+                                                }
+                                            }
+                                        } as any;
+                                        onUpdateSettings(updated);
+                                    }}
+                                    options={[
+                                        { value: "table", label: "Table" },
+                                        { value: "blocks", label: "Blocks" }
+                                    ]}
+                                    className="w-auto"
+                                />
                             </div>
                         )}
 
+                        {/* Load more buttons for other types */}
+
                         {library.type === "artist" && (
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={onLoadMoreMusic}
-                                    className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
-                                >
-                                    Load more tracks
-                                </button>
-                                <div className="group relative">
-                                    <IconInfo className="h-4 w-4 text-neutral-400 hover:text-neutral-200 cursor-help" />
-                                    <div className="invisible group-hover:visible absolute right-0 mt-2 w-48 rounded-md bg-neutral-800 p-2 text-xs text-neutral-200 shadow-lg z-20">
-                                        {rows.length} tracks loaded
-                                    </div>
-                                </div>
-                            </div>
+                            <button
+                                onClick={onLoadMoreMusic}
+                                className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
+                            >
+                                Load more tracks
+                            </button>
                         )}
 
                         {library.type === "show" && currentShow && (
                             <div className="flex items-center gap-2">
-                                {/* Season Filter Dropdown - only show for multi-season shows */}
-                                {availableSeasons.length > 1 && (
+                                {/* Season Filter Dropdown - show as soon as seasons are loaded */}
+                                {seasonList.length > 0 && (
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm text-neutral-400">Season:</span>
                                         <Select
-                                            value={selectedSeason === null ? 1 : selectedSeason}
-                                            onChange={(value) => onSetSelectedSeason(value === 1 && selectedSeason === null ? null : value)}
+                                            value={selectedSeason || "all"}
+                                            onChange={(value) => onSetSelectedSeason(value === "all" && selectedSeason === null ? null : value)}
                                             options={[
-                                                ...availableSeasons.map(season => ({
-                                                    value: season,
-                                                    label: `Season ${season}`
+                                                ...seasonList.map(season => ({
+                                                    value: season.index,
+                                                    label: `${season.title} (${season.leafCount} episodes)`
                                                 })),
-                                                { value: "all" as const, label: "View all seasons" }
+                                                ...(seasonList.length > 1 ? [{ value: "all" as const, label: "View all seasons" }] : [])
                                             ]}
                                             className="w-auto"
                                         />
                                     </div>
                                 )}
-                                <button
-                                    onClick={onLoadMoreEpisodes}
-                                    className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
-                                >
-                                    Load more episodes
-                                </button>
-                                <div className="group relative">
-                                    <IconInfo className="h-4 w-4 text-neutral-400 hover:text-neutral-200 cursor-help" />
-                                    <div className="invisible group-hover:visible absolute right-0 mt-2 w-48 rounded-md bg-neutral-800 p-2 text-xs text-neutral-200 shadow-lg z-20">
-                                        {rows.length} episodes loaded
-                                    </div>
+                                {/* View Mode Toggle - for TV shows */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-neutral-400">View:</span>
+                                    <Select
+                                        value={settings.general.viewMode.tv}
+                                        onChange={(value) => {
+                                            const updated = {
+                                                ...settings,
+                                                general: {
+                                                    ...settings.general,
+                                                    viewMode: {
+                                                        ...settings.general.viewMode,
+                                                        tv: value
+                                                    }
+                                                }
+                                            } as any;
+                                            onUpdateSettings(updated);
+                                        }}
+                                        options={[
+                                            { value: "table", label: "Table" },
+                                            { value: "blocks", label: "Blocks" }
+                                        ]}
+                                        className="w-auto"
+                                    />
                                 </div>
                             </div>
                         )}
@@ -361,24 +395,9 @@ export default function PreviewTemplate({
                             onChange={onSetStatusFilter}
                             options={[
                                 { value: "all", label: "All" },
-                                { value: "good", label: (
-                                    <div className="flex items-center gap-1">
-                                        <IconStatusGood className="w-3 h-3" />
-                                        Green
-                                    </div>
-                                )},
-                                { value: "warning", label: (
-                                    <div className="flex items-center gap-1">
-                                        <IconStatusWarning className="w-3 h-3" />
-                                        Yellow
-                                    </div>
-                                )},
-                                { value: "error", label: (
-                                    <div className="flex items-center gap-1">
-                                        <IconStatusError className="w-3 h-3" />
-                                        Red
-                                    </div>
-                                )},
+                                { value: "good", label: "Green" },
+                                { value: "warning", label: "Yellow" },
+                                { value: "error", label: "Red" },
                                 { value: "unmatched", label: "Unmatched" }
                             ]}
                             className="w-auto"
@@ -389,101 +408,272 @@ export default function PreviewTemplate({
 
                 {error && <p className="text-center text-red-300">Error: {error}</p>}
 
-                <div ref={containerRef} className="overflow-auto rounded-xl border border-neutral-800 mt-4">
-                        <div className="grid items-center gap-2 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm font-semibold" style={{gridTemplateColumns: gridTemplate}}>
-                            <div className="flex items-center justify-center" title="Select or deselect all rows on this page">
-                                <Toggle
-                                    checked={pageAllSelected}
-                                    onChange={() => onTogglePageSelection()}
-                                    aria-label="Select or deselect all rows on this page"
-                                />
-                            </div>
-                            <div className="relative select-none">
-                                <span>Current</span>
-                                <span onMouseDown={(e) => onStartResize("current", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize"/>
-                            </div>
-                            <div className="relative select-none">
-                                <span>Proposed</span>
-                                <span onMouseDown={(e) => onStartResize("proposed", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize"/>
-                            </div>
-                            <div></div>
-                        </div>
-                        {((loading || previewLoading || searching) && displayRows.length === 0) && (
-                            <div className="px-3 py-4 text-center text-sm text-neutral-400">
-                                {searchQuery.trim() || searching
-                                    ? 'Searching…'
-                                    : library.type === 'movie'
-                                        ? 'Loading movies…'
-                                        : library.type === 'show'
-                                            ? 'Loading episodes…'
-                                            : 'Loading items…'}
-                            </div>
-                        )}
-
-                        {displayRows.length > 0 && pageRows.map((r) => (
-                            <div
-                                key={r.id}
-                                className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40 dark:hover:bg-neutral-800/40 light:hover:bg-neutral-50/40"
-                                style={{gridTemplateColumns: gridTemplate}}
-                                >
-                                    <Toggle checked={selectedIds.has(r.id)} onChange={() => onToggle(r.id)}/>
-                                    <div
-                                        className="truncate cursor-pointer hover:bg-neutral-700/50 dark:hover:bg-neutral-700/50 light:hover:bg-neutral-100/50 rounded px-1 py-0.5 transition-colors"
-                                        onMouseEnter={(e) => onHandleMouseEnter(e, r)}
-                                        onMouseLeave={onHandleMouseLeave}
-                                    >
-                                        {shortenFilePath(r.filePath, library.roots || [])}
+                {(() => {
+                    if (isTableView) {
+                        // Table View
+                        return (
+                            <div ref={containerRef} className="overflow-auto rounded-xl border border-neutral-800 mt-4">
+                                <div className="grid items-center gap-2 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm font-semibold" style={{gridTemplateColumns: gridTemplate}}>
+                                    <div className="flex items-center justify-center" title="Select or deselect all rows on this page">
+                                        <Toggle
+                                            checked={pageAllSelected}
+                                            onChange={() => onTogglePageSelection()}
+                                            aria-label="Select or deselect all rows on this page"
+                                        />
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div
-                                            className="relative cursor-help"
-                                            title={r.flags.length > 0 ? `Status: ${r.status} | Issues: ${r.flags.join(", ")}` : `Status: ${r.status}`}
-                                        >
-                                            {r.status === "good" && <IconStatusGood className="w-5 h-5" />}
-                                            {r.status === "warning" && <IconStatusWarning className="w-5 h-5" />}
-                                            {r.status === "error" && <IconStatusError className="w-5 h-5" />}
-                                            {r.status === "unmatched" && <IconQuestionCircle className="w-5 h-5 text-gray-400" />}
-                                        </div>
-                                        <div className="truncate" title={r.proposed}>{r.proposed}</div>
+                                    <div className="relative select-none">
+                                        <span>Current</span>
+                                        <span onMouseDown={(e) => onStartResize("current", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize"/>
                                     </div>
-                                    <button
-                                        onClick={() => onSetEditingItem(r)}
-                                        className="p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded transition-colors"
-                                        title="Edit metadata"
-                                    >
-                                        <IconEdit className="w-4 h-4" />
-                                    </button>
-                                    {/* Subtitle operations */}
-                                    {r.subtitleOperations && r.subtitleOperations.length > 0 && (
-                                        <div className="ml-7 border-l-2 border-neutral-700 pl-3">
-                                            {r.subtitleOperations.map((subOp, idx) => (
-                                                <div key={idx} className="grid items-center gap-2 px-3 py-1 text-sm text-neutral-400 hover:bg-neutral-800/20 dark:hover:bg-neutral-800/20 light:hover:bg-neutral-50/40" style={{gridTemplateColumns: gridTemplate}}>
-                                                    <div className="text-xs">📝</div>
-                                                    <div className="truncate text-xs" title={subOp.originalPath}>
-                                                        {subOp.originalPath.split('/').pop()}
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="relative cursor-help">
-                                                            {subOp.warningFlags.length > 0 && <span className="text-amber-300">⚠️</span>}
-                                                            <span className="text-cyan-400">→</span>
-                                                        </div>
-                                                        <div className="truncate text-xs" title={subOp.proposedPath}>
-                                                            {subOp.proposedPath.split('/').pop()}
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-xs text-neutral-500">
-                                                        {subOp.operationType}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                    <div className="relative select-none">
+                                        <span>Proposed</span>
+                                        <span onMouseDown={(e) => onStartResize("proposed", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize"/>
+                                    </div>
+                                    <div></div>
                                 </div>
-                            ))}
-                        {!loading && !previewLoading && !searching && displayRows.length === 0 && (
-                            <p className="px-3 py-2 text-neutral-400">No items to preview.</p>
-                        )}
-                    </div>
+                                {((loading || previewLoading || searching) && displayRows.length === 0) && (
+                                    <div className="px-3 py-4 text-center text-sm text-neutral-400">
+                                        {searchQuery.trim() || searching
+                                            ? 'Searching…'
+                                            : library.type === 'movie'
+                                                ? 'Loading movies…'
+                                                : library.type === 'show'
+                                                    ? 'Loading episodes…'
+                                                    : 'Loading items…'}
+                                    </div>
+                                )}
+
+                                {(pageTransitionLoading || pageLoading) && (
+                                    <div className="px-3 py-4 text-center text-sm text-neutral-400">
+                                        {library.type === 'movie'
+                                            ? 'Loading more movies…'
+                                            : library.type === 'show'
+                                            ? 'Loading more episodes…'
+                                            : 'Loading more items…'}
+                                    </div>
+                                )}
+                                {!pageTransitionLoading && !pageLoading && displayRows.length > 0 && pageRows.map((r) => (
+                                    <div
+                                        key={r.id}
+                                        className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40 dark:hover:bg-neutral-800/40 light:hover:bg-neutral-50/40"
+                                        style={{gridTemplateColumns: gridTemplate}}
+                                        >
+                                            <Toggle checked={selectedIds.has(r.id)} onChange={() => onToggle(r.id)}/>
+                                            <div
+                                                className="truncate cursor-pointer hover:bg-neutral-700/50 dark:hover:bg-neutral-700/50 light:hover:bg-neutral-100/50 rounded px-1 py-0.5 transition-colors"
+                                                onMouseEnter={(e) => onHandleMouseEnter(e, r)}
+                                                onMouseLeave={onHandleMouseLeave}
+                                            >
+                                                {shortenFilePath(r.filePath, library.roots || [])}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div
+                                                    className="relative cursor-help"
+                                                    title={r.flags.length > 0 ? `Status: ${r.status} | Issues: ${r.flags.join(", ")}` : `Status: ${r.status}`}
+                                                >
+                                                    {r.status === "good" && <IconStatusGood className="w-5 h-5" />}
+                                                    {r.status === "warning" && <IconStatusWarning className="w-5 h-5" />}
+                                                    {r.status === "error" && <IconStatusError className="w-5 h-5" />}
+                                                    {r.status === "unmatched" && <IconQuestionCircle className="w-5 h-5 text-gray-400" />}
+                                                </div>
+                                                <div className="truncate" title={r.proposed}>{r.proposed}</div>
+                                            </div>
+                                            <button
+                                                onClick={() => onSetEditingItem(r)}
+                                                className="p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded transition-colors"
+                                                title="Edit metadata"
+                                            >
+                                                <IconEdit className="w-4 h-4" />
+                                            </button>
+                                            {/* Subtitle operations */}
+                                            {r.subtitleOperations && r.subtitleOperations.length > 0 && (
+                                                <div className="ml-7 border-l-2 border-neutral-700 pl-3">
+                                                    {r.subtitleOperations.map((subOp, idx) => (
+                                                        <div key={idx} className="grid items-center gap-2 px-3 py-1 text-sm text-neutral-400 hover:bg-neutral-800/20 dark:hover:bg-neutral-800/20 light:hover:bg-neutral-50/40" style={{gridTemplateColumns: gridTemplate}}>
+                                                            <div className="text-xs">📝</div>
+                                                            <div className="truncate text-xs" title={subOp.originalPath}>
+                                                                {subOp.originalPath.split('/').pop()}
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="relative cursor-help">
+                                                                    {subOp.warningFlags.length > 0 && <span className="text-amber-300">⚠️</span>}
+                                                                    <span className="text-cyan-400">→</span>
+                                                                </div>
+                                                                <div className="truncate text-xs" title={subOp.proposedPath}>
+                                                                    {subOp.proposedPath.split('/').pop()}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-xs text-neutral-500">
+                                                                {subOp.operationType}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                {!loading && !previewLoading && !searching && displayRows.length === 0 && (
+                                    <p className="px-3 py-2 text-neutral-400">No items to preview.</p>
+                                )}
+                            </div>
+                        );
+                    } else {
+                        // Blocks View
+                        return (
+                            <div className="mt-4">
+                                {((loading || previewLoading || searching) && displayRows.length === 0) && (
+                                    <div className="px-3 py-4 text-center text-sm text-neutral-400">
+                                        {searchQuery.trim() || searching
+                                            ? 'Searching…'
+                                            : library.type === 'movie'
+                                                ? 'Loading movies…'
+                                                : library.type === 'show'
+                                                    ? 'Loading episodes…'
+                                                    : 'Loading items…'}
+                                    </div>
+                                )}
+
+                                {(pageTransitionLoading || pageLoading) && (
+                                    <div className="px-3 py-4 text-center text-sm text-neutral-400">
+                                        {library.type === 'movie'
+                                            ? 'Loading more movies…'
+                                            : library.type === 'show'
+                                            ? 'Loading more episodes…'
+                                            : 'Loading more items…'}
+                                    </div>
+                                )}
+
+                                {!pageTransitionLoading && !pageLoading && displayRows.length > 0 && (
+                                    <ul className="grid list-none grid-cols-1 gap-3 p-0 md:grid-cols-2 lg:grid-cols-3">
+                                        {pageRows.map((r) => {
+                                            const movieItem = r.kind === "movie" ? (r.metadata as MovieItem) : null;
+                                            const episodeItem = r.kind === "episode" ? (r.metadata as EpisodeItem) : null;
+
+                                            return (
+                                                <li key={r.id} className="flex items-start gap-4 rounded-lg border border-neutral-800 bg-neutral-800/40 px-4 py-3">
+                                                    {/* Plex Poster Area */}
+                                                    <div className="flex-shrink-0">
+                                                        <div className="w-16 h-24 bg-neutral-700 rounded-md flex items-center justify-center text-neutral-400 text-xs overflow-hidden">
+                                                            {movieItem?.cachedPosterUrl || episodeItem?.cachedPosterUrl ? (
+                                                                <img
+                                                                    src={movieItem?.cachedPosterUrl || episodeItem?.cachedPosterUrl}
+                                                                    alt={`${movieItem?.title || episodeItem?.showTitle} poster`}
+                                                                    className="w-full h-full object-cover rounded-md"
+                                                                    onError={(e) => {
+                                                                        const target = e.target as HTMLImageElement;
+                                                                        target.style.display = 'none';
+                                                                        target.parentElement!.innerHTML = 'Poster';
+                                                                        target.parentElement!.className = 'w-16 h-24 bg-neutral-700 rounded-md flex items-center justify-center text-neutral-400 text-xs';
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div>Poster</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Item Information */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-start justify-between mb-2">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    {/* Status indicator - moved before title */}
+                                                                    {r.status === "good" && <IconStatusGood className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                                                                    {r.status === "warning" && <IconStatusWarning className="w-4 h-4 text-yellow-500 flex-shrink-0" />}
+                                                                    {r.status === "error" && <IconStatusError className="w-4 h-4 text-red-500 flex-shrink-0" />}
+                                                                    {r.status === "unmatched" && <IconQuestionCircle className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+                                                                    {/* Title with white/gray styling */}
+                                                                    <div className="font-medium truncate">
+                                                                        <span className="text-white">
+                                                                            {r.kind === "movie" ? movieItem?.title : episodeItem?.showTitle}
+                                                                        </span>
+                                                                        {r.kind === "episode" && episodeItem && episodeItem.title !== "Episode" && episodeItem.title !== episodeItem.showTitle && (
+                                                                            <span className="text-neutral-400 ml-1">- {episodeItem.title}</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 ml-2">
+                                                                <Toggle checked={selectedIds.has(r.id)} onChange={() => onToggle(r.id)}/>
+                                                                <button
+                                                                    onClick={() => onSetEditingItem(r)}
+                                                                    className="p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded transition-colors"
+                                                                    title="Edit metadata"
+                                                                >
+                                                                    <IconEdit className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-1 text-sm">
+                                                            {/* Movie/TV details */}
+                                                            {movieItem && (
+                                                                <>
+                                                                    {/* Year / Genre / Studio on one line */}
+                                                                    <div className="flex items-center gap-2 text-neutral-400">
+                                                                        {movieItem.year && <span className="text-xs">({movieItem.year})</span>}
+                                                                        {movieItem.genre && <span className="px-2 py-0.5 bg-neutral-700 rounded text-xs">{movieItem.genre}</span>}
+                                                                        {movieItem.studio && <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-xs">{movieItem.studio}</span>}
+                                                                    </div>
+                                                                    {movieItem.director && (
+                                                                        <div className="text-neutral-500">
+                                                                            <span className="text-xs text-neutral-400">Director: </span>
+                                                                            <span className="text-xs">{movieItem.director}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                            {episodeItem && (
+                                                                <>
+                                                                    {/* Year and Season/Episode on same line */}
+                                                                    <div className="flex items-center gap-2 text-neutral-400">
+                                                                        {episodeItem.year && <span className="text-xs">({episodeItem.year})</span>}
+                                                                        {episodeItem.season && episodeItem.index && (
+                                                                            <span className="px-2 py-0.5 bg-neutral-700 rounded text-xs">S{episodeItem.season.toString().padStart(2, '0')}E{episodeItem.index.toString().padStart(2, '0')}</span>
+                                                                        )}
+                                                                    </div>
+                                                                </>
+                                                            )}
+
+                                                            {/* Current path (compact) */}
+                                                            <div className="text-xs text-neutral-500 truncate" title={r.filePath}>
+                                                                {shortenFilePath(r.filePath, library.roots || [])}
+                                                            </div>
+
+                                                            {/* Proposed path (compact) */}
+                                                            <div className="text-xs text-neutral-400 truncate" title={r.proposed}>
+                                                                → {r.proposed}
+                                                            </div>
+
+                                                            {/* Flags */}
+                                                            {r.flags.length > 0 && (
+                                                                <div className="text-xs text-neutral-500">
+                                                                    Issues: {r.flags.join(", ")}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Subtitle indicator - compact icon only */}
+                                                        {r.subtitleOperations && r.subtitleOperations.length > 0 && (
+                                                            <div className="mt-1 flex items-center gap-1 text-xs text-neutral-400" title={`${r.subtitleOperations.length} subtitle operation${r.subtitleOperations.length > 1 ? 's' : ''}`}>
+                                                                <span className="text-neutral-500">📝</span>
+                                                                <span>{r.subtitleOperations.length}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                )}
+
+                                {!loading && !previewLoading && !searching && displayRows.length === 0 && (
+                                    <p className="px-3 py-2 text-neutral-400">No items to preview.</p>
+                                )}
+                            </div>
+                        );
+                    }
+                })()}
 
                 {/* Library info and folder mapping helper */}
                 <div className="mt-3 flex items-center justify-between text-sm text-neutral-300">

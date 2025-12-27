@@ -38,6 +38,10 @@ const baseSettings: Settings = {
       backupBeforeConversion: true,
       skipUncertainEncoding: true,
     },
+    viewMode: {
+      movies: "table",
+      tv: "blocks",
+    },
   },
   movies: {
     collections: { enabled: true, mode: "always", naming: "original" },

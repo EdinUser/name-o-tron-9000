@@ -24,16 +24,26 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [rows, setRows] = useState<PreviewRow[]>([]);
+    const rowsRef = useRef<PreviewRow[]>([]);
+    const rawItemsRef = useRef<Array<MovieItem | EpisodeItem | MusicItem>>([]);
+    const reloadTriggeredRef = useRef(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
-    const [moviesPaging, setMoviesPaging] = useState({ start: 0, size: settings.general.pagination.defaultMovieLimit, exhausted: false });
+    const [moviesPaging, setMoviesPaging] = useState({ start: 0, size: 25, total: null as number | null, exhausted: false });
 
-    // Update pagination when settings change
+    // Update pagination when user changes page size
     useEffect(() => {
-        setMoviesPaging(prev => ({ ...prev, size: settings.general.pagination.defaultMovieLimit }));
-    }, [settings.general.pagination.defaultMovieLimit]);
-    const [episodesPaging, setEpisodesPaging] = useState({ start: 0, size: 200, exhausted: false });
+        setMoviesPaging({
+            start: 0,
+            size: pageSize, // single-page fetch when page size changes
+            total: null,
+            exhausted: false
+        });
+        setPage(1);
+    }, [pageSize]);
+    const [episodesPaging, setEpisodesPaging] = useState({ start: 0, size: 50, total: null as number | null, exhausted: false });
+    const seasonLoadRequestIdRef = useRef(0);
     const containerRef = useRef<HTMLDivElement>(null);
     const [colWidths, setColWidths] = useState<{ current: number; proposed: number; flags: number }>({ current: 480, proposed: 480, flags: 0 });
     // Template is computed from current settings
@@ -53,6 +63,12 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [remoteQuery, setRemoteQuery] = useState<string>("");
     const [searching, setSearching] = useState(false);
     const [previewLoading, setPreviewLoading] = useState(false);
+    const [pageLoading, setPageLoading] = useState(false);
+    const initialMoviePrefetch = useRef(false);
+    const moviePrefetching = useRef(false);
+    const prefetchedSecondPageRef = useRef(false);
+    const processedCountRef = useRef(0);
+    const lastSettingsVersionRef = useRef(settingsVersion);
 
     // Apply / cleanup state
     const [applyInProgress, setApplyInProgress] = useState(false);
@@ -83,6 +99,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     // Season filtering for TV shows
     const [selectedSeason, setSelectedSeason] = useState<number | "all" | null>(null);
     const [availableSeasons, setAvailableSeasons] = useState<number[]>([]);
+    const [seasonList, setSeasonList] = useState<Array<{index: number, title: string, leafCount: number, ratingKey: string, key: string}>>([]);
 
     const [reloadTick, setReloadTick] = useState(0);
 
@@ -108,6 +125,11 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const handleMouseLeave = useCallback(() => {
         setPopoverData({ metadata: null, position: { x: 0, y: 0 } });
     }, []);
+
+    // Keep a ref of rows for incremental updates
+    useEffect(() => {
+        rowsRef.current = rows;
+    }, [rows]);
 
     // Load path mappings and determine the library folder for shortening paths
     useEffect(() => {
@@ -200,20 +222,39 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 const rawItems: Array<MovieItem | EpisodeItem | MusicItem> = [];
 
                 if (library.type === "movie") {
+                    const fetchSize = moviesPaging.size || pageSize;
                     // Fetch movie items using the existing command
                     const data = await invoke<SectionResponse>("fetch_library_content", {
                         server: server.address,
                         libraryKey: library.key,
                         token: token ?? null,
                         start: moviesPaging.start,
-                        size: moviesPaging.size,
+                        size: fetchSize,
                     });
                     const mc = data?.MediaContainer;
                     const md = mc?.Metadata ?? [];
+                    const total = Number(mc?.totalSize ?? mc?.total ?? 0) || null;
+                    const returned = Number(mc?.size ?? md.length);
+                    const offset = Number(mc?.offset ?? moviesPaging.start ?? 0);
+                    console.log("[Preview] Movie fetch", { pageSize, fetchSize, offset, returned, total });
                     if (md.length === 0) {
-                        setMoviesPaging(prev => ({ ...prev, exhausted: true }));
-                    } else if (md.length < moviesPaging.size) {
-                        setMoviesPaging(prev => ({ ...prev, exhausted: true }));
+                        setMoviesPaging(prev => ({
+                            ...prev,
+                            total: total ?? prev.total ?? null,
+                            exhausted: true
+                        }));
+                    } else {
+                        setMoviesPaging(prev => {
+                            const done = total ? offset + returned >= total : md.length < fetchSize;
+                            // After the first load, switch to single-page fetch size
+                            return {
+                                ...prev,
+                                start: offset + returned,
+                                size: pageSize,
+                                total: total ?? prev.total ?? null,
+                                exhausted: done
+                            };
+                        });
                     }
                     for (const item of md) {
                         const file = item?.Media?.[0]?.Part?.[0]?.file;
@@ -228,10 +269,10 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             file: String(file),
                             plexPath: String(file),
                             edition: String(item.edition ?? item.editionTitle ?? ""),
-                            genre: String(item.genre ?? ""),
+                            genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
                             rating: String(item.contentRating ?? ""),
                             studio: String(item.studio ?? ""),
-                            director: String(item.director ?? ""),
+                            director: String(item.Director?.[0]?.tag ?? item.director ?? ""),
                             writer: String(item.writer ?? ""),
                             country: String(item.country ?? ""),
                             tagline: String(item.tagline ?? ""),
@@ -239,6 +280,75 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             thumb: String(item.thumb ?? ""),
                         };
                         rawItems.push(m);
+                    }
+
+                    // If the initial movie fetch did not fill two pages, prefetch one more page immediately
+                    const neededForTwoPages = pageSize * 2;
+                    const have = rawItems.length;
+                    const totalForFetch = mc?.totalSize ?? mc?.total ?? total ?? null;
+                    if (!initialMoviePrefetch.current && !moviePrefetching.current && have < neededForTwoPages) {
+                        const nextStart = offset + returned;
+                        initialMoviePrefetch.current = true;
+                        moviePrefetching.current = true;
+                        (async () => {
+                            try {
+                                const moreData = await invoke<SectionResponse>("fetch_library_content", {
+                                    server: server.address,
+                                    libraryKey: library.key,
+                                    token: token ?? null,
+                                    start: nextStart,
+                                    size: pageSize,
+                                });
+                                const mcMore = moreData?.MediaContainer;
+                                const mdMore = mcMore?.Metadata ?? [];
+                                const moreTotal = Number(mcMore?.totalSize ?? mcMore?.total ?? totalForFetch ?? 0) || null;
+                                const moreReturned = Number(mcMore?.size ?? mdMore.length);
+                                const moreOffset = Number(mcMore?.offset ?? nextStart);
+                                const moreItems: MovieItem[] = [];
+                                for (const item of mdMore) {
+                                    const file = item?.Media?.[0]?.Part?.[0]?.file;
+                                    if (!file) continue;
+                                    const movieRatingKey = String(item.ratingKey ?? item.key ?? file);
+                                    const m: MovieItem = {
+                                        type: "movie",
+                                        ratingKey: movieRatingKey,
+                                        title: String(item.title ?? "Unknown"),
+                                        year: item.year ? Number(item.year) : undefined,
+                                        file: String(file),
+                                        plexPath: String(file),
+                                        edition: String(item.edition ?? item.editionTitle ?? ""),
+                                        genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
+                                        rating: String(item.contentRating ?? ""),
+                                        studio: String(item.studio ?? ""),
+                                        director: String(item.Director?.[0]?.tag ?? item.director ?? ""),
+                                        writer: String(item.writer ?? ""),
+                                        country: String(item.country ?? ""),
+                                        tagline: String(item.tagline ?? ""),
+                                        summary: String(item.summary ?? ""),
+                                        thumb: String(item.thumb ?? ""),
+                                    };
+                                    moreItems.push(m);
+                                }
+                                if (moreItems.length > 0) {
+                                    setRawItems(prev => [...prev, ...moreItems]);
+                                    setMoviesPaging(prev => {
+                                        const totalFinal = moreTotal ?? prev.total ?? null;
+                                        const newStart = moreOffset + moreReturned;
+                                        const exhausted = totalFinal ? newStart >= totalFinal : moreReturned < pageSize;
+                                        return {
+                                            ...prev,
+                                            start: newStart,
+                                            total: totalFinal,
+                                            exhausted
+                                        };
+                                    });
+                                }
+                            } catch {
+                                // ignore prefetch errors
+                            } finally {
+                                moviePrefetching.current = false;
+                            }
+                        })();
                     }
                 } else if (library.type === "artist") {
                     // Fetch music tracks using the fetch_library_content command (music tracks are under Metadata)
@@ -272,7 +382,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             file: String(file),
                             plexPath: String(file),
                             year: item.year ? Number(item.year) : undefined,
-                            genre: String(item.genre ?? ""),
+                            genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
                             thumb: String(item.thumb ?? ""),
                         };
                         rawItems.push(m);
@@ -286,41 +396,117 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         if (initialShow) {
                             setCurrentShow(initialShow);
                         }
-                        // Load episodes for the selected show only
-                        const epsResp = await invoke<any>("fetch_show_episodes", {
-                            server: server.address,
-                            showRatingKey: showToLoad.ratingKey,
-                            token,
-                            start: episodesPaging.start,
-                            size: episodesPaging.size,
-                        });
-                        const md = epsResp?.MediaContainer?.Metadata ?? [];
-                        if (md.length === 0) {
-                            setEpisodesPaging(prev => ({ ...prev, exhausted: true }));
-                        } else if (md.length < episodesPaging.size) {
-                            setEpisodesPaging(prev => ({ ...prev, exhausted: true }));
+
+                        // First, load seasons for the show (fast, usually just a few seasons)
+                        if (seasonList.length === 0) {
+                            console.log("[Seasons Load] Loading seasons for show:", showToLoad.title, "ratingKey:", showToLoad.ratingKey);
+                            const seasonsResp = await invoke<any>("fetch_show_seasons", {
+                                server: server.address,
+                                showRatingKey: showToLoad.ratingKey,
+                                token,
+                            });
+
+                            console.log("[Seasons Load] Seasons response received");
+                            const seasons = seasonsResp?.MediaContainer?.Metadata ?? [];
+                            console.log("[Seasons Load] Seasons response:", JSON.stringify(seasonsResp, null, 2));
+                            console.log("[Seasons Load] Found", seasons.length, "seasons in Plex for this show");
+
+                            const seasonData = seasons.map((season: any) => {
+                                console.log("[Seasons Load] Season:", season.title, "ratingKey:", season.ratingKey, "index:", season.index, "leafCount:", season.leafCount, "key:", season.key);
+                                return {
+                                    index: Number(season.index) || 0,
+                                    title: String(season.title || `Season ${season.index}`),
+                                    leafCount: Number(season.leafCount) || 0,
+                                    ratingKey: String(season.ratingKey || season.key),
+                                    key: String(season.key || `/library/metadata/${season.ratingKey}/children`),
+                                };
+                            }).sort((a: {index: number}, b: {index: number}) => a.index - b.index);
+
+                            console.log("[Seasons Load] Processed seasonData:", seasonData);
+
+                            setSeasonList(seasonData);
+                            setAvailableSeasons(seasonData.map((s: {index: number}) => s.index));
+
+                            console.log("[Seasons Load] Set seasonList with", seasonData.length, "seasons");
+
+                            // If no seasons found in Plex, fall back to loading all episodes and creating virtual seasons
+                            if (seasonData.length === 0) {
+                                console.log("[Seasons Load] No seasons found in Plex, trying fallback approach");
+                                try {
+                                    // Load all episodes for the show using the old method
+                                    const epsResp = await invoke<any>("fetch_show_episodes", {
+                                        server: server.address,
+                                        showRatingKey: showToLoad.ratingKey,
+                                        token,
+                                        start: 0,
+                                        size: 200, // Load more to get all episodes
+                                    });
+
+                                    const md = epsResp?.MediaContainer?.Metadata ?? [];
+                                    console.log("[Fallback] Found", md.length, "episodes in Plex for this show");
+
+                                    if (md.length > 0) {
+                                        // Create virtual seasons from episode data
+                                        const seasonMap = new Map<number, any[]>();
+                                        for (const item of md) {
+                                            const file = item?.Media?.[0]?.Part?.[0]?.file;
+                                            if (!file) continue;
+                                            // Plex-first: prefer Plex season (parentIndex). Only fall back to filename parsing if missing.
+                                            const plexSeason = Number(item.parentIndex);
+                                            const parsed = parseEpisodeInfo(String(file), String(item.title ?? "Episode"));
+                                            const seasonNum = Number.isFinite(plexSeason) ? plexSeason : parsed.season;
+                                            if (typeof seasonNum === "number" && !seasonMap.has(seasonNum)) {
+                                                seasonMap.set(seasonNum, []);
+                                            }
+                                            if (typeof seasonNum === "number") {
+                                                seasonMap.get(seasonNum)!.push(item);
+                                            }
+                                        }
+
+                                        const virtualSeasons = Array.from(seasonMap.entries())
+                                            .sort(([a], [b]) => a - b)
+                                            .map(([seasonNum, episodes]) => ({
+                                                index: seasonNum,
+                                                title: `Season ${seasonNum}`,
+                                                leafCount: episodes.length,
+                                                ratingKey: showToLoad.ratingKey, // Use show key for virtual seasons
+                                                key: `/library/metadata/${showToLoad.ratingKey}/children`, // Use show children key for virtual seasons
+                                            }));
+
+                                        console.log("[Fallback] Created virtual seasons:", virtualSeasons);
+
+                                        setSeasonList(virtualSeasons);
+                                        setAvailableSeasons(virtualSeasons.map((s: {index: number}) => s.index));
+
+                                        // Auto-select the first available season
+                                        if (virtualSeasons.length > 0) {
+                                            console.log("[Fallback] Auto-selecting first available season:", virtualSeasons[0].index);
+                                            setSelectedSeason(virtualSeasons[0].index);
+                                        }
+                                    } else {
+                                        console.log("[Fallback] No episodes found in Plex for this show");
+                                        setSeasonList([]);
+                                        setAvailableSeasons([]);
+                                    }
+                                } catch (fallbackError) {
+                                    console.error("[Fallback] Error loading episodes:", fallbackError);
+                                    setSeasonList([]);
+                                    setAvailableSeasons([]);
+                                }
+                            } else {
+                                // Auto-select the first season (prefer season 1 over season 0/specials)
+                                if (!selectedSeason) {
+                                    // Find the lowest season number > 0, or fall back to the first season
+                                    const firstNonZeroSeason = seasonData.find((s: {index: number, title: string, leafCount: number, ratingKey: string, key: string}) => s.index > 0);
+                                    const seasonToSelect = firstNonZeroSeason || seasonData[0];
+                                    console.log("[Initial Load] Auto-selecting season:", seasonToSelect.index);
+                                    setSelectedSeason(seasonToSelect.index);
+                                }
+                            }
                         }
-                        for (const item of md) {
-                            const file = item?.Media?.[0]?.Part?.[0]?.file;
-                            if (!file) continue;
-                            const parsed = parseEpisodeInfo(String(file), String(item.title ?? "Episode"));
-                            const e: EpisodeItem = {
-                                type: "episode",
-                                ratingKey: String(item.ratingKey ?? item.key ?? file),
-                                showTitle: showToLoad.title,
-                                title: String(item.title ?? "Episode"),
-                                season: parsed.season,
-                                index: parsed.index,
-                                file: String(file),
-                                plexPath: String(file),
-                                year: item.year ? Number(item.year) : undefined,
-                                grandparentTitle: String(item.grandparentTitle ?? showToLoad.title),
-                                parentTitle: String(item.parentTitle ?? ""),
-                                parentIndex: item.parentIndex ? Number(item.parentIndex) : parsed.season,
-                                thumb: String(item.thumb ?? ""),
-                            };
-                            rawItems.push(e);
-                        }
+
+                        // Episodes are loaded by the dedicated season-change effect below.
+
                         // Clear the initial show after loading if it was from window
                         if (initialShow) {
                             delete (window as any).__initialShow;
@@ -351,93 +537,362 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         }
 
         loadRawData();
-    }, [server.address, library.key, library.type, reloadTick, moviesPaging.start, moviesPaging.size, episodesPaging.start, episodesPaging.size, currentShow?.ratingKey]);
+    }, [server.address, library.key, library.type, reloadTick, currentShow?.ratingKey, pageSize]);
+
+    // For TV shows, Reload should *not* clear the season selector. It should force a refetch
+    // of episodes for the currently selected season and clear the preview table state.
+    useEffect(() => {
+        if (library.type !== "show") return;
+
+        console.log("[TV Reload] Starting TV reload - clearing state");
+
+        // Cancel any in-flight season loads so older responses can't overwrite the reloaded state
+        seasonLoadRequestIdRef.current += 1;
+        console.log("[TV Reload] Incremented requestId to:", seasonLoadRequestIdRef.current);
+
+        // Keep seasonList + selectedSeason so the dropdown stays visible.
+        setEpisodesPaging(prev => ({ ...prev, start: 0, total: null, exhausted: false }));
+
+        processedCountRef.current = 0;
+        setRawItems([]);
+        setRows([]);
+        setSelectedIds(new Set());
+        setPage(1);
+
+        // Immediately clear the ref too so the season effect sees the cleared state
+        rawItemsRef.current = [];
+        reloadTriggeredRef.current = true;
+
+        console.log("[TV Reload] State cleared - rawItems/rows reset, page=1, selectedSeason:", selectedSeason, "seasonList count:", seasonList.length, "rawItemsRef.current.length:", rawItemsRef.current.length);
+    }, [reloadTick, library.type]);
+
+    // Handle season changes - reload episodes when user selects different season
+    useEffect(() => {
+        console.log("[Season Change] Effect running - library.type:", library.type, "currentShow:", !!currentShow, "seasonList.length:", seasonList.length);
+        if (library.type !== "show" || !currentShow || seasonList.length === 0) {
+            console.log("[Season Change] Skipping - preconditions not met");
+            return;
+        }
+
+        const loadEpisodesForSeason = async () => {
+            const targetSeason = selectedSeason === "all" ? null : selectedSeason;
+            if (targetSeason === null) return; // Handle "all seasons" case later if needed
+
+            const seasonData = seasonList.find(s => s.index === targetSeason);
+            if (!seasonData) {
+                console.log("[Season Load] No season data found for season:", targetSeason);
+                return;
+            }
+
+            // Mark this request as the latest; used to ignore stale/out-of-order responses.
+            const requestId = ++seasonLoadRequestIdRef.current;
+
+            console.log("[Season Load] Loading episodes for season:", targetSeason, "using key:", seasonData.key, "requestId:", requestId);
+
+            // Reset paging + UI state immediately to avoid mixing seasons and to keep pagination sane.
+            processedCountRef.current = 0;
+            setRows([]);
+            setSelectedIds(new Set());
+            setRawItems([]);
+            setEpisodesPaging(prev => ({ ...prev, start: 0, total: null, exhausted: false }));
+            setPage(1);
+
+            setLoading(true);
+            setPageLoading(true);
+
+            try {
+                // Check if this is a virtual season (key === show key + /children)
+                // If so, we already have all episodes loaded, just filter them
+                const showChildrenKey = `/library/metadata/${currentShow.ratingKey}/children`;
+                if (seasonData.key === showChildrenKey && rawItemsRef.current.length > 0) {
+                    console.log("[Season Load] Using virtual season - filtering existing episodes");
+                    const filteredEpisodes = rawItemsRef.current.filter(item =>
+                        item.type === "episode" && (item as EpisodeItem).season === targetSeason
+                    );
+                    console.log("[Season Load] Found", filteredEpisodes.length, "episodes for season", targetSeason);
+                    setRawItems(filteredEpisodes);
+
+                    setEpisodesPaging(prev => ({
+                        ...prev,
+                        total: filteredEpisodes.length,
+                        exhausted: true,
+                        start: filteredEpisodes.length,
+                        size: episodesPaging.size
+                    }));
+                } else {
+                    // Real season with its own key - make API call using the season's key directly
+                    const token = localStorage.getItem("plexToken") || undefined;
+
+                    console.log("[Season Load] Calling fetch_plex_metadata with:", {
+                        server: server.address,
+                        plexKey: seasonData.key,
+                        token: token ? "present" : "null",
+                        start: 0,
+                        size: episodesPaging.size
+                    });
+
+                    const epsResp = await invoke<any>("fetch_plex_metadata", {
+                        server: server.address,
+                        plexKey: seasonData.key,
+                        token,
+                        start: 0,
+                        size: episodesPaging.size,
+                    });
+
+                    // Ignore out-of-order responses (user switched seasons quickly)
+                    if (seasonLoadRequestIdRef.current !== requestId) {
+                        console.log("[Season Load] Ignoring stale response for requestId:", requestId);
+                        return;
+                    }
+
+                    console.log("[Season Load] Response received:", JSON.stringify(epsResp, null, 2));
+
+                    const md = epsResp?.MediaContainer?.Metadata ?? [];
+                    console.log("[Season Load] Found", md.length, "episodes in response");
+                    console.log("[Season Load] MediaContainer exists:", !!epsResp?.MediaContainer);
+                    console.log("[Season Load] Metadata exists:", !!epsResp?.MediaContainer?.Metadata);
+
+                    const total = Number(epsResp?.MediaContainer?.totalSize ?? epsResp?.MediaContainer?.total ?? seasonData.leafCount) || null;
+                    const returned = Number(epsResp?.MediaContainer?.size ?? md.length);
+
+                    console.log("[Season Load] total:", total, "returned:", returned, "exhausted:", md.length < episodesPaging.size);
+
+                    setEpisodesPaging(prev => ({
+                        ...prev,
+                        total,
+                        exhausted: md.length < episodesPaging.size,
+                        start: returned,
+                        size: episodesPaging.size
+                    }));
+
+                    const newEpisodes: EpisodeItem[] = [];
+                    for (const item of md) {
+                        const file = item?.Media?.[0]?.Part?.[0]?.file;
+                        if (!file) {
+                            console.log("[Season Load] Skipping episode without file:", item.title);
+                            continue;
+                        }
+                        // Plex-first: prefer Plex season/episode numbers; fall back to filename parsing only if missing.
+                        const parsed = parseEpisodeInfo(String(file), String(item.title ?? "Episode"));
+                        const plexSeason = Number(item.parentIndex);
+                        const plexEpisode = Number(item.index);
+                        const e: EpisodeItem = {
+                            type: "episode",
+                            ratingKey: String(item.ratingKey ?? item.key ?? file),
+                            showTitle: String(item.grandparentTitle ?? currentShow.title),
+                            title: String(item.title ?? "Episode"),
+                            season: Number.isFinite(plexSeason) ? plexSeason : parsed.season,
+                            index: Number.isFinite(plexEpisode) ? plexEpisode : parsed.index,
+                            file: String(file),
+                            plexPath: String(file),
+                            year: item.year ? Number(item.year) : undefined,
+                            grandparentTitle: String(item.grandparentTitle ?? currentShow.title),
+                            parentTitle: String(item.parentTitle ?? ""),
+                            parentIndex: Number.isFinite(plexSeason) ? plexSeason : (item.parentIndex ? Number(item.parentIndex) : parsed.season),
+                            thumb: String(item.thumb ?? ""),
+                        };
+                        newEpisodes.push(e);
+                    }
+
+                    console.log("[Season Load] Created", newEpisodes.length, "episode items");
+                    setRawItems(newEpisodes);
+                }
+            } catch (error) {
+                console.error("[Season Load] Failed to load episodes for season:", error);
+                setError(`Failed to load episodes: ${error}`);
+            } finally {
+                // Only clear loading state if this is still the latest request
+                if (seasonLoadRequestIdRef.current === requestId) {
+                    setLoading(false);
+                    setPageLoading(false);
+                }
+            }
+        };
+
+        // Check if we already have episodes loaded for this season
+        const hasEpisodesForSeason = rawItemsRef.current.some(item => item.type === "episode" && (item as EpisodeItem).season === selectedSeason);
+        const isFirstSeason = selectedSeason === seasonList[0]?.index;
+
+        console.log("[Season Change] selectedSeason:", selectedSeason, "firstSeason:", seasonList[0]?.index, "hasEpisodes:", hasEpisodesForSeason, "rawItems count:", rawItemsRef.current.length, "isFirstSeason:", isFirstSeason);
+
+        // Always reload episodes on Reload click (reloadTick), even if we previously had episodes for this season.
+        // Ensures Reload (which clears rawItems) triggers a refetch.
+        const shouldForceReload = rawItemsRef.current.length === 0;
+        const wasReloadTriggered = reloadTriggeredRef.current;
+
+        console.log("[Season Change] Checking if should load - selectedSeason:", selectedSeason, "shouldForceReload:", shouldForceReload, "hasEpisodes:", hasEpisodesForSeason, "isFirstSeason:", isFirstSeason, "rawItemsRef.current.length:", rawItemsRef.current.length, "wasReloadTriggered:", wasReloadTriggered);
+
+        if (wasReloadTriggered) {
+            // Reset the flag since we're handling the reload
+            reloadTriggeredRef.current = false;
+        }
+
+        if (
+            selectedSeason !== null &&
+            selectedSeason !== undefined &&
+            (
+                wasReloadTriggered || // Force reload if reload was triggered
+                shouldForceReload ||
+                !hasEpisodesForSeason ||
+                (isFirstSeason && rawItemsRef.current.length === 0)
+            )
+        ) {
+            console.log("[Season Change] Loading episodes for season:", selectedSeason);
+            loadEpisodesForSeason();
+        } else {
+            console.log("[Season Change] Skipping load - conditions not met");
+        }
+    }, [selectedSeason, seasonList, currentShow, library.type, server.address, episodesPaging.size, reloadTick]);
 
     // State for raw items
     const [rawItems, setRawItems] = useState<Array<MovieItem | EpisodeItem | MusicItem>>([]);
 
-    // Compute proposals from raw items when settings change
+    // Keep a ref of raw items for async season loaders (prevents stale closures / racey reads)
+    useEffect(() => {
+        rawItemsRef.current = rawItems;
+    }, [rawItems]);
+
+    // Helper function to fetch poster images
+    const fetchPoster = useCallback(async (thumb: string, ratingKey: string): Promise<string | null> => {
+        if (!thumb) return null;
+
+        try {
+            let token: string | null = null;
+            try { token = localStorage.getItem("plexToken"); } catch {}
+
+            const result = await invoke<string>("fetch_plex_image", {
+                serverUrl: server.address,
+                imagePath: thumb.startsWith('/') ? thumb : `/library/metadata/${ratingKey}/thumb/${thumb}`,
+                token: token || ""
+            });
+
+            if (typeof result === "string" && result.startsWith("data:image/jpeg;base64,")) {
+                return result;
+            }
+        } catch (error) {
+            console.warn("Failed to fetch poster:", error);
+        }
+        return null;
+    }, [server.address]);
+
+    // Compute proposals from raw items when settings or inputs change
     useEffect(() => {
         async function computeProposals() {
             if (rawItems.length === 0) {
                 setRows([]);
                 setSelectedIds(new Set());
                 setPreviewLoading(false);
+                processedCountRef.current = 0;
+                return;
+            }
+
+            // Detect settings changes that require full recompute
+            const settingsChanged = lastSettingsVersionRef.current !== settingsVersion;
+            if (settingsChanged) {
+                lastSettingsVersionRef.current = settingsVersion;
+                processedCountRef.current = 0;
+            }
+
+            // Decide whether to recompute everything or only new items
+            const startIndex =
+                settingsChanged || rawItems.length <= processedCountRef.current
+                    ? 0
+                    : processedCountRef.current;
+            const isFullRecompute = startIndex === 0;
+            const itemsToProcess = rawItems.slice(startIndex);
+
+            // Nothing new to process in incremental mode
+            if (!isFullRecompute && itemsToProcess.length === 0) {
+                setPreviewLoading(false);
                 return;
             }
 
             setPreviewLoading(true);
 
-            const list: PreviewRow[] = [];
-
-            for (const item of rawItems) {
+            const tasks = itemsToProcess.map(async (item) => {
                 if (item.type === "movie") {
                     const m = item as MovieItem;
-                    // Extract collection information from the raw item
                     const collections = (m as any).Collection || (m as any).collection || [];
                     const collectionName = Array.isArray(collections) && collections.length > 0
                         ? (collections[0]?.tag || collections[0])
                         : "";
-
                     const tpl = settings.templates.movie || template;
                     const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
-                    row.metadata = m; // Store original metadata for popover
-                    list.push(row);
-                } else if (item.type === "music") {
+                    row.metadata = m;
+                    return row;
+                }
+                if (item.type === "music") {
                     const m = item as MusicItem;
                     const tpl = settings.templates.music || template;
                     const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || []);
-                    row.metadata = m; // Store original metadata for popover
-                    list.push(row);
-                } else if (item.type === "episode") {
+                    row.metadata = m;
+                    return row;
+                }
+                if (item.type === "episode") {
                     const e = item as EpisodeItem;
                     const tpl = settings.templates.episode || template;
                     const useSeasonFolders = !!settings.tv.seasonFolders;
                     const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder, library.roots || []);
-                    proposal.metadata = e; // Store original metadata for popover
-                    list.push(proposal);
+                    proposal.metadata = e;
+                    return proposal;
                 }
-            }
+                return null;
+            });
 
-            // Process subtitle operations for all files
+            const newRows = (await Promise.all(tasks)).filter(Boolean) as PreviewRow[];
+
+            // Process subtitle operations for the new rows only
             try {
-                const filePaths = list.map(row => row.filePath);
+                const filePaths = newRows.map(row => row.filePath);
                 if (filePaths.length > 0) {
-                const previewResult = await invoke<any>("preview_video_renames", {
-                    request: {
-                        library_id: library.key,
-                        scope: filePaths,
-                        settings: settings,
-                        server_id: generateServerId(server),
-                    }
-                });
+                    const previewResult = await invoke<any>("preview_video_renames", {
+                        request: {
+                            library_id: library.key,
+                            scope: filePaths,
+                            settings: settings,
+                            server_id: generateServerId(server),
+                        }
+                    });
 
-                    // Attach subtitle operations to rows using shared helper
-                    attachSubtitleOperations(list, previewResult);
+                    attachSubtitleOperations(newRows, previewResult);
                 }
             } catch (subtitleError) {
                 // Continue without subtitle operations
             }
 
-            setRows(list);
-            setSelectedIds(new Set());
-
-            // Calculate available seasons for TV shows
-            if (library.type === "show") {
-              const seasons = list
-                .filter(row => row.kind === "episode")
-                .map(row => (row.metadata as EpisodeItem)?.season)
-                .filter(season => season !== undefined && season !== null)
-                .filter((season, index, arr) => arr.indexOf(season) === index) // unique
-                .sort((a, b) => a - b);
-
-              setAvailableSeasons(seasons);
-
-              // Default to season 1 if available and no season selected yet
-              if (selectedSeason === null && seasons.includes(1)) {
-                setSelectedSeason(1);
-              }
+            // Fetch posters for items with thumbnails (only for blocks view)
+            const isBlocksView = settings.general.viewMode[library.type === "movie" ? "movies" : "tv"] === "blocks";
+            if (isBlocksView) {
+                try {
+                    const posterPromises = newRows.map(async (row) => {
+                        if (row.metadata?.thumb) {
+                            const posterUrl = await fetchPoster(row.metadata.thumb, row.id);
+                            if (posterUrl) {
+                                // Add cached poster URL to metadata
+                                row.metadata.cachedPosterUrl = posterUrl;
+                            }
+                        }
+                        return row;
+                    });
+                    await Promise.all(posterPromises);
+                } catch (posterError) {
+                    console.warn("Failed to fetch some posters:", posterError);
+                }
             }
+
+            if (isFullRecompute) {
+                // Replace rows on full recompute
+                setRows(newRows);
+                setSelectedIds(new Set());
+            } else {
+                // Append rows incrementally
+                const combined = [...rowsRef.current, ...newRows];
+                setRows(combined);
+            }
+
+            processedCountRef.current = rawItems.length;
+
+            // Seasons are now loaded from API, no need to extract from episodes
         
             setPreviewLoading(false);
         }
@@ -620,10 +1075,10 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 file: filePath,
                                 plexPath: filePath,
                                 edition: String(item.edition ?? item.editionTitle ?? ""),
-                                genre: String(item.genre ?? ""),
+                                genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
                                 rating: String(item.contentRating ?? ""),
                                 studio: String(item.studio ?? ""),
-                                director: String(item.director ?? ""),
+                                director: String(item.Director?.[0]?.tag ?? item.director ?? ""),
                                 writer: String(item.writer ?? ""),
                                 country: String(item.country ?? ""),
                                 tagline: String(item.tagline ?? ""),
@@ -702,9 +1157,53 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     }, [filteredRows, remoteResults, debouncedSearchQuery, remoteQuery]);
 
     const anyRedSelected = useMemo(() => displayRows.some(r => r.status === "error" && selectedIds.has(r.id)), [displayRows, selectedIds]);
-    const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
+    const totalItemsForPaging = useMemo(() => {
+        if (library.type === "movie" && moviesPaging.total) {
+            return moviesPaging.total;
+        }
+        if (library.type === "show" && episodesPaging.total) {
+            return episodesPaging.total;
+        }
+        return displayRows.length;
+    }, [library.type, moviesPaging.total, episodesPaging.total, displayRows.length]);
+    const totalPages = Math.max(1, Math.ceil(totalItemsForPaging / pageSize));
     const pageRows = useMemo(() => displayRows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize), [displayRows, page, pageSize]);
     useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
+
+    // One-time background prefetch of the second page for movies after the first page is ready
+    useEffect(() => {
+        if (library.type !== "movie") return;
+        if (prefetchedSecondPageRef.current) return;
+        if (moviesPaging.exhausted) return;
+        // We need at least one full page of rows before prefetching the next
+        if (rows.length < pageSize) return;
+        // Avoid overlapping with an explicit load or initial loading
+        if (loading || pageLoading) return;
+
+        prefetchedSecondPageRef.current = true;
+        loadMoreMovies();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [library.type, rows.length, pageSize, moviesPaging.exhausted, loading, pageLoading]);
+
+    const pageTransitionLoading = useMemo(() => {
+        // If user is beyond page 1 and data is still being built/fetched, show placeholder
+        if (page <= 1) return false;
+        const need = page * pageSize;
+        return pageLoading || loading || previewLoading || rows.length < need;
+    }, [page, pageSize, pageLoading, loading, previewLoading, rows.length]);
+
+    // Auto-load more movies when navigating to a page that requires more items than we have loaded
+    useEffect(() => {
+        if (library.type !== "movie") return;
+        const needed = page * pageSize;
+        // If we already fetched two pages in the initial request, do not refetch when going to page 2
+        if (page === 2 && rows.length >= pageSize * 2) return;
+        if (!moviesPaging.exhausted && rows.length < needed && !loading) {
+            setPageLoading(true);
+            loadMoreMovies().finally(() => setPageLoading(false));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, pageSize, rows.length, moviesPaging.exhausted, library.type, loading]);
 
     const pageAllSelected = useMemo(
         () => pageRows.length > 0 && pageRows.every(r => selectedIds.has(r.id)),
@@ -984,8 +1483,11 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         setShowUndoConfirm(false);
     }
 
-    // Column resizing + fluid width support
+    // Column resizing + fluid width support (only in table view)
     useEffect(() => {
+        const isTableView = settings.general.viewMode[library.type === "movie" ? "movies" : "tv"] === "table";
+        if (!isTableView) return;
+
         function distributeInitial() {
             const el = containerRef.current;
             if (!el) return;
@@ -1018,7 +1520,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         window.addEventListener("resize", onResize);
         return () => window.removeEventListener("resize", onResize);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [settings.general.viewMode, library.type]);
 
     function startResize(which: "current" | "proposed", ev: React.MouseEvent) {
         ev.preventDefault();
@@ -1059,8 +1561,16 @@ export default function PreviewContainer({server, library, onBack}: Props) {
 
     // Load more functions
     const loadMoreMovies = useCallback(async () => {
+        if (moviesPaging.exhausted) return;
         const nextStart = rows.length;
+        const pageSizeLocal = pageSize;
+        if (moviesPaging.total && nextStart >= moviesPaging.total) {
+            setMoviesPaging(prev => ({ ...prev, exhausted: true }));
+            return;
+        }
+
         setLoading(true);
+        setPageLoading(true);
         try {
             const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
             const data = await invoke<SectionResponse>("fetch_library_content", {
@@ -1068,12 +1578,19 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 libraryKey: library.key,
                 token,
                 start: nextStart,
-                size: moviesPaging.size,
+                size: pageSizeLocal,
             });
             const mc = data?.MediaContainer;
             const md = mc?.Metadata ?? [];
+            const total = Number(mc?.totalSize ?? mc?.total ?? 0) || moviesPaging.total;
+            const returned = Number(mc?.size ?? md.length);
+            const offset = Number(mc?.offset ?? nextStart);
+            console.log("[Preview] Load more movies", { pageSize: pageSizeLocal, offset, returned, total });
             if (md.length === 0) {
-                setMoviesPaging(prev => ({ ...prev, exhausted: true }));
+                setMoviesPaging(prev => ({ ...prev, total, exhausted: true }));
+            } else {
+                const done = total ? offset + returned >= total : md.length < pageSizeLocal;
+                setMoviesPaging(prev => ({ ...prev, total, exhausted: done, start: offset + returned, size: pageSizeLocal }));
             }
             const more: PreviewRow[] = [];
             for (const item of md) {
@@ -1091,7 +1608,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     ratingKey: movieRatingKey,
                     title: String(item.title ?? "Unknown"),
                     year: item.year ? Number(item.year) : undefined,
-                            file: resolvePlexFilePath(String(file), libraryFolder),
+                    file: resolvePlexFilePath(String(file), libraryFolder),
                     edition: String(item.edition ?? item.editionTitle ?? ""),
                     genre: String(item.genre ?? ""),
                     rating: String(item.contentRating ?? ""),
@@ -1111,9 +1628,10 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             setRows(prev => [...prev, ...more]);
         } catch (e) {
         } finally {
+            setPageLoading(false);
             setLoading(false);
         }
-    }, [rows.length, server.address, library.key, moviesPaging.size, libraryFolder, settings, template]);
+    }, [rows.length, server.address, library.key, moviesPaging.exhausted, moviesPaging.total, libraryFolder, settings, template, pageSize]);
 
     const loadMoreMusic = useCallback(async () => {
         const nextStart = rows.length;
@@ -1163,52 +1681,6 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         }
     }, [rows.length, server.address, library.key, moviesPaging.size, libraryFolder, settings, template]);
 
-    const loadMoreEpisodes = useCallback(async () => {
-        const nextStart = rows.length;
-        setLoading(true);
-        try {
-            const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
-            const epsResp = await invoke<any>("fetch_show_episodes", {
-                server: server.address,
-                showRatingKey: currentShow?.ratingKey,
-                token,
-                start: nextStart,
-                size: episodesPaging.size,
-                });
-                const md = epsResp?.MediaContainer?.Metadata ?? [];
-            if (md.length === 0) {
-                setEpisodesPaging(prev => ({ ...prev, exhausted: true }));
-            }
-            const more: PreviewRow[] = [];
-                for (const item of md) {
-                    const file = item?.Media?.[0]?.Part?.[0]?.file;
-                    if (!file) continue;
-                    const parsed = parseEpisodeInfo(String(file), String(item.title ?? "Episode"));
-                    const e: EpisodeItem = {
-                        type: "episode",
-                        ratingKey: String(item.ratingKey ?? item.key ?? file),
-                        showTitle: currentShow?.title ?? "Unknown Show",
-                        title: String(item.title ?? "Episode"),
-                        season: parsed.season,
-                        index: parsed.index,
-                            file: resolvePlexFilePath(String(file), libraryFolder),
-                        year: item.year ? Number(item.year) : undefined,
-                        grandparentTitle: String(item.grandparentTitle ?? currentShow?.title ?? "Unknown Show"),
-                        parentTitle: String(item.parentTitle ?? ""),
-                        parentIndex: item.parentIndex ? Number(item.parentIndex) : parsed.season,
-                        thumb: String(item.thumb ?? ""),
-                    };
-                    const tpl = settings.templates.episode || template;
-                    const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || []);
-                    row.metadata = e; // Store original metadata for popover
-                    more.push(row);
-                }
-            setRows(prev => [...prev, ...more]);
-        } catch (e) {
-        } finally {
-            setLoading(false);
-        }
-    }, [rows.length, server.address, currentShow, episodesPaging.size, libraryFolder, settings, template]);
 
     return (
     <PreviewTemplate
@@ -1216,6 +1688,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
       library={library}
       currentShow={currentShow}
       loading={loading}
+      pageLoading={pageLoading}
+      pageTransitionLoading={pageTransitionLoading}
       searching={searching}
       error={error}
       rows={rows}
@@ -1227,6 +1701,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
       totalPages={totalPages}
       selectedSeason={selectedSeason}
       availableSeasons={availableSeasons}
+      seasonList={seasonList}
             anyRedSelected={anyRedSelected}
             libraryFolder={libraryFolder}
             template={template}
@@ -1266,9 +1741,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             pageAllSelected={pageAllSelected}
             onTogglePageSelection={togglePageSelection}
             onExportPreviewSnapshot={exportPreviewSnapshot}
-            onLoadMoreMovies={() => loadMoreMovies()}
             onLoadMoreMusic={() => loadMoreMusic()}
-            onLoadMoreEpisodes={() => loadMoreEpisodes()}
             onSetSelectedSeason={setSelectedSeason}
             applyInProgress={applyInProgress}
             applyOperationCount={applyOperationCount}

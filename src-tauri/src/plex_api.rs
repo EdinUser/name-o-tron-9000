@@ -972,6 +972,65 @@ pub async fn fetch_collection_items(
 }
 
 #[tauri::command]
+pub async fn fetch_show_seasons(
+    server: String,
+    show_rating_key: String,
+    token: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let base_in = server.trim_end_matches('/');
+    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
+        base_in.to_string()
+    } else { format!("http://{}", base_in) }];
+    if base_in.starts_with("http://") {
+        bases.push(base_in.replacen("http://", "https://", 1));
+    } else if base_in.starts_with("https://") {
+        bases.push(base_in.replacen("https://", "http://", 1));
+    } else {
+        bases.push(format!("https://{}", base_in));
+    }
+    bases.sort();
+    bases.dedup();
+
+    let mut urls: Vec<String> = Vec::new();
+    for b in &bases {
+        if let Some(t) = token.as_ref() {
+            let tok = urlencoding::encode(t);
+            urls.push(format!("{}/library/metadata/{}/children?X-Plex-Token={}", b, show_rating_key, tok));
+        }
+        urls.push(format!("{}/library/metadata/{}/children", b, show_rating_key));
+    }
+
+    let client_id = current_client_id();
+    let resp = http_get_with_variants(&urls, token.as_deref(), &client_id).await?;
+    let status = resp.status();
+    let text = resp.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(format!("HTTP {}: {}", status, text));
+    }
+    let trimmed = text.trim();
+    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) {
+            // Normalize to MediaContainer.Metadata array
+            if let Some(mc) = v.get("MediaContainer").cloned() {
+                let mut metadata: Vec<serde_json::Value> = Vec::new();
+                if let Some(arr) = mc.get("Metadata").and_then(|m| m.as_array()) {
+                    metadata.extend(arr.iter().cloned());
+                } else if let Some(obj) = mc.get("Metadata").and_then(|m| m.as_object()) {
+                    metadata.push(serde_json::Value::Object(obj.clone()));
+                }
+                let out = serde_json::json!({"MediaContainer": {"Metadata": metadata}});
+                return Ok(out);
+            }
+            return Ok(v);
+        }
+    }
+    if trimmed.starts_with('<') {
+        if let Some(v) = xml_directory_to_json(&text) { return Ok(v); }
+    }
+    Ok(serde_json::json!({"_raw": text}))
+}
+
+#[tauri::command]
 pub async fn fetch_show_episodes(
     server: String,
     show_rating_key: String,
@@ -1000,11 +1059,69 @@ pub async fn fetch_show_episodes(
     for b in &bases {
         if let Some(t) = token.as_ref() {
             let tok = urlencoding::encode(t);
+            // Try /children first (returns episodes grouped by seasons), then fall back to /allLeaves (returns all episodes flattened)
+            urls.push(format!("{}/library/metadata/{}/children?{}&X-Plex-Token={}", b, show_rating_key, paging, tok));
             urls.push(format!("{}/library/metadata/{}/allLeaves?{}&X-Plex-Token={}", b, show_rating_key, paging, tok));
+            urls.push(format!("{}/library/metadata/{}/children?X-Plex-Token={}", b, show_rating_key, tok));
             urls.push(format!("{}/library/metadata/{}/allLeaves?X-Plex-Token={}", b, show_rating_key, tok));
         }
+        urls.push(format!("{}/library/metadata/{}/children?{}", b, show_rating_key, paging));
         urls.push(format!("{}/library/metadata/{}/allLeaves?{}", b, show_rating_key, paging));
+        urls.push(format!("{}/library/metadata/{}/children", b, show_rating_key));
         urls.push(format!("{}/library/metadata/{}/allLeaves", b, show_rating_key));
+    }
+
+    let client_id = current_client_id();
+    let resp = http_get_with_variants(&urls, token.as_deref(), &client_id).await?;
+    let status = resp.status();
+    let text = resp.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(format!("HTTP {}: {}", status, text));
+    }
+    let trimmed = text.trim();
+    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) { return Ok(v); }
+    }
+    if trimmed.starts_with('<') {
+        if let Some(v) = xml_media_to_json(&text) { return Ok(v); }
+    }
+    Ok(serde_json::json!({"_raw": text}))
+}
+
+#[tauri::command]
+pub async fn fetch_plex_metadata(
+    server: String,
+    plex_key: String,
+    token: Option<String>,
+    start: Option<usize>,
+    size: Option<usize>,
+) -> Result<serde_json::Value, String> {
+    let start = start.unwrap_or(0);
+    let size = size.unwrap_or(200);
+    let base_in = server.trim_end_matches('/');
+    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
+        base_in.to_string()
+    } else { format!("http://{}", base_in) }];
+    if base_in.starts_with("http://") {
+        bases.push(base_in.replacen("http://", "https://", 1));
+    } else if base_in.starts_with("https://") {
+        bases.push(base_in.replacen("https://", "http://", 1));
+    } else {
+        bases.push(format!("https://{}", base_in));
+    }
+    bases.sort();
+    bases.dedup();
+
+    let paging = format!("X-Plex-Container-Start={}&X-Plex-Container-Size={}", start, size);
+    let mut urls: Vec<String> = Vec::new();
+    for b in &bases {
+        if let Some(t) = token.as_ref() {
+            let tok = urlencoding::encode(t);
+            urls.push(format!("{}{}?{}&X-Plex-Token={}", b, plex_key, paging, tok));
+            urls.push(format!("{}{}?X-Plex-Token={}", b, plex_key, tok));
+        }
+        urls.push(format!("{}{}?{}", b, plex_key, paging));
+        urls.push(format!("{}{}", b, plex_key));
     }
 
     let client_id = current_client_id();

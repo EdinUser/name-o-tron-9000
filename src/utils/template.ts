@@ -112,22 +112,12 @@ function detectEditionsByPriority(text: string, patterns: RegExp[]): string[] {
     const titles: string[] = [];
     const tokenParts: string[] = [];
 
-    // Debug logging for the specific file
-    if (text.toLowerCase().includes('unrated') || text.toLowerCase().includes('40-year-old virgin') || text.toLowerCase().includes('bluray')) {
-        console.log(`🎯 DEBUG: Checking text: "${text}"`);
-    }
-
     for (const pattern of patterns) {
         const m = text.match(pattern);
         if (m) {
             const rawMatch = m[0];
             const title = normalizeEditionName(rawMatch);
             const part = titleToTokenPart(title);
-
-            // Debug logging for the specific file
-            if (text.toLowerCase().includes('unrated') || text.toLowerCase().includes('40-year-old virgin') || text.toLowerCase().includes('bluray')) {
-                console.log(`🎯 DEBUG: Pattern ${pattern} matched "${rawMatch}" -> title="${title}", part="${part}"`);
-            }
 
             if (title && !titles.includes(title)) titles.push(title);
             if (part && !tokenParts.includes(part)) tokenParts.push(part);
