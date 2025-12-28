@@ -197,4 +197,4 @@ All operations logged with timestamps. Export as TXT, CSV, or JSON for analysis.
 
 ## Community
 
-Looking for help or want to share feedback? Join the Community forum (Flarum-powered) for Q&A, bug reports, and release updates: [https://name-o-tron.kirilov.dev/community/public/](https://name-o-tron.kirilov.dev/community/public/).
+Looking for help or want to share feedback? Join the Community forum (Flarum-powered) for Q&A, bug reports, and release updates: [https://community.kirilov.dev/](https://community.kirilov.dev/).

@@ -12,6 +12,8 @@ jobs:
   # =====================================================
   build-linux:
     runs-on: [self-hosted, mint]
+    permissions:
+      contents: write
     env:
       SKIP_APT_INSTALL: "true"
 
@@ -109,10 +111,12 @@ jobs:
           prerelease: false
 
       - name: Upload Linux installers
+        if: "!startsWith(github.ref, 'refs/tags/')"
         uses: actions/upload-artifact@v4
         with:
           name: tauri-installers-linux
           path: src-tauri/target/release/bundle/
+          retention-days: 7
 
   # =====================================================
   # WINDOWS BUILD (GitHub-hosted)
@@ -121,6 +125,8 @@ jobs:
     # Temporarily disabled while testing Linux-only builds.
     # Remove or change this condition to re-enable Windows builds.
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -171,10 +177,12 @@ jobs:
           prerelease: false
 
       - name: Upload Windows installers
+        if: "!startsWith(github.ref, 'refs/tags/')"
         uses: actions/upload-artifact@v4
         with:
           name: tauri-installers-windows
           path: src-tauri/target/release/bundle/
+          retention-days: 7
 
   # =====================================================
   # DEPLOY
