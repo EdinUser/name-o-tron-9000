@@ -24,6 +24,8 @@ pub use plex_api::fetch_show_episodes;
 pub use plex_api::fetch_plex_metadata;
 pub use plex_api::search_content;
 pub use plex_api::sanitize_filename_cmd;
+pub use plex_api::refresh_metadata_item;
+pub use plex_api::refresh_library_section;
 pub use path_map::test_mapping;
 // video_rename module is already declared above
 
@@ -631,6 +633,24 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
     Err(last_error.unwrap_or_else(|| "All image fetch attempts failed".to_string()))
 }
 
+#[tauri::command]
+async fn plex_refresh_metadata_item(
+    server: String,
+    item_ids: String,
+    token: Option<String>,
+) -> Result<(), String> {
+    refresh_metadata_item(server, item_ids, token).await
+}
+
+#[tauri::command]
+async fn plex_refresh_library_section(
+    server: String,
+    section_id: i32,
+    token: Option<String>,
+) -> Result<(), String> {
+    refresh_library_section(server, section_id, token).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -676,6 +696,8 @@ pub fn run() {
             diagnostics::export_diagnostic_bundle,
             diagnostics::export_diagnostic_bundle_zip,
             diagnostics::export_preview_snapshot,
+            plex_refresh_metadata_item,
+            plex_refresh_library_section,
             plex_scan_subnet,
         ])
         .run(tauri::generate_context!())

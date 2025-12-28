@@ -1752,3 +1752,117 @@ pub struct CharacterReplacement {
 pub fn sanitize_filename_cmd(filename: String, settings: CharacterReplacement) -> String {
     sanitize_filename(&filename, &settings)
 }
+
+/// Refresh a specific metadata item in Plex
+pub async fn refresh_metadata_item(
+    server: String,
+    item_ids: String,
+    token: Option<String>,
+) -> Result<(), String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .http1_only()
+        .pool_max_idle_per_host(0)
+        .danger_accept_invalid_certs(true)
+        .user_agent(format!("Name-o-Tron-9000/{}", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|e| format!("HTTP client error: {e}"))?;
+
+    let base = server.trim_end_matches('/');
+    let mut bases: Vec<String> = vec![base.to_string()];
+    if base.starts_with("http://") {
+        bases.push(base.replacen("http://", "https://", 1));
+    } else if base.starts_with("https://") {
+        bases.push(base.replacen("https://", "http://", 1));
+    }
+
+    let client_id = current_client_id();
+    let mut last_err: Option<String> = None;
+
+    for base_url in bases.iter() {
+        let mut url = format!("{}/library/metadata/{}/refresh", base_url, urlencoding::encode(&item_ids));
+
+        // Add markUpdated=1 to ensure Plex recognizes the file changes
+        url.push_str("?markUpdated=1");
+
+        if let Some(t) = token.as_ref() {
+            url.push_str(&format!("&X-Plex-Token={}", urlencoding::encode(t)));
+        }
+
+        let mut req = with_plex_headers(client.put(&url), &client_id);
+        if let Some(t) = token.as_ref() {
+            req = req.header("X-Plex-Token", t);
+        }
+
+        match req.send().await {
+            Ok(resp) => {
+                let status = resp.status();
+                if status.is_success() {
+                    return Ok(());
+                } else {
+                    let text = resp.text().await.unwrap_or_default();
+                    last_err = Some(format!("HTTP {}: {}", status, text));
+                }
+            }
+            Err(e) => {
+                last_err = Some(format!("Request failed: {}", e));
+            }
+        }
+    }
+
+    Err(last_err.unwrap_or_else(|| "Failed to refresh metadata item".to_string()))
+}
+
+/// Refresh an entire library section in Plex
+pub async fn refresh_library_section(
+    server: String,
+    section_id: i32,
+    token: Option<String>,
+) -> Result<(), String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60)) // Longer timeout for section refresh
+        .http1_only()
+        .pool_max_idle_per_host(0)
+        .danger_accept_invalid_certs(true)
+        .user_agent(format!("Name-o-Tron-9000/{}", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|e| format!("HTTP client error: {e}"))?;
+
+    let base = server.trim_end_matches('/');
+    let mut bases: Vec<String> = vec![base.to_string()];
+    if base.starts_with("http://") {
+        bases.push(base.replacen("http://", "https://", 1));
+    } else if base.starts_with("https://") {
+        bases.push(base.replacen("https://", "http://", 1));
+    }
+
+    let client_id = current_client_id();
+    let mut last_err: Option<String> = None;
+
+    for base_url in bases.iter() {
+        let url = format!("{}/library/sections/{}/refresh", base_url, section_id);
+
+        let mut req = with_plex_headers(client.post(&url), &client_id);
+        if let Some(t) = token.as_ref() {
+            req = req.header("X-Plex-Token", t);
+            req = req.query(&[("X-Plex-Token", t)]);
+        }
+
+        match req.send().await {
+            Ok(resp) => {
+                let status = resp.status();
+                if status.is_success() {
+                    return Ok(());
+                } else {
+                    let text = resp.text().await.unwrap_or_default();
+                    last_err = Some(format!("HTTP {}: {}", status, text));
+                }
+            }
+            Err(e) => {
+                last_err = Some(format!("Request failed: {}", e));
+            }
+        }
+    }
+
+    Err(last_err.unwrap_or_else(|| "Failed to refresh library section".to_string()))
+}
