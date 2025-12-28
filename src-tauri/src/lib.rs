@@ -26,6 +26,7 @@ pub use plex_api::search_content;
 pub use plex_api::sanitize_filename_cmd;
 pub use plex_api::refresh_metadata_item;
 pub use plex_api::refresh_library_section;
+pub use plex_api::refresh_library_section_with_path;
 pub use path_map::test_mapping;
 // video_rename module is already declared above
 
@@ -638,8 +639,9 @@ async fn plex_refresh_metadata_item(
     server: String,
     item_ids: String,
     token: Option<String>,
-) -> Result<(), String> {
-    refresh_metadata_item(server, item_ids, token).await
+) -> Result<String, String> {
+    refresh_metadata_item(server.clone(), item_ids.clone(), token).await?;
+    Ok(format!("Successfully refreshed metadata for item {}", item_ids))
 }
 
 #[tauri::command]
@@ -647,8 +649,20 @@ async fn plex_refresh_library_section(
     server: String,
     section_id: i32,
     token: Option<String>,
-) -> Result<(), String> {
-    refresh_library_section(server, section_id, token).await
+) -> Result<String, String> {
+    refresh_library_section(server, section_id, token).await?;
+    Ok(format!("Successfully refreshed library section {}", section_id))
+}
+
+#[tauri::command]
+async fn plex_refresh_library_section_with_path(
+    server: String,
+    section_id: i32,
+    path: String,
+    token: Option<String>,
+) -> Result<String, String> {
+    refresh_library_section_with_path(server, section_id, path.clone(), token).await?;
+    Ok(format!("Successfully refreshed library section {} path: {}", section_id, path))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -698,6 +712,7 @@ pub fn run() {
             diagnostics::export_preview_snapshot,
             plex_refresh_metadata_item,
             plex_refresh_library_section,
+            plex_refresh_library_section_with_path,
             plex_scan_subnet,
         ])
         .run(tauri::generate_context!())
