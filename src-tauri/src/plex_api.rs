@@ -1059,16 +1059,17 @@ pub async fn fetch_show_episodes(
     for b in &bases {
         if let Some(t) = token.as_ref() {
             let tok = urlencoding::encode(t);
-            // Try /children first (returns episodes grouped by seasons), then fall back to /allLeaves (returns all episodes flattened)
-            urls.push(format!("{}/library/metadata/{}/children?{}&X-Plex-Token={}", b, show_rating_key, paging, tok));
+            // For shows, /allLeaves returns episodes, /children returns seasons
+            // Prioritize /allLeaves to get episodes for mapping detection
             urls.push(format!("{}/library/metadata/{}/allLeaves?{}&X-Plex-Token={}", b, show_rating_key, paging, tok));
-            urls.push(format!("{}/library/metadata/{}/children?X-Plex-Token={}", b, show_rating_key, tok));
+            urls.push(format!("{}/library/metadata/{}/children?{}&X-Plex-Token={}", b, show_rating_key, paging, tok));
             urls.push(format!("{}/library/metadata/{}/allLeaves?X-Plex-Token={}", b, show_rating_key, tok));
+            urls.push(format!("{}/library/metadata/{}/children?X-Plex-Token={}", b, show_rating_key, tok));
         }
-        urls.push(format!("{}/library/metadata/{}/children?{}", b, show_rating_key, paging));
         urls.push(format!("{}/library/metadata/{}/allLeaves?{}", b, show_rating_key, paging));
-        urls.push(format!("{}/library/metadata/{}/children", b, show_rating_key));
+        urls.push(format!("{}/library/metadata/{}/children?{}", b, show_rating_key, paging));
         urls.push(format!("{}/library/metadata/{}/allLeaves", b, show_rating_key));
+        urls.push(format!("{}/library/metadata/{}/children", b, show_rating_key));
     }
 
     let client_id = current_client_id();

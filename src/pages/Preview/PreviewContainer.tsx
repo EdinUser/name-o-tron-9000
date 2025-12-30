@@ -18,6 +18,10 @@ import { attachSubtitleOperations } from "./subtitleMapping";
 
 // Functions are now imported from separate modules
 
+
+// Plex refresh functionality temporarily disabled
+// TODO: Re-enable with improved approach that doesn't trigger full library scans
+// The backend infrastructure remains available for future implementation
 export default function PreviewContainer({server, library, onBack}: Props) {
     const { settings, updateSettings, settingsVersion } = useSettings();
     const { resolvedTheme, toggleTheme } = useTheme();
@@ -1311,6 +1315,27 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 rollbackLogPath: result.rollback_log_path,
                 operations,
             });
+
+            // Refresh Plex metadata after successful renames
+            // TEMPORARILY DISABLED: Path-based refresh triggers unwanted full library scans
+            // TODO: Re-enable once we have a better approach that doesn't cause full scans
+            if (result.success && result.operations_applied > 0) {
+                console.log("[Preview] Plex refresh temporarily disabled to avoid triggering full library scans");
+                console.log("[Preview] Rename operations completed successfully - files may appear as 'Unavailable' in Plex until manual refresh");
+
+                // Future: Re-enable with improved approach
+                // console.log("[Preview] Waiting 2 seconds before Plex refresh to ensure filesystem operations are committed...");
+                // await new Promise(resolve => setTimeout(resolve, 2000));
+                // try {
+                //     await refreshPlexMetadataAfterRenames(operations, server, library);
+                // } catch (refreshError) {
+                //     console.warn("[Preview] Failed to refresh Plex metadata:", refreshError);
+                //     if (String(refreshError).includes("401") || String(refreshError).includes("Unauthorized")) {
+                //         console.warn("[Preview] Plex refresh failed due to authentication. Please log in to Plex first.");
+                //         alert("⚠️ Plex Refresh Failed\n\nThe rename operation succeeded, but Plex couldn't be updated because you're not logged in.\n\nPlease go back to the Home screen and authenticate with Plex first for automatic refreshes to work.");
+                //     }
+                // }
+            }
 
             if (!result.success) {
                 // Log detailed errors to console

@@ -14,7 +14,9 @@ import {
   extractLocationFromEpisode,
   extractMetadataFromShow,
   isCacheValid,
-  generateServerId
+  generateServerId,
+  isShowMapped,
+  type PathMapping
 } from "../../utils/cache";
 
 /**
@@ -79,7 +81,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shows, setShows] = useState<TvShow[]>([]);
-  const [mappings, setMappings] = useState<Array<{ server_id: string; plex_root: string; local_root: string }>>([]);
+  const [mappings, setMappings] = useState<PathMapping[]>([]);
   const [serverId, setServerId] = useState<string>("");
   const paging = useRef({ start: 0, size: settings.general.pagination.defaultShowLimit, exhausted: false });
   const [queryState, setQueryState] = useState("");
@@ -218,12 +220,14 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
           throw new Error("Tauri invoke function not available - are you running in Tauri mode? Try 'npm run tauri dev' instead of 'npm run dev'");
         }
 
-        const settings = await invoke<{ pathMappings?: { server_id: string; plex_root: string; local_root: string }[] }>("get_settings");
+        const settings = await invoke<{ pathMappings?: PathMapping[] }>("get_settings");
         const mappings = settings.pathMappings || [];
+        console.log(`[ShowSelection] Loaded ${mappings.length} path mappings:`, mappings);
         setMappings(mappings);
 
         // Use proper server ID generation
         const cleanServerId = generateServerId(server);
+        console.log(`[ShowSelection] Generated server ID: ${cleanServerId}`);
         setServerId(cleanServerId);
       } catch (error) {
         // Set error state regardless of mount state - errors should always be visible
@@ -337,17 +341,16 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
           if (!ratingKey) continue;
 
           try {
-            // Fetch episode data for location mapping
+            // Fetch episode data for location mapping (check multiple episodes)
             const episodeResp = await invoke<any>("fetch_show_episodes", {
               server: server.address,
               showRatingKey: ratingKey,
               token: token ?? null,
               start: 0,
-              size: 1,
+              size: 10, // Check up to 10 episodes to determine if show is mapped
             });
 
-            const location = extractLocationFromEpisode(episodeResp);
-            const isMapped = location ? isItemMapped(location, library.roots || []) : false;
+            const { isMapped, location } = isShowMapped(episodeResp, mappings, serverId);
 
             // Extract metadata from the show data (already available from fetch_tv_shows)
             const metadata = extractMetadataFromShow(show, server.address);

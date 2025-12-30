@@ -175,7 +175,7 @@ export async function computeEpisodeProposal(
             }
 
             // Preserve ID tags if present in parentheses in the picked folder
-            showFolder = showFolder.replace(/\(([^)]+)\)/g, '{$1}');
+            showFolder = showFolder.replace(/\((imdb-tt\d+|tvdb-\d+|tmdb-\d+)\)/g, '{$1}');
 
             if (useSeasonFolders) {
                 // Create Series/Season XX/ structure
