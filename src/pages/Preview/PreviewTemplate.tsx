@@ -6,6 +6,7 @@ import TemplateHelpModal from "../../components/TemplateHelpModal";
 import PlexPopoverCard from "../../components/PlexPopoverCard";
 import Toggle from "../../components/Toggle";
 import { generateServerId } from "../../utils/cache";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
 // Types
 import type {PreviewRow, MovieItem, EpisodeItem, MusicItem} from "./types";
@@ -36,6 +37,28 @@ type TemplateProps = {
     showMapModal: boolean;
     showTemplateHelp: boolean;
     editingItem: PreviewRow | null;
+    renameResultModal: {
+        success: boolean;
+        operations_applied: number;
+        operations_failed: number;
+        rollback_log_path: string;
+        errors: string[];
+    } | null;
+    undoResultModal: {
+        success: boolean;
+        operations_applied: number;
+        operations_failed: number;
+        rollback_log_path: string;
+        errors: string[];
+    } | null;
+    previewExportModal: {
+        success: boolean;
+        path?: string;
+        error?: string;
+    } | null;
+    onCloseRenameResultModal: () => void;
+    onCloseUndoResultModal: () => void;
+    onClosePreviewExportModal: () => void;
     popoverData: { metadata: any; position: { x: number; y: number } };
     searchQuery: string;
     pageLoading: boolean;
@@ -120,6 +143,12 @@ export default function PreviewTemplate({
     showMapModal,
     showTemplateHelp,
     editingItem,
+    renameResultModal,
+    undoResultModal,
+    previewExportModal,
+    onCloseRenameResultModal,
+    onCloseUndoResultModal,
+    onClosePreviewExportModal,
     popoverData,
     searchQuery,
     pageTransitionLoading,
@@ -704,13 +733,16 @@ export default function PreviewTemplate({
                     <div className="mt-3 flex items-center justify-between text-sm text-neutral-300">
                         <div className="flex items-center gap-2">
                             <span>Rows per page</span>
-                            <div className="inline-block">
-                                <select value={pageSize} onChange={(e) => { onSetPage(1); onSetPageSize(parseInt(e.target.value)); }}
-                                        className="appearance-none px-2 py-1 text-sm bg-neutral-800 border border-neutral-700 rounded text-neutral-200 focus:outline-none focus:ring-1 focus:ring-cyan-600/40 hover:bg-neutral-700 pr-7">
-                                    {[10, 25, 50, 100].map(n => <option key={n} value={n} className="bg-neutral-800 text-neutral-200">{n}</option>)}
-                                </select>
-                                <span className="pointer-events-none -ml-6 text-neutral-400">▾</span>
-                            </div>
+                            <Select
+                                value={pageSize}
+                                onChange={(value) => { onSetPage(1); onSetPageSize(value); }}
+                                options={[
+                                    { value: 10, label: "10" },
+                                    { value: 25, label: "25" },
+                                    { value: 50, label: "50" },
+                                    { value: 100, label: "100" }
+                                ]}
+                            />
                         </div>
                         <div className="flex items-center gap-2">
                             <span>{displayRows.length} results • Page {page} / {totalPages}</span>
@@ -1049,6 +1081,262 @@ export default function PreviewTemplate({
                                     )}
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Rename Result Modal */}
+            {renameResultModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+                    <div className="w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-900 p-6 shadow-xl">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                renameResultModal.success && renameResultModal.operations_failed === 0
+                                    ? 'bg-green-500/20'
+                                    : renameResultModal.operations_failed > 0
+                                    ? 'bg-amber-500/20'
+                                    : 'bg-red-500/20'
+                            }`}>
+                                {renameResultModal.success && renameResultModal.operations_failed === 0 ? (
+                                    <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                ) : renameResultModal.operations_failed > 0 ? (
+                                    <svg className="h-5 w-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                    </svg>
+                                ) : (
+                                    <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                )}
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-neutral-100">
+                                    {renameResultModal.success && renameResultModal.operations_failed === 0
+                                        ? "Rename Completed"
+                                        : renameResultModal.operations_failed > 0
+                                        ? "Rename Completed with Issues"
+                                        : "Rename Failed"}
+                                </h3>
+                                <p className="text-sm text-neutral-300">name-o-tron-9000</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-6 space-y-3 text-neutral-200">
+                            <div className="flex items-center justify-between">
+                                <span>Operations applied:</span>
+                                <span className="text-green-400 font-medium">{renameResultModal.operations_applied}</span>
+                            </div>
+                            {renameResultModal.operations_failed > 0 && (
+                                <div className="flex items-center justify-between">
+                                    <span>Operations failed:</span>
+                                    <span className="text-red-400 font-medium">{renameResultModal.operations_failed}</span>
+                                </div>
+                            )}
+
+                            {renameResultModal.rollback_log_path && (
+                                <div className="pt-2 border-t border-neutral-700">
+                                    <div className="text-sm text-neutral-300 mb-1">Rollback log saved:</div>
+                                    <div className="text-xs font-mono bg-neutral-800 px-2 py-1 rounded text-neutral-300 break-all">
+                                        {renameResultModal.rollback_log_path}
+                                    </div>
+                                </div>
+                            )}
+
+                            {renameResultModal.errors && renameResultModal.errors.length > 0 && (
+                                <div className="pt-2 border-t border-neutral-700">
+                                    <div className="text-sm text-neutral-300 mb-2">Error details:</div>
+                                    <div className="max-h-32 overflow-y-auto space-y-1">
+                                        {renameResultModal.errors.slice(0, 5).map((error, index) => (
+                                            <div key={index} className="text-xs text-red-300 font-mono bg-neutral-800 px-2 py-1 rounded">
+                                                {error}
+                                            </div>
+                                        ))}
+                                        {renameResultModal.errors.length > 5 && (
+                                            <div className="text-xs text-neutral-400">
+                                                …and {renameResultModal.errors.length - 5} more errors
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={onCloseRenameResultModal}
+                                className="flex-1 rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Undo Result Modal */}
+            {undoResultModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+                    <div className="w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-900 p-6 shadow-xl">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                undoResultModal.success && undoResultModal.operations_failed === 0
+                                    ? 'bg-green-500/20'
+                                    : undoResultModal.operations_failed > 0
+                                    ? 'bg-amber-500/20'
+                                    : 'bg-red-500/20'
+                            }`}>
+                                {undoResultModal.success && undoResultModal.operations_failed === 0 ? (
+                                    <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                    </svg>
+                                ) : undoResultModal.operations_failed > 0 ? (
+                                    <svg className="h-5 w-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                    </svg>
+                                ) : (
+                                    <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                )}
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-neutral-100">
+                                    {undoResultModal.success && undoResultModal.operations_failed === 0
+                                        ? "Undo Completed"
+                                        : undoResultModal.operations_failed > 0
+                                        ? "Undo Completed with Issues"
+                                        : "Undo Failed"}
+                                </h3>
+                                <p className="text-sm text-neutral-300">name-o-tron-9000</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-6 space-y-3 text-neutral-200">
+                            <div className="flex items-center justify-between">
+                                <span>Operations undone:</span>
+                                <span className="text-green-400 font-medium">{undoResultModal.operations_applied}</span>
+                            </div>
+                            {undoResultModal.operations_failed > 0 && (
+                                <div className="flex items-center justify-between">
+                                    <span>Operations failed:</span>
+                                    <span className="text-red-400 font-medium">{undoResultModal.operations_failed}</span>
+                                </div>
+                            )}
+
+                            {undoResultModal.rollback_log_path && (
+                                <div className="pt-2 border-t border-neutral-700">
+                                    <div className="text-sm text-neutral-300 mb-1">Rollback log saved:</div>
+                                    <div className="text-xs font-mono bg-neutral-800 px-2 py-1 rounded text-neutral-300 break-all">
+                                        {undoResultModal.rollback_log_path}
+                                    </div>
+                                </div>
+                            )}
+
+                            {undoResultModal.errors && undoResultModal.errors.length > 0 && (
+                                <div className="pt-2 border-t border-neutral-700">
+                                    <div className="text-sm text-neutral-300 mb-2">Error details:</div>
+                                    <div className="max-h-32 overflow-y-auto space-y-1">
+                                        {undoResultModal.errors.slice(0, 5).map((error, index) => (
+                                            <div key={index} className="text-xs text-red-300 font-mono bg-neutral-800 px-2 py-1 rounded">
+                                                {error}
+                                            </div>
+                                        ))}
+                                        {undoResultModal.errors.length > 5 && (
+                                            <div className="text-xs text-neutral-400">
+                                                …and {undoResultModal.errors.length - 5} more errors
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={onCloseUndoResultModal}
+                                className="flex-1 rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Preview Export Modal */}
+            {previewExportModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+                    <div className="w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-900 p-6 shadow-xl">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                previewExportModal.success ? 'bg-green-500/20' : 'bg-red-500/20'
+                            }`}>
+                                {previewExportModal.success ? (
+                                    <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                ) : (
+                                    <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                )}
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-neutral-100">
+                                    {previewExportModal.success ? "Preview Snapshot Saved" : "Export Failed"}
+                                </h3>
+                                <p className="text-sm text-neutral-300">name-o-tron-9000</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-6 text-neutral-200">
+                            {previewExportModal.success && previewExportModal.path ? (
+                                <div>
+                                    <div className="text-sm mb-2">Snapshot saved to:</div>
+                                    <div className="text-xs font-mono bg-neutral-800 px-3 py-2 rounded text-neutral-300 break-all">
+                                        {previewExportModal.path}
+                                    </div>
+                                    <div className="mt-3 text-xs text-neutral-400">
+                                        This file contains your current preview state and can be used for debugging or backup purposes.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <div className="text-sm mb-2">Export failed:</div>
+                                    <div className="text-sm text-red-300">
+                                        {previewExportModal.error || "Unknown error occurred"}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-3">
+                            {previewExportModal.success && previewExportModal.path && (
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        // Open the folder containing the exported file
+                                        const path = previewExportModal.path!;
+                                        const dirPath = path.substring(0, path.lastIndexOf('/') + 1) || path.substring(0, path.lastIndexOf('\\') + 1) || path;
+                                        await revealItemInDir(dirPath);
+                                    } catch (error) {
+                                        console.error("Failed to open folder:", error);
+                                    }
+                                }}
+                                className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700"
+                            >
+                                Open Folder
+                            </button>
+                            )}
+                            <button
+                                onClick={onClosePreviewExportModal}
+                                className="flex-1 rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+                            >
+                                OK
+                            </button>
                         </div>
                     </div>
                 </div>

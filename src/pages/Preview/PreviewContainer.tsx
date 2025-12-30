@@ -58,6 +58,25 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [showMapModal, setShowMapModal] = useState(false);
     const [showTemplateHelp, setShowTemplateHelp] = useState(false);
     const [editingItem, setEditingItem] = useState<PreviewRow | null>(null);
+    const [renameResultModal, setRenameResultModal] = useState<{
+        success: boolean;
+        operations_applied: number;
+        operations_failed: number;
+        rollback_log_path: string;
+        errors: string[];
+    } | null>(null);
+    const [undoResultModal, setUndoResultModal] = useState<{
+        success: boolean;
+        operations_applied: number;
+        operations_failed: number;
+        rollback_log_path: string;
+        errors: string[];
+    } | null>(null);
+    const [previewExportModal, setPreviewExportModal] = useState<{
+        success: boolean;
+        path?: string;
+        error?: string;
+    } | null>(null);
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
     const [statusFilter, setStatusFilter] = useState<string>("all"); // "all", "good", "warning", "error", "unmatched"
@@ -1346,16 +1365,23 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     errors: result.errors
                 });
 
-                // Show detailed errors to user
-                const errorDetails = result.errors && result.errors.length > 0
-                    ? `\n\nError details:\n${result.errors.slice(0, 5).join('\n')}${result.errors.length > 5 ? `\n... and ${result.errors.length - 5} more errors` : ''}`
-                    : '';
-
-                alert(`Applied ${result.operations_applied} operations, but ${result.operations_failed} failed.\n\nRollback log saved to: ${result.rollback_log_path}${errorDetails}\n\nCheck console (F12) for complete error details.`);
+                setRenameResultModal({
+                    success: result.success,
+                    operations_applied: result.operations_applied,
+                    operations_failed: result.operations_failed,
+                    rollback_log_path: result.rollback_log_path,
+                    errors: result.errors || []
+                });
             }
         } catch (error) {
             console.error("Failed to apply renames:", error);
-            alert(`Failed to apply renames: ${error}`);
+            setRenameResultModal({
+                success: false,
+                operations_applied: 0,
+                operations_failed: 0,
+                rollback_log_path: "",
+                errors: [String(error)]
+            });
         } finally {
             setLoading(false);
             setApplyInProgress(false);
@@ -1413,7 +1439,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             const result = await invoke<any>("undo_last_rename");
 
             if (result.success) {
-                alert(`Successfully undid ${result.operations_applied} operations.`);
+                setUndoResultModal({
+                    success: true,
+                    operations_applied: result.operations_applied,
+                    operations_failed: result.operations_failed,
+                    rollback_log_path: result.rollback_log_path,
+                    errors: result.errors || []
+                });
                 // Reload the page to reflect changes
                 setReloadTick(t => t + 1);
             } else {
@@ -1425,16 +1457,23 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     errors: result.errors
                 });
 
-                // Show detailed errors to user
-                const errorDetails = result.errors && result.errors.length > 0
-                    ? `\n\nError details:\n${result.errors.slice(0, 5).join('\n')}${result.errors.length > 5 ? `\n... and ${result.errors.length - 5} more errors` : ''}`
-                    : '';
-
-                alert(`Undid ${result.operations_applied} operations, but ${result.operations_failed} failed.\n\nRollback log saved to: ${result.rollback_log_path}${errorDetails}\n\nCheck console (F12) for complete error details.`);
+                setUndoResultModal({
+                    success: false,
+                    operations_applied: result.operations_applied,
+                    operations_failed: result.operations_failed,
+                    rollback_log_path: result.rollback_log_path,
+                    errors: result.errors || []
+                });
             }
         } catch (error) {
             console.error("Failed to undo renames:", error);
-            alert(`Failed to undo renames: ${error}`);
+            setUndoResultModal({
+                success: false,
+                operations_applied: 0,
+                operations_failed: 0,
+                rollback_log_path: "",
+                errors: [String(error)]
+            });
         } finally {
             setLoading(false);
         }
@@ -1498,9 +1537,15 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             };
 
             const path = await invoke<string>("export_preview_snapshot", { snapshot });
-            alert(`Preview snapshot saved.\n\nPath: ${path}`);
+            setPreviewExportModal({
+                success: true,
+                path: path
+            });
         } catch (error) {
-            alert(`Failed to export preview snapshot: ${error}`);
+            setPreviewExportModal({
+                success: false,
+                error: String(error)
+            });
         }
     }
 
@@ -1734,6 +1779,12 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             showMapModal={showMapModal}
             showTemplateHelp={showTemplateHelp}
             editingItem={editingItem}
+            renameResultModal={renameResultModal}
+            undoResultModal={undoResultModal}
+            previewExportModal={previewExportModal}
+            onCloseRenameResultModal={() => setRenameResultModal(null)}
+            onCloseUndoResultModal={() => setUndoResultModal(null)}
+            onClosePreviewExportModal={() => setPreviewExportModal(null)}
             popoverData={popoverData}
             searchQuery={searchQuery}
             statusFilter={statusFilter}

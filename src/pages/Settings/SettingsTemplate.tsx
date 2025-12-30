@@ -31,6 +31,16 @@ type TemplateProps = {
     onHandleMouseUp: () => void;
     onSetIsEditionParsersModalOpen: (open: boolean) => void;
     onToggleTheme: () => void;
+    settingsExportModal: {
+        success: boolean;
+        path?: string;
+        error?: string;
+    } | null;
+    settingsImportModal: {
+        success: boolean;
+    } | null;
+    onCloseSettingsExportModal: () => void;
+    onCloseSettingsImportModal: () => void;
 };
 
 export default function SettingsTemplate({
@@ -55,6 +65,10 @@ export default function SettingsTemplate({
     onHandleMouseUp,
     onSetIsEditionParsersModalOpen,
     onToggleTheme,
+    settingsExportModal,
+    settingsImportModal,
+    onCloseSettingsExportModal,
+    onCloseSettingsImportModal,
 }: TemplateProps) {
     return (
         <>
@@ -93,7 +107,10 @@ export default function SettingsTemplate({
                         </div>
 
                         <div className="flex-1 overflow-y-auto px-6 pb-6">
-                            {tab === "general" && <General s={localSettings} onChange={(v) => onUpdate("general", v)} />}
+                            {tab === "general" && <General
+                                s={localSettings}
+                                onChange={(v) => onUpdate("general", v)}
+                            />}
                             {tab === "movies" && <Movies s={localSettings} onChange={(v) => onUpdate("movies", v)} onConfigureParsers={() => onSetIsEditionParsersModalOpen(true)}/>}
                             {tab === "tv" && <TV s={localSettings} onChange={(v) => onUpdate("tv", v)}/>}
                             {tab === "music" && <Music s={localSettings} onChange={(v) => onUpdate("music", v)}/>}
@@ -188,6 +205,139 @@ export default function SettingsTemplate({
                 parsers={localSettings.movies.editions.parsers}
                 onChange={(parsers) => onUpdate("movies", {...localSettings.movies, editions: {...localSettings.movies.editions, parsers}})}
             />
+
+            {/* Settings Export Modal */}
+            {settingsExportModal && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70">
+                    <div className="w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-900 p-6 shadow-xl">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                settingsExportModal.success ? 'bg-green-500/20' : 'bg-red-500/20'
+                            }`}>
+                                {settingsExportModal.success ? (
+                                    <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                ) : (
+                                    <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                )}
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-neutral-100">
+                                    {settingsExportModal.success ? "Settings Exported" : "Export Failed"}
+                                </h3>
+                                <p className="text-sm text-neutral-300">name-o-tron-9000</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-6 text-neutral-200">
+                            {settingsExportModal.success && settingsExportModal.path ? (
+                                <div>
+                                    <div className="text-sm mb-2">Settings saved to:</div>
+                                    <div className="text-xs font-mono bg-neutral-800 px-3 py-2 rounded text-neutral-300 break-all">
+                                        {settingsExportModal.path}
+                                    </div>
+                                    <div className="mt-3 text-xs text-neutral-400">
+                                        Your settings have been exported successfully.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <div className="text-sm mb-2">Export failed:</div>
+                                    <div className="text-sm text-red-300">
+                                        {settingsExportModal.error || "Unknown error occurred"}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-3">
+                            {settingsExportModal.success && settingsExportModal.path && (
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const path = settingsExportModal.path!;
+                                            const dirPath = path.substring(0, path.lastIndexOf('/') + 1) ||
+                                                          path.substring(0, path.lastIndexOf('\\') + 1) ||
+                                                          path;
+                                            await import("@tauri-apps/plugin-opener").then(({ revealItemInDir }) => revealItemInDir(dirPath));
+                                        } catch (error) {
+                                            console.error('Failed to open folder:', error);
+                                        }
+                                    }}
+                                    className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700"
+                                >
+                                    Open Folder
+                                </button>
+                            )}
+                            <button
+                                onClick={onCloseSettingsExportModal}
+                                className="flex-1 rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Settings Import Modal */}
+            {settingsImportModal && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70">
+                    <div className="w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-900 p-6 shadow-xl">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                settingsImportModal.success ? 'bg-green-500/20' : 'bg-red-500/20'
+                            }`}>
+                                {settingsImportModal.success ? (
+                                    <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                ) : (
+                                    <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                )}
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-neutral-100">
+                                    {settingsImportModal.success ? "Settings Imported" : "Import Failed"}
+                                </h3>
+                                <p className="text-sm text-neutral-300">name-o-tron-9000</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-6 text-neutral-200">
+                            {settingsImportModal.success ? (
+                                <div>
+                                    <div className="text-sm">
+                                        Settings have been imported successfully. Your preferences have been updated.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <div className="text-sm mb-2">Import failed:</div>
+                                    <div className="text-sm text-red-300">
+                                        Please check that the file is a valid settings JSON file and try again.
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={onCloseSettingsImportModal}
+                                className="flex-1 rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </>
     );
 }
