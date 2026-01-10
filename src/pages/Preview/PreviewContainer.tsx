@@ -5,7 +5,7 @@ import {useSettings} from "../../state/settings";
 import {useTheme} from "../../state/theme";
 import type {Props, MovieItem, EpisodeItem, MusicItem, PreviewRow, SectionResponse} from "./types";
 import {computeMovieProposal} from "./movieProposal";
-import {computeEpisodeProposal} from "./episodeProposal";
+import {computeEpisodeProposal, computeMultiEpisodeProposal} from "./episodeProposal";
 import {computeMusicProposal} from "./musicProposal";
 import {
     parseEpisodeInfo,
@@ -92,6 +92,33 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const prefetchedSecondPageRef = useRef(false);
     const processedCountRef = useRef(0);
     const lastSettingsVersionRef = useRef(settingsVersion);
+
+    const MOVIE_INTELLIGENT_FLAT_THRESHOLD = 0.8;
+
+    function computeMovieLibraryHeuristics(paths: string[]): { flatRatio: number; flatThreshold: number } {
+        const roots = library.roots || [];
+        if (!paths.length || !roots.length) {
+            return { flatRatio: 1, flatThreshold: MOVIE_INTELLIGENT_FLAT_THRESHOLD };
+        }
+
+        const ownFolderPerMovie = !!settings.movies?.ownFolderPerMovie;
+        let total = 0;
+        let flat = 0;
+
+        for (const p of paths) {
+            if (!p) continue;
+            const rel = shortenFilePath(p, roots);
+            if (!rel || rel === p) continue;
+            total += 1;
+            const normalized = rel.replace(/\\/g, '/');
+            const dirCount = Math.max(0, normalized.split('/').length - 1);
+            const isFlatItem = dirCount === 0 || (ownFolderPerMovie && dirCount === 1);
+            if (isFlatItem) flat += 1;
+        }
+
+        const flatRatio = total > 0 ? flat / total : 1;
+        return { flatRatio, flatThreshold: MOVIE_INTELLIGENT_FLAT_THRESHOLD };
+    }
 
     // Apply / cleanup state
     const [applyInProgress, setApplyInProgress] = useState(false);
@@ -640,7 +667,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         total: filteredEpisodes.length,
                         exhausted: true,
                         start: filteredEpisodes.length,
-                        size: episodesPaging.size
+                        size: prev.size
                     }));
                 } else {
                     // Real season with its own key - make API call using the season's key directly
@@ -659,7 +686,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         plexKey: seasonData.key,
                         token,
                         start: 0,
-                        size: episodesPaging.size,
+                        size: 50, // Use fixed size instead of state variable
                     });
 
                     // Ignore out-of-order responses (user switched seasons quickly)
@@ -683,9 +710,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     setEpisodesPaging(prev => ({
                         ...prev,
                         total,
-                        exhausted: md.length < episodesPaging.size,
+                        exhausted: md.length < prev.size,
                         start: returned,
-                        size: episodesPaging.size
+                        size: prev.size
                     }));
 
                     const newEpisodes: EpisodeItem[] = [];
@@ -832,35 +859,80 @@ export default function PreviewContainer({server, library, onBack}: Props) {
 
             setPreviewLoading(true);
 
-            const tasks = itemsToProcess.map(async (item) => {
-                if (item.type === "movie") {
-                    const m = item as MovieItem;
-                    const collections = (m as any).Collection || (m as any).collection || [];
-                    const collectionName = Array.isArray(collections) && collections.length > 0
-                        ? (collections[0]?.tag || collections[0])
-                        : "";
-                    const tpl = settings.templates.movie || template;
-                    const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
-                    row.metadata = m;
-                    return row;
+            // Separate episodes from other items for multi-episode handling
+            const episodes = itemsToProcess.filter(item => item.type === "episode") as EpisodeItem[];
+            const nonEpisodes = itemsToProcess.filter(item => item.type !== "episode");
+
+            // Group episodes by file path for multi-episode detection
+            const episodesByFile: { [filePath: string]: EpisodeItem[] } = {};
+            for (const episode of episodes) {
+                const resolvedPath = resolvePlexFilePath(episode.file, libraryFolder);
+                if (!episodesByFile[resolvedPath]) {
+                    episodesByFile[resolvedPath] = [];
                 }
-                if (item.type === "music") {
-                    const m = item as MusicItem;
-                    const tpl = settings.templates.music || template;
-                    const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || []);
-                    row.metadata = m;
-                    return row;
-                }
-                if (item.type === "episode") {
-                    const e = item as EpisodeItem;
-                    const tpl = settings.templates.episode || template;
-                    const useSeasonFolders = !!settings.tv.seasonFolders;
-                    const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder, library.roots || []);
-                    proposal.metadata = e;
-                    return proposal;
-                }
-                return null;
-            });
+                episodesByFile[resolvedPath].push(episode);
+            }
+
+            const movieHeuristics = computeMovieLibraryHeuristics(
+                rawItems.filter((it) => it.type === "movie").map((it) => (it as MovieItem).file),
+            );
+
+            const tasks = [
+                // Process non-episode items
+                ...nonEpisodes.map(async (item) => {
+                    if (item.type === "movie") {
+                        const m = item as MovieItem;
+                        const collections = (m as any).Collection || (m as any).collection || [];
+                        const collectionName = Array.isArray(collections) && collections.length > 0
+                            ? (collections[0]?.tag || collections[0])
+                            : "";
+                        const tpl = settings.templates.movie || template;
+                        const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
+                        row.metadata = m;
+                        return row;
+                    }
+                    if (item.type === "music") {
+                        const m = item as MusicItem;
+                        const tpl = settings.templates.music || template;
+                        const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || []);
+                        row.metadata = m;
+                        return row;
+                    }
+                    return null;
+                }),
+                // Process episodes grouped by file
+                ...Object.entries(episodesByFile).map(async ([filePath, fileEpisodes]) => {
+                    try {
+                        const tpl = settings.templates.episode || template;
+                        const useSeasonFolders = !!settings.tv.seasonFolders;
+
+                        if (!fileEpisodes || fileEpisodes.length === 0) {
+                            console.error("Empty fileEpisodes for path:", filePath);
+                            return null;
+                        }
+
+                        if (fileEpisodes.length === 1) {
+                            // Single episode
+                            const e = fileEpisodes[0];
+                            if (!e) {
+                                console.error("Undefined episode in fileEpisodes");
+                                return null;
+                            }
+                            const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder, library.roots || []);
+                            proposal.metadata = e;
+                            return proposal;
+                        } else {
+                            // Multi-episode file
+                            const proposal = await computeMultiEpisodeProposal(fileEpisodes, tpl, useSeasonFolders, settings, libraryFolder, library.roots || []);
+                            proposal.metadata = fileEpisodes[0];
+                            return proposal;
+                        }
+                    } catch (error) {
+                        console.error("Error processing episodes for file:", filePath, error);
+                        return null;
+                    }
+                })
+            ];
 
             const newRows = (await Promise.all(tasks)).filter(Boolean) as PreviewRow[];
 
@@ -1109,7 +1181,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.movie || template;
-                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
+                            const movieHeuristics = computeMovieLibraryHeuristics(
+                                rawItemsRef.current
+                                    .filter((it) => it.type === "movie")
+                                    .map((it) => (it as MovieItem).file)
+                                    .concat([filePath]),
+                            );
+                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
                             row.metadata = m; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -1691,7 +1769,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     thumb: String(item.thumb ?? ""),
                 };
                 const tpl = settings.templates.movie || template;
-                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
+                const movieHeuristics = computeMovieLibraryHeuristics(
+                    rowsRef.current
+                        .filter((r) => r.kind === "movie")
+                        .map((r) => r.plexPath || r.filePath)
+                        .concat([String(file)]),
+                );
+                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
                 row.metadata = m; // Store original metadata for popover
                 more.push(row);
             }

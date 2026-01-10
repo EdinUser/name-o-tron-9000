@@ -1,5 +1,5 @@
 // Components
-import {IconArrowBack, IconBolt, IconEdit, IconHome, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch, IconStatusGood, IconStatusWarning, IconStatusError, IconSun, IconMoon} from "../../components/icons";
+import {IconArrowBack, IconBadgeCheck, IconBolt, IconEdit, IconHome, IconQuestionCircle, IconRefresh, IconSelectOff, IconSettings, IconSearch, IconStatusGood, IconStatusWarning, IconStatusError, IconSun, IconMoon} from "../../components/icons";
 import Select from "../../components/Select";
 import PathMappingModal from "../../components/PathMappingModal";
 import TemplateHelpModal from "../../components/TemplateHelpModal";
@@ -481,11 +481,15 @@ export default function PreviewTemplate({
                                             : 'Loading more items…'}
                                     </div>
                                 )}
-                                {!pageTransitionLoading && !pageLoading && displayRows.length > 0 && pageRows.map((r) => (
-                                    <div
-                                        key={r.id}
-                                        className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40 dark:hover:bg-neutral-800/40 light:hover:bg-neutral-50/40"
-                                        style={{gridTemplateColumns: gridTemplate}}
+                                {!pageTransitionLoading && !pageLoading && displayRows.length > 0 && pageRows.map((r) => {
+                                    const isCompliant = r.flags.includes("already-compliant");
+                                    const visibleFlags = r.flags.filter((f) => f !== "already-compliant");
+
+                                    return (
+                                        <div
+                                            key={r.id}
+                                            className="grid items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-800/40 dark:hover:bg-neutral-800/40 light:hover:bg-neutral-50/40"
+                                            style={{gridTemplateColumns: gridTemplate}}
                                         >
                                             <Toggle checked={selectedIds.has(r.id)} onChange={() => onToggle(r.id)}/>
                                             <div
@@ -498,14 +502,19 @@ export default function PreviewTemplate({
                                             <div className="flex items-center gap-2">
                                                 <div
                                                     className="relative cursor-help"
-                                                    title={r.flags.length > 0 ? `Status: ${r.status} | Issues: ${r.flags.join(", ")}` : `Status: ${r.status}`}
+                                                    title={visibleFlags.length > 0 ? `Status: ${r.status} | Issues: ${visibleFlags.join(", ")}` : `Status: ${r.status}`}
                                                 >
                                                     {r.status === "good" && <IconStatusGood className="w-5 h-5" />}
                                                     {r.status === "warning" && <IconStatusWarning className="w-5 h-5" />}
                                                     {r.status === "error" && <IconStatusError className="w-5 h-5" />}
                                                     {r.status === "unmatched" && <IconQuestionCircle className="w-5 h-5 text-gray-400" />}
                                                 </div>
-                                                <div className="truncate" title={r.proposed}>{r.proposed}</div>
+                                                {isCompliant && (
+                                                    <span className="text-neutral-400" title="Already compliant with current template/settings (no change)">
+                                                        <IconBadgeCheck className="w-4 h-4" />
+                                                    </span>
+                                                )}
+                                                <div className={`truncate ${isCompliant ? "text-neutral-400" : ""}`} title={r.proposed}>{r.proposed}</div>
                                             </div>
                                             <button
                                                 onClick={() => onSetEditingItem(r)}
@@ -540,7 +549,8 @@ export default function PreviewTemplate({
                                                 </div>
                                             )}
                                         </div>
-                                    ))}
+                                    );
+                                })}
                                 {!loading && !previewLoading && !searching && displayRows.length === 0 && (
                                     <p className="px-3 py-2 text-neutral-400">No items to preview.</p>
                                 )}
@@ -577,6 +587,8 @@ export default function PreviewTemplate({
                                         {pageRows.map((r) => {
                                             const movieItem = r.kind === "movie" ? (r.metadata as MovieItem) : null;
                                             const episodeItem = r.kind === "episode" ? (r.metadata as EpisodeItem) : null;
+                                            const isCompliant = r.flags.includes("already-compliant");
+                                            const visibleFlags = r.flags.filter((f) => f !== "already-compliant");
 
                                             return (
                                                 <li key={r.id} className="flex items-start gap-4 rounded-lg border border-neutral-800 bg-neutral-800/40 px-4 py-3">
@@ -611,6 +623,11 @@ export default function PreviewTemplate({
                                                                     {r.status === "warning" && <IconStatusWarning className="w-4 h-4 text-yellow-500 flex-shrink-0" />}
                                                                     {r.status === "error" && <IconStatusError className="w-4 h-4 text-red-500 flex-shrink-0" />}
                                                                     {r.status === "unmatched" && <IconQuestionCircle className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+                                                                    {isCompliant && (
+                                                                        <span className="text-neutral-400" title="Already compliant with current template/settings (no change)">
+                                                                            <IconBadgeCheck className="w-4 h-4 flex-shrink-0" />
+                                                                        </span>
+                                                                    )}
                                                                     {/* Title with white/gray styling */}
                                                                     <div className="font-medium truncate">
                                                                         <span className="text-white">
@@ -670,14 +687,14 @@ export default function PreviewTemplate({
                                                             </div>
 
                                                             {/* Proposed path (compact) */}
-                                                            <div className="text-xs text-neutral-400 truncate" title={r.proposed}>
+                                                            <div className={`text-xs truncate ${isCompliant ? "text-neutral-500" : "text-neutral-400"}`} title={r.proposed}>
                                                                 → {r.proposed}
                                                             </div>
 
                                                             {/* Flags */}
-                                                            {r.flags.length > 0 && (
+                                                            {visibleFlags.length > 0 && (
                                                                 <div className="text-xs text-neutral-500">
-                                                                    Issues: {r.flags.join(", ")}
+                                                                    Issues: {visibleFlags.join(", ")}
                                                                 </div>
                                                             )}
                                                         </div>

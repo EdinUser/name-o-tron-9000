@@ -232,12 +232,12 @@ function serverIdsMatch(mappingId: string, serverId: string): boolean {
 /**
  * Clear all show mapping caches
  */
-export async function clearAllShowMappingCaches(): Promise<{total_files_found: number, files_removed: string[], cache_directory_exists: boolean}> {
+export async function clearAllShowMappingCaches(): Promise<{total_files_found: number, files_removed: string[], cache_directory_exists: boolean} | undefined> {
   try {
     return await invoke("clear_all_show_mapping_caches");
   } catch (error) {
     console.warn("Failed to clear all show mapping caches:", error);
-    throw error;
+    return undefined;
   }
 }
 

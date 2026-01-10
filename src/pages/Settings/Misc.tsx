@@ -39,6 +39,11 @@ export function Misc({s, onChange}: { s: Settings; onChange: (v: Settings["misc"
         try {
             console.log("🔄 Starting cache clearing process...");
             const result = await clearAllShowMappingCaches();
+            if (!result) {
+                console.error("❌ Cache clearing failed (no result returned)");
+                alert("Failed to clear cache. Check console for details.");
+                return;
+            }
             console.log("✅ Cache clearing completed successfully");
             setCacheClearResult(result);
             setShowSuccessDialog(true);

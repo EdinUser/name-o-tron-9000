@@ -5,13 +5,11 @@ import { useTheme } from "../../state/theme";
 import { useSettings } from "../../state/settings";
 import type { PlexLibrary, PlexServer } from "../../types/plex";
 import ShowSelectionTemplate from "./ShowSelectionTemplate";
-import { isItemMapped } from "../../pages/Preview/utils";
 import {
   loadShowMappingCache,
   saveShowMappingCache,
   invalidateShowMappingCache,
   generateMappingsChecksum,
-  extractLocationFromEpisode,
   extractMetadataFromShow,
   isCacheValid,
   generateServerId,
