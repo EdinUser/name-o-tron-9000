@@ -27,13 +27,26 @@ export function Misc({s, onChange}: { s: Settings; onChange: (v: Settings["misc"
     const m = s.misc;
     const set = (patch: Partial<typeof m>) => onChange({...m, ...patch});
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [cachePathModal, setCachePathModal] = useState<{
+        success: boolean;
+        path?: string;
+        error?: string;
+    } | null>(null);
+    const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+    const [cacheClearResult, setCacheClearResult] = useState<{total_files_found: number, files_removed: string[], cache_directory_exists: boolean} | null>(null);
 
     const handleResetCache = useCallback(async () => {
         try {
             console.log("🔄 Starting cache clearing process...");
-            await clearAllShowMappingCaches();
+            const result = await clearAllShowMappingCaches();
+            if (!result) {
+                console.error("❌ Cache clearing failed (no result returned)");
+                alert("Failed to clear cache. Check console for details.");
+                return;
+            }
             console.log("✅ Cache clearing completed successfully");
-            alert("Cache cleared successfully!");
+            setCacheClearResult(result);
+            setShowSuccessDialog(true);
             setShowConfirmDialog(false);
         } catch (error) {
             console.error("❌ Cache clear error:", error);
@@ -45,10 +58,16 @@ export function Misc({s, onChange}: { s: Settings; onChange: (v: Settings["misc"
         try {
             const cachePath = await getCacheDirectoryPath();
             console.log("📁 Cache directory path:", cachePath);
-            alert(`Cache directory: ${cachePath}`);
+            setCachePathModal({
+                success: true,
+                path: cachePath
+            });
         } catch (error) {
             console.error("❌ Failed to get cache path:", error);
-            alert("Failed to get cache directory path");
+            setCachePathModal({
+                success: false,
+                error: String(error)
+            });
         }
     }, []);
 
@@ -291,6 +310,140 @@ export function Misc({s, onChange}: { s: Settings; onChange: (v: Settings["misc"
                             <button
                                 onClick={handleResetCache}
                                 className="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Success Dialog */}
+            {showSuccessDialog && cacheClearResult && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+                    <div className="w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-900 p-6 shadow-xl">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20">
+                                <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-neutral-100">Cache Cleared</h3>
+                                <p className="text-sm text-neutral-300">name-o-tron-9000</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-6 space-y-3 text-neutral-200">
+                            <div className="text-sm">
+                                <span className="font-medium">Cache directory: </span>
+                                <span className={`px-2 py-1 rounded text-xs ${cacheClearResult.cache_directory_exists ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                                    {cacheClearResult.cache_directory_exists ? 'Exists' : 'Not found'}
+                                </span>
+                            </div>
+
+                            <div className="text-sm">
+                                <span className="font-medium">Total files found: </span>
+                                <span className="text-cyan-400">{cacheClearResult.total_files_found}</span>
+                            </div>
+
+                            <div className="text-sm">
+                                <span className="font-medium">Files removed: </span>
+                                <span className="text-green-400">{cacheClearResult.files_removed.length}</span>
+                            </div>
+
+                            {cacheClearResult.files_removed.length > 0 && (
+                                <div className="mt-3">
+                                    <div className="text-sm font-medium text-neutral-300 mb-2">Removed files:</div>
+                                    <div className="max-h-32 overflow-y-auto space-y-1">
+                                        {cacheClearResult.files_removed.map((file, index) => (
+                                            <div key={index} className="text-xs font-mono bg-neutral-800 px-2 py-1 rounded text-neutral-300">
+                                                {file}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => { setShowSuccessDialog(false); setCacheClearResult(null); }}
+                                className="flex-1 rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Cache Path Modal */}
+            {cachePathModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+                    <div className="w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-900 p-6 shadow-xl">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                cachePathModal.success ? 'bg-blue-500/20' : 'bg-red-500/20'
+                            }`}>
+                                {cachePathModal.success ? (
+                                    <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z" />
+                                    </svg>
+                                ) : (
+                                    <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                )}
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-neutral-100">
+                                    {cachePathModal.success ? "Cache Directory" : "Error"}
+                                </h3>
+                                <p className="text-sm text-neutral-300">name-o-tron-9000</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-6 text-neutral-200">
+                            {cachePathModal.success && cachePathModal.path ? (
+                                <div>
+                                    <div className="text-sm mb-2">Cache directory location:</div>
+                                    <div className="text-xs font-mono bg-neutral-800 px-3 py-2 rounded text-neutral-300 break-all">
+                                        {cachePathModal.path}
+                                    </div>
+                                    <div className="mt-3 text-xs text-neutral-400">
+                                        This directory contains cached TV show mapping data and image thumbnails.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <div className="text-sm mb-2">Failed to get cache directory:</div>
+                                    <div className="text-sm text-red-300">
+                                        {cachePathModal.error || "Unknown error occurred"}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-3">
+                            {cachePathModal.success && cachePathModal.path && (
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await import("@tauri-apps/plugin-opener").then(({ revealItemInDir }) => revealItemInDir(cachePathModal.path!));
+                                        } catch (error) {
+                                            console.error('Failed to open folder:', error);
+                                        }
+                                    }}
+                                    className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700"
+                                >
+                                    Open Folder
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setCachePathModal(null)}
+                                className="flex-1 rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
                             >
                                 OK
                             </button>

@@ -473,11 +473,20 @@ describe('cache utilities', () => {
 
   describe('clearAllShowMappingCaches', () => {
     it('should clear all caches successfully', async () => {
-      mockInvoke.mockResolvedValue(undefined);
+      mockInvoke.mockResolvedValue({
+        total_files_found: 2,
+        files_removed: ['server_lib.json'],
+        cache_directory_exists: true,
+      });
 
-      await clearAllShowMappingCaches();
+      const result = await clearAllShowMappingCaches();
 
       expect(mockInvoke).toHaveBeenCalledWith('clear_all_show_mapping_caches');
+      expect(result).toEqual({
+        total_files_found: 2,
+        files_removed: ['server_lib.json'],
+        cache_directory_exists: true,
+      });
     });
 
     it('should handle clear errors gracefully', async () => {

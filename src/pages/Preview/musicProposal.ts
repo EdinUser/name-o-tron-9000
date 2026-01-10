@@ -2,8 +2,10 @@ import type { MusicItem, PreviewRow } from "./types";
 import {
     basename,
     extname,
+    getRelativePathUnderRoots,
     hasNonLatin,
     isItemMapped,
+    normalizePathForComparison,
     normalizeUnicode,
     resolvePlexFilePath,
     sanitizeProposal,
@@ -103,6 +105,17 @@ export async function computeMusicProposal(
     if (sanitized) {
         // Use the sanitized filename instead of the original
         proposed = proposed.replace(basename(proposed), sanitized);
+    }
+
+    // Compliance check: if current relative path matches proposed, treat as no-op
+    const currentRel = getRelativePathUnderRoots(m.file, libraryRoots);
+    if (currentRel) {
+        const proposedNorm = normalizePathForComparison(proposed);
+        const currentNorm = normalizePathForComparison(currentRel);
+        if (proposedNorm === currentNorm) {
+            proposed = currentRel;
+            flags.push("already-compliant");
+        }
     }
 
     let status: PreviewRow["status"] = "good";

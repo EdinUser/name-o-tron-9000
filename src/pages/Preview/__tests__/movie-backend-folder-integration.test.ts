@@ -2,20 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { computeMovieProposal } from "../movieProposal";
 import type { MovieItem } from "../types";
 
-// Mock Tauri invoke used by computeMovieProposal
+// Mock Tauri invoke used by sanitizeProposal
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string, args: any) => {
     if (cmd === "sanitize_filename_cmd") {
       // Echo back the filename to keep behavior simple for tests
       return args.filename;
-    }
-    if (cmd === "compute_movie_destinations") {
-      const items = args.request?.items || [];
-      // For these tests, simulate a grouped folder structure under the library root
-      return items.map((item: any) => ({
-        rating_key: item.rating_key,
-        proposed: `A-D/Nolan/${item.base_name}`,
-      }));
     }
     throw new Error(`Unexpected invoke: ${cmd}`);
   }),
@@ -96,7 +88,7 @@ describe("Movie backend folder integration", () => {
       libraryRoots,
     );
 
-    // Backend groups under A-D/Nolan, ISO handling appends [ISO] before extension
+    // Preserve existing grouping, ISO handling appends [ISO] before extension
     expect(row.proposed).toBe("A-D/Nolan/Inception [ISO].iso");
     expect(row.flags).toContain("marked-iso");
     expect(row.status).not.toBe("error");
@@ -129,9 +121,8 @@ describe("Movie backend folder integration", () => {
       libraryRoots,
     );
 
-    // Extras logic should still move into Extras/, even when backend proposes a grouped path
+    // Extras logic should still move into Extras/, even when current path is grouped
     expect(row.proposed).toBe("Extras/Inception extras.mkv");
     expect(row.flags).toContain("moved-to-extras");
   });
 });
-

@@ -260,8 +260,15 @@ pub fn generate_mappings_checksum_cmd(serverId: String, mappings: Vec<PathMappin
     generate_mappings_checksum_with_server(&serverId, &mappings)
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct CacheClearResult {
+    pub total_files_found: usize,
+    pub files_removed: Vec<String>,
+    pub cache_directory_exists: bool,
+}
+
 #[tauri::command]
-pub fn clear_all_show_mapping_caches(app: tauri::AppHandle) -> Result<(), String> {
+pub fn clear_all_show_mapping_caches(app: tauri::AppHandle) -> Result<CacheClearResult, String> {
     let cache_dir = app
         .path()
         .resolve("cache/show-mappings", BaseDirectory::AppConfig)
@@ -299,7 +306,11 @@ pub fn clear_all_show_mapping_caches(app: tauri::AppHandle) -> Result<(), String
         eprintln!("✅ Successfully removed {} cache files: {:?}", removed_files.len(), removed_files);
     }
 
-    Ok(())
+    Ok(CacheClearResult {
+        total_files_found: total_files,
+        files_removed: removed_files,
+        cache_directory_exists: cache_dir.exists(),
+    })
 }
 
 #[tauri::command]

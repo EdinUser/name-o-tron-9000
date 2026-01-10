@@ -12,6 +12,29 @@ export function basename(p: string) {
     return m ? m[0] : p;
 }
 
+function normalizeSlashes(p: string): string {
+    return p.replace(/\\/g, '/');
+}
+
+function isLikelyWindowsPath(p: string): boolean {
+    return /^[A-Za-z]:[\\/]/.test(p) || p.includes('\\');
+}
+
+export function normalizePathForComparison(p: string): string {
+    const withForwardSlashes = normalizeSlashes(p).replace(/\/+/g, '/');
+    return isLikelyWindowsPath(p) ? withForwardSlashes.toLowerCase() : withForwardSlashes;
+}
+
+export function splitPathSegments(p: string): string[] {
+    return normalizeSlashes(p).split('/').filter(Boolean);
+}
+
+export function getRelativePathUnderRoots(filePath: string, libraryRoots: string[]): string | null {
+    const shortened = shortenFilePath(filePath, libraryRoots);
+    if (!shortened || shortened === filePath) return null;
+    return normalizeSlashes(shortened);
+}
+
 // Edition priority utilities
 export function getHighestPriorityEdition(editionToken: string): string {
     if (!editionToken.startsWith('{edition-')) return editionToken;
@@ -129,6 +152,26 @@ export function formatCollectionFolderName(rawName: string, settings: any): stri
 
 export function normalizeShowTitle(raw: string) {
     return raw.replace(/[._]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function getSortingTitle(title: string, alphaArticleHandling: string): string {
+    if (alphaArticleHandling === "ignore") {
+        const articles = /^(the|a|an)\s+/i;
+        return title.replace(articles, "");
+    }
+    return title;
+}
+
+export function computeAlphaRangeFolder(title: string, alphaArticleHandling: string): string {
+    const sortingTitle = getSortingTitle(title, alphaArticleHandling).trim();
+    const firstLetter = sortingTitle.charAt(0).toUpperCase();
+    if (!(firstLetter >= "A" && firstLetter <= "Z")) return "Other";
+    if (firstLetter >= "A" && firstLetter <= "D") return "A-D";
+    if (firstLetter >= "E" && firstLetter <= "H") return "E-H";
+    if (firstLetter >= "I" && firstLetter <= "L") return "I-L";
+    if (firstLetter >= "M" && firstLetter <= "P") return "M-P";
+    if (firstLetter >= "Q" && firstLetter <= "T") return "Q-T";
+    return "U-Z";
 }
 
 // Function to resolve relative Plex paths to absolute local paths

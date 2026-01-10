@@ -124,13 +124,120 @@ export function extractLocationFromEpisode(episodeData: any): string {
 }
 
 /**
+ * Check if a show is mapped by examining a few episodes.
+ * Returns true if any episode's path can be resolved using the path mappings.
+ */
+export function isShowMapped(episodeData: any, pathMappings: PathMapping[], serverId: string): { isMapped: boolean; location: string } {
+  const episodes = episodeData?.MediaContainer?.Metadata || episodeData?.MediaContainer?.Video || [];
+
+  // Check up to 3 episodes to find one that's mapped (performance optimization)
+  for (let i = 0; i < Math.min(episodes.length, 3); i++) {
+    const episode = episodes[i];
+    const media = episode.Media?.[0];
+    const part = media?.Part?.[0];
+    const filePath = part?.file ? String(part.file) : "";
+
+    if (filePath && canResolvePath(filePath, pathMappings, serverId)) {
+      return { isMapped: true, location: filePath };
+    }
+  }
+
+  // If no episodes are mapped, return the location of the first episode (if any)
+  const firstEpisode = episodes[0];
+  const firstMedia = firstEpisode?.Media?.[0];
+  const firstPart = firstMedia?.Part?.[0];
+  const firstFilePath = firstPart?.file ? String(firstPart.file) : "";
+
+  return { isMapped: false, location: firstFilePath };
+}
+
+/**
+ * Check if a Plex path can be resolved using the path mappings.
+ * Similar to the backend resolve_plex_path logic.
+ */
+function canResolvePath(plexPath: string, pathMappings: PathMapping[], serverId: string): boolean {
+  if (!plexPath) return false;
+
+  // Normalize path separators
+  const normalizedPath = plexPath.replace(/\\/g, '/');
+
+  console.log(`[canResolvePath] Checking path: ${normalizedPath} with ${pathMappings.length} mappings for server ${serverId}`);
+
+  // Find the best matching mapping for this server
+  let bestMatch: PathMapping | null = null;
+  let bestMatchLength = 0;
+
+  for (const mapping of pathMappings) {
+    console.log(`[canResolvePath] Checking mapping: server_id=${mapping.server_id}, plex_root=${mapping.plex_root}`);
+
+    // Check if mapping is for this server (similar to backend server_ids_match)
+    if (!serverIdsMatch(mapping.server_id, serverId)) {
+      console.log(`[canResolvePath] Skipping mapping - server ID doesn't match`);
+      continue;
+    }
+
+    // Normalize mapping root
+    const normalizedRoot = mapping.plex_root.replace(/\\/g, '/').replace(/\/$/, '');
+
+    console.log(`[canResolvePath] Comparing: "${normalizedPath}" starts with "${normalizedRoot}/"`);
+
+    // Check if the path starts with this root (same logic as backend)
+    if (normalizedPath === normalizedRoot || normalizedPath.startsWith(normalizedRoot + '/')) {
+      console.log(`[canResolvePath] Match found! Root length: ${normalizedRoot.length}`);
+      if (normalizedRoot.length > bestMatchLength) {
+        bestMatch = mapping;
+        bestMatchLength = normalizedRoot.length;
+        console.log(`[canResolvePath] This is the best match so far`);
+      }
+    } else {
+      console.log(`[canResolvePath] No match`);
+    }
+  }
+
+  const result = bestMatch !== null;
+  console.log(`[canResolvePath] Final result: ${result}`);
+  return result;
+}
+
+/**
+ * Check if two server IDs match (similar to backend server_ids_match function)
+ */
+function serverIdsMatch(mappingId: string, serverId: string): boolean {
+  if (mappingId === serverId) {
+    return true;
+  }
+
+  // Extract hostname from both IDs
+  function hostOnly(id: string): string {
+    // Remove scheme (http:// or https://)
+    let withoutScheme = id;
+    const schemeIndex = id.indexOf('://');
+    if (schemeIndex !== -1) {
+      withoutScheme = id.substring(schemeIndex + 3);
+    }
+
+    // Remove port (everything after first colon)
+    const colonIndex = withoutScheme.indexOf(':');
+    if (colonIndex !== -1) {
+      return withoutScheme.substring(0, colonIndex);
+    }
+
+    return withoutScheme;
+  }
+
+  return hostOnly(mappingId) === hostOnly(serverId);
+}
+
+
+/**
  * Clear all show mapping caches
  */
-export async function clearAllShowMappingCaches(): Promise<void> {
+export async function clearAllShowMappingCaches(): Promise<{total_files_found: number, files_removed: string[], cache_directory_exists: boolean} | undefined> {
   try {
-    await invoke<void>("clear_all_show_mapping_caches");
+    return await invoke("clear_all_show_mapping_caches");
   } catch (error) {
     console.warn("Failed to clear all show mapping caches:", error);
+    return undefined;
   }
 }
 

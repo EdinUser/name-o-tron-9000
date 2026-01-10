@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import Toggle from "../../components/Toggle";
 import Radio from "../../components/Radio";
 import { invoke } from "@tauri-apps/api/core";
@@ -15,6 +15,92 @@ function Section({title, children}: { title: string; children: React.ReactNode }
     );
 }
 
+function DiagnosticExportModal({
+    modal,
+    onClose
+}: {
+    modal: { success: boolean; path?: string; error?: string } | null;
+    onClose: () => void;
+}) {
+    if (!modal) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+            <div className="w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-900 p-6 shadow-xl">
+                <div className="mb-4 flex items-center gap-3">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                        modal.success ? 'bg-green-500/20' : 'bg-red-500/20'
+                    }`}>
+                        {modal.success ? (
+                            <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        ) : (
+                            <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        )}
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold text-neutral-100">
+                            {modal.success ? "Diagnostic Bundle Saved" : "Export Failed"}
+                        </h3>
+                        <p className="text-sm text-neutral-300">name-o-tron-9000</p>
+                    </div>
+                </div>
+
+                <div className="mb-6 text-neutral-200">
+                    {modal.success && modal.path ? (
+                        <div>
+                            <div className="text-sm mb-2">Diagnostic bundle saved to:</div>
+                            <div className="text-xs font-mono bg-neutral-800 px-3 py-2 rounded text-neutral-300 break-all">
+                                {modal.path}
+                            </div>
+                            <div className="mt-3 text-xs text-neutral-400">
+                                This bundle contains system information and logs to help with troubleshooting.
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="text-sm mb-2">Export failed:</div>
+                            <div className="text-sm text-red-300">
+                                {modal.error || "Unknown error occurred"}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex gap-3">
+                    {modal.success && modal.path && (
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const path = modal.path!;
+                                    const dirPath = path.substring(0, path.lastIndexOf('/') + 1) ||
+                                                  path.substring(0, path.lastIndexOf('\\') + 1) ||
+                                                  path;
+                                    await revealItemInDir(dirPath);
+                                } catch (error) {
+                                    console.error('Failed to open folder:', error);
+                                }
+                            }}
+                            className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700"
+                        >
+                            Open Folder
+                        </button>
+                    )}
+                    <button
+                        onClick={onClose}
+                        className="flex-1 rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+                    >
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function Row({label, children}: { label: string; children: React.ReactNode }) {
     return (
         <div className="flex items-center justify-between gap-3">
@@ -24,7 +110,18 @@ function Row({label, children}: { label: string; children: React.ReactNode }) {
     );
 }
 
-export function General({s, onChange}: { s: Settings; onChange: (v: Settings["general"]) => void }) {
+export function General({
+    s,
+    onChange
+}: {
+    s: Settings;
+    onChange: (v: Settings["general"]) => void;
+}) {
+    const [diagnosticModal, setDiagnosticModal] = useState<{
+        success: boolean;
+        path?: string;
+        error?: string;
+    } | null>(null);
     const g = s.general;
     const set = (patch: Partial<typeof g>) => onChange({...g, ...patch});
     const setEncoding = (patch: Partial<typeof g.encoding>) => onChange({...g, encoding: {...g.encoding, ...patch}});
@@ -65,9 +162,15 @@ export function General({s, onChange}: { s: Settings; onChange: (v: Settings["ge
 
             const path = target.endsWith(".zip") ? target : `${target}.zip`;
             const finalPath = await invoke<string>("export_diagnostic_bundle_zip", { targetPath: path });
-            alert(`Diagnostic bundle saved.\n\nPath: ${finalPath}`);
+            setDiagnosticModal({
+                success: true,
+                path: finalPath
+            });
         } catch (error) {
-            alert(`Failed to export diagnostic bundle: ${error}`);
+            setDiagnosticModal({
+                success: false,
+                error: String(error)
+            });
         }
     }
 
@@ -346,6 +449,11 @@ export function General({s, onChange}: { s: Settings; onChange: (v: Settings["ge
                     />
                 </Row>
             </Section>
+
+            <DiagnosticExportModal
+                modal={diagnosticModal}
+                onClose={() => setDiagnosticModal(null)}
+            />
         </>
     );
 }

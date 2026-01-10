@@ -1,18 +1,24 @@
-import {invoke} from "@tauri-apps/api/core";
 import {EDITION_PRIORITY, VIDEO_EXTS} from "./constants";
 import type {MovieItem, PreviewRow} from "./types";
-import {basename, extname, getHighestPriorityEdition, hasNonLatin, isItemMapped, normalizeUnicode, resolvePlexFilePath, safeFolderName, sanitizeProposal, sortEditionsByPriority,} from "./utils";
+import {
+    basename,
+    computeAlphaRangeFolder,
+    extname,
+    formatCollectionFolderName,
+    getHighestPriorityEdition,
+    getRelativePathUnderRoots,
+    getSortingTitle,
+    hasNonLatin,
+    isItemMapped,
+    normalizePathForComparison,
+    normalizeUnicode,
+    resolvePlexFilePath,
+    safeFolderName,
+    sanitizeProposal,
+    sortEditionsByPriority,
+    splitPathSegments,
+} from "./utils";
 import {detectEditionFromPathWithPriority, extractImdbId, extractTmdbId, extractTvdbId, mapEditionTokenToTitle, renderTemplate} from "../../utils/template";
-
-// Helper function to get sorting title (ignoring articles if configured)
-export function getSortingTitle(title: string, alphaArticleHandling: string): string {
-    if (alphaArticleHandling === "ignore") {
-        // Remove common articles from the beginning for sorting purposes
-        const articles = /^(the|a|an)\s+/i;
-        return title.replace(articles, "");
-    }
-    return title;
-}
 
 // Helper function to detect existing folder structure patterns
 export function detectExistingFolderStructure(folders: string[]): {
@@ -143,6 +149,87 @@ export function applyChronologicalPrefix(path: string, year?: number, chronologi
     return path;
 }
 
+type MovieLibraryHeuristics = {
+    flatRatio: number;
+    flatThreshold: number;
+};
+
+function safeJoinPath(segments: string[]): string {
+    return segments.filter(Boolean).join("/").replace(/\/+/g, "/");
+}
+
+function getMovieFolderSegments(
+    m: MovieItem,
+    settings: any,
+    collectionName: string,
+    libraryRoots: string[],
+    heuristics?: MovieLibraryHeuristics,
+    templateRelativeDirs?: string[],
+): { segments: string[]; decision: "preserved" | "reorganized" | "template"; currentRel: string | null } {
+    const currentRel = getRelativePathUnderRoots(m.file, libraryRoots);
+    const currentDirs = currentRel ? splitPathSegments(currentRel).slice(0, -1) : [];
+
+    const behavior: string = settings.movies?.folderStructureBehavior || "intelligent";
+    const mode: string = settings.movies?.folderStructure || "none";
+    const ownFolderPerMovie: boolean = !!settings.movies?.ownFolderPerMovie;
+    const collectionsEnabled: boolean = !!settings.movies?.collections?.enabled;
+
+    const shouldConsiderReorg =
+        behavior === "reorganize_all" ||
+        (behavior === "intelligent" && (heuristics?.flatRatio ?? 0) >= (heuristics?.flatThreshold ?? 0.8));
+
+    const currentDirCount = currentDirs.length;
+    const isFlatItem = currentDirCount === 0 || (ownFolderPerMovie && currentDirCount === 1);
+
+    if (behavior === "preserve_existing" || (behavior === "intelligent" && !shouldConsiderReorg)) {
+        if (currentDirs.length > 0) {
+            return { segments: currentDirs, decision: "preserved", currentRel };
+        }
+        if (ownFolderPerMovie) {
+            return { segments: [safeFolderName(m.title)], decision: "preserved", currentRel };
+        }
+        if (templateRelativeDirs?.length) {
+            return { segments: templateRelativeDirs.map(safeFolderName), decision: "template", currentRel };
+        }
+        return { segments: [], decision: "preserved", currentRel };
+    }
+
+    if (behavior === "intelligent" && !isFlatItem) {
+        return { segments: currentDirs, decision: "preserved", currentRel };
+    }
+
+    const segments: string[] = [];
+
+    if (collectionsEnabled && collectionName && collectionName.trim()) {
+        segments.push(formatCollectionFolderName(collectionName, settings));
+    }
+
+    if (mode === "alpha") {
+        const sortingTitle = getSortingTitle(m.title, settings.movies?.alphaArticleHandling || "ignore");
+        const firstLetter = sortingTitle.charAt(0).toUpperCase();
+        const alphaFolder = firstLetter >= "A" && firstLetter <= "Z" ? firstLetter : "Other";
+        segments.push(alphaFolder);
+    } else if (mode === "alpha_ranges") {
+        segments.push(computeAlphaRangeFolder(m.title, settings.movies?.alphaArticleHandling || "ignore"));
+    } else if (mode === "genre") {
+        const rawGenre = String(m.genre || "").split(/[,/]/).map((s) => s.trim()).filter(Boolean)[0] || "Unknown Genre";
+        segments.push(safeFolderName(rawGenre));
+    } else if (mode === "year_decade") {
+        if (m.year) {
+            const decade = Math.floor(m.year / 10) * 10;
+            segments.push(`${decade}s`);
+        } else {
+            segments.push("Unknown Year");
+        }
+    }
+
+    if (ownFolderPerMovie) {
+        segments.push(safeFolderName(m.title));
+    }
+
+    return { segments, decision: "reorganized", currentRel };
+}
+
 export async function computeMovieProposal(
     m: MovieItem,
     template: string,
@@ -151,7 +238,8 @@ export async function computeMovieProposal(
     collectionName: string,
     settings: any,
     libraryFolder: string | null,
-    libraryRoots: string[]
+    libraryRoots: string[],
+    heuristics?: MovieLibraryHeuristics,
 ): Promise<PreviewRow> {
 
     const ext = extname(m.file) || ".mkv";
@@ -285,6 +373,11 @@ export async function computeMovieProposal(
         proposed = `${m.title}${ext}`;
     }
 
+    const templateSegments = splitPathSegments(proposed);
+    const templateFileName = templateSegments[templateSegments.length - 1] || proposed;
+    const templateDirs = templateSegments.slice(0, -1);
+
+    proposed = templateFileName;
     if (!proposed.endsWith(ext)) proposed += ext; // safety net if template omitted {ext}
 
     // If user selected an edition mode and the template did not include any edition
@@ -305,33 +398,21 @@ export async function computeMovieProposal(
         }
     }
 
-    // Ask backend to apply folder structure logic and preserve existing grouping
-    try {
-        const response = await (invoke as any)("compute_movie_destinations", {
-            request: {
-                settings,
-                library_roots: libraryRoots,
-                items: [
-                    {
-                        rating_key: m.ratingKey,
-                        original_path: m.file,
-                        base_name: proposed,
-                        title: m.title,
-                        year: m.year ?? null,
-                    },
-                ],
-            },
-        }) as { rating_key: string; proposed: string }[];
-        const matched = Array.isArray(response)
-            ? response.find((r) => r.rating_key === m.ratingKey)
-            : null;
-        if (matched && matched.proposed) {
-            proposed = matched.proposed;
-        }
-    } catch (error) {
-        console.error("Failed to compute movie destination via backend", error);
-        // Fallback: keep template-based filename without additional folders
+    const { segments: folderSegments, currentRel } = getMovieFolderSegments(
+        m,
+        settings,
+        collectionName,
+        libraryRoots,
+        heuristics,
+        templateDirs,
+    );
+    if (folderSegments.length) {
+        proposed = safeJoinPath([...folderSegments, proposed]);
+    } else if (templateDirs.length && (settings.movies?.folderStructureBehavior === "preserve_existing" || settings.movies?.folderStructure === "none")) {
+        proposed = safeJoinPath([...templateDirs.map(safeFolderName), proposed]);
     }
+
+    proposed = applyChronologicalPrefix(proposed, m.year, settings.movies?.chronologicalPrefix || "none");
 
     proposed = normalizeUnicode(proposed);
 
@@ -369,6 +450,16 @@ export async function computeMovieProposal(
     if (sanitized) {
         // Use the sanitized filename instead of the original
         proposed = proposed.replace(basename(proposed), sanitized);
+    }
+
+    // Compliance check: if current relative path matches proposed, treat as no-op
+    if (currentRel) {
+        const proposedNorm = normalizePathForComparison(proposed);
+        const currentNorm = normalizePathForComparison(currentRel);
+        if (proposedNorm === currentNorm) {
+            proposed = currentRel;
+            flags.push("already-compliant");
+        }
     }
 
     let status: PreviewRow["status"] = "good";

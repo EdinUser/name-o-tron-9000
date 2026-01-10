@@ -103,6 +103,22 @@ mod tests {
         txt.lines().filter(|l| !l.trim().is_empty()).last().map(|s| s.to_string())
     }
 
+    fn read_last_log_line_for_component(path: &PathBuf, component: &str) -> Option<String> {
+        let txt = fs::read_to_string(path).ok()?;
+        txt.lines()
+            .filter(|l| !l.trim().is_empty())
+            .rev()
+            .find_map(|line| {
+                let v: JsonValue = serde_json::from_str(line).ok()?;
+                let c = v.get("component")?.as_str()?;
+                if c == component {
+                    Some(line.to_string())
+                } else {
+                    None
+                }
+            })
+    }
+
     #[test]
     fn log_event_masks_ips_and_redacts_paths() {
         let dir = log_dir();
@@ -122,7 +138,9 @@ mod tests {
             }),
         );
 
-        let line = read_last_log_line(&log_path).expect("log line");
+        let line = read_last_log_line_for_component(&log_path, "test_component")
+            .or_else(|| read_last_log_line(&log_path))
+            .expect("log line");
         let v: JsonValue = serde_json::from_str(&line).expect("valid json");
 
         // message and context.server should have masked IPs

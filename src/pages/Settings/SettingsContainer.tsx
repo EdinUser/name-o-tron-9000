@@ -23,6 +23,14 @@ export default function SettingsContainer({onClose}: Props) {
     const [dragStartModalPos, setDragStartModalPos] = useState({ x: 0, y: 0 });
     const [justFinishedDragging, setJustFinishedDragging] = useState(false);
     const [originalBodyOverflow, setOriginalBodyOverflow] = useState<string>("");
+    const [settingsExportModal, setSettingsExportModal] = useState<{
+        success: boolean;
+        path?: string;
+        error?: string;
+    } | null>(null);
+    const [settingsImportModal, setSettingsImportModal] = useState<{
+        success: boolean;
+    } | null>(null);
 
     // Update local settings when global settings change
     useEffect(() => {
@@ -80,20 +88,27 @@ export default function SettingsContainer({onClose}: Props) {
                     contents: settingsJson
                 });
 
-                alert("Settings exported successfully!");
+                setSettingsExportModal({
+                    success: true,
+                    path: filePath
+                });
                 console.log("Settings exported to file:", filePath);
             }
             // If user cancelled, filePath will be null - do nothing
         } catch (error) {
             console.error("Failed to export settings:", error);
-            alert("Failed to export settings. Please try again.");
+            setSettingsExportModal({
+                success: false,
+                error: String(error)
+            });
         }
     }
 
     async function importSettings() {
+        // Create file input element
+        const input = document.createElement('input');
+
         try {
-            // Create file input element
-            const input = document.createElement('input');
             input.type = 'file';
             input.accept = '.json';
             input.style.display = 'none';
@@ -101,7 +116,10 @@ export default function SettingsContainer({onClose}: Props) {
             // Handle file selection
             input.onchange = async (event) => {
                 const file = (event.target as HTMLInputElement).files?.[0];
-                if (!file) return;
+                if (!file) {
+                    removeInput();
+                    return;
+                }
 
                 try {
                     const text = await file.text();
@@ -113,21 +131,38 @@ export default function SettingsContainer({onClose}: Props) {
                     setHasChanges(true);
                     updateSettings(mergedSettings);
 
-                    alert("Settings imported successfully!");
-                    console.log("Settings imported successfully");
+                    setSettingsImportModal({
+                        success: true
+                    });
+                    removeInput();
                 } catch (parseError) {
-                    alert("Failed to parse settings JSON. Please check the file format and try again.");
+                    setSettingsImportModal({
+                        success: false
+                    });
                     console.error("Failed to parse imported settings:", parseError);
+                    removeInput();
                 }
             };
 
             // Trigger file dialog
             document.body.appendChild(input);
             input.click();
-            document.body.removeChild(input);
+
+            // Remove input after file processing is complete
+            const removeInput = () => {
+                if (document.body.contains(input)) {
+                    document.body.removeChild(input);
+                }
+            };
         } catch (error) {
             console.error("Failed to import settings:", error);
-            alert("Failed to import settings. Please try again.");
+            setSettingsImportModal({
+                success: false
+            });
+            // Clean up input element
+            if (document.body.contains(input)) {
+                document.body.removeChild(input);
+            }
         }
     }
 
@@ -323,6 +358,10 @@ export default function SettingsContainer({onClose}: Props) {
             onHandleMouseUp={handleMouseUp}
             onSetIsEditionParsersModalOpen={setIsEditionParsersModalOpen}
             onToggleTheme={toggleTheme}
+            settingsExportModal={settingsExportModal}
+            settingsImportModal={settingsImportModal}
+            onCloseSettingsExportModal={() => setSettingsExportModal(null)}
+            onCloseSettingsImportModal={() => setSettingsImportModal(null)}
         />
     );
 }

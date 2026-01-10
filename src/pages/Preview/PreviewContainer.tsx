@@ -5,7 +5,7 @@ import {useSettings} from "../../state/settings";
 import {useTheme} from "../../state/theme";
 import type {Props, MovieItem, EpisodeItem, MusicItem, PreviewRow, SectionResponse} from "./types";
 import {computeMovieProposal} from "./movieProposal";
-import {computeEpisodeProposal} from "./episodeProposal";
+import {computeEpisodeProposal, computeMultiEpisodeProposal} from "./episodeProposal";
 import {computeMusicProposal} from "./musicProposal";
 import {
     parseEpisodeInfo,
@@ -18,6 +18,10 @@ import { attachSubtitleOperations } from "./subtitleMapping";
 
 // Functions are now imported from separate modules
 
+
+// Plex refresh functionality temporarily disabled
+// TODO: Re-enable with improved approach that doesn't trigger full library scans
+// The backend infrastructure remains available for future implementation
 export default function PreviewContainer({server, library, onBack}: Props) {
     const { settings, updateSettings, settingsVersion } = useSettings();
     const { resolvedTheme, toggleTheme } = useTheme();
@@ -54,6 +58,25 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [showMapModal, setShowMapModal] = useState(false);
     const [showTemplateHelp, setShowTemplateHelp] = useState(false);
     const [editingItem, setEditingItem] = useState<PreviewRow | null>(null);
+    const [renameResultModal, setRenameResultModal] = useState<{
+        success: boolean;
+        operations_applied: number;
+        operations_failed: number;
+        rollback_log_path: string;
+        errors: string[];
+    } | null>(null);
+    const [undoResultModal, setUndoResultModal] = useState<{
+        success: boolean;
+        operations_applied: number;
+        operations_failed: number;
+        rollback_log_path: string;
+        errors: string[];
+    } | null>(null);
+    const [previewExportModal, setPreviewExportModal] = useState<{
+        success: boolean;
+        path?: string;
+        error?: string;
+    } | null>(null);
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
     const [statusFilter, setStatusFilter] = useState<string>("all"); // "all", "good", "warning", "error", "unmatched"
@@ -69,6 +92,33 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const prefetchedSecondPageRef = useRef(false);
     const processedCountRef = useRef(0);
     const lastSettingsVersionRef = useRef(settingsVersion);
+
+    const MOVIE_INTELLIGENT_FLAT_THRESHOLD = 0.8;
+
+    function computeMovieLibraryHeuristics(paths: string[]): { flatRatio: number; flatThreshold: number } {
+        const roots = library.roots || [];
+        if (!paths.length || !roots.length) {
+            return { flatRatio: 1, flatThreshold: MOVIE_INTELLIGENT_FLAT_THRESHOLD };
+        }
+
+        const ownFolderPerMovie = !!settings.movies?.ownFolderPerMovie;
+        let total = 0;
+        let flat = 0;
+
+        for (const p of paths) {
+            if (!p) continue;
+            const rel = shortenFilePath(p, roots);
+            if (!rel || rel === p) continue;
+            total += 1;
+            const normalized = rel.replace(/\\/g, '/');
+            const dirCount = Math.max(0, normalized.split('/').length - 1);
+            const isFlatItem = dirCount === 0 || (ownFolderPerMovie && dirCount === 1);
+            if (isFlatItem) flat += 1;
+        }
+
+        const flatRatio = total > 0 ? flat / total : 1;
+        return { flatRatio, flatThreshold: MOVIE_INTELLIGENT_FLAT_THRESHOLD };
+    }
 
     // Apply / cleanup state
     const [applyInProgress, setApplyInProgress] = useState(false);
@@ -617,7 +667,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         total: filteredEpisodes.length,
                         exhausted: true,
                         start: filteredEpisodes.length,
-                        size: episodesPaging.size
+                        size: prev.size
                     }));
                 } else {
                     // Real season with its own key - make API call using the season's key directly
@@ -636,7 +686,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         plexKey: seasonData.key,
                         token,
                         start: 0,
-                        size: episodesPaging.size,
+                        size: 50, // Use fixed size instead of state variable
                     });
 
                     // Ignore out-of-order responses (user switched seasons quickly)
@@ -660,9 +710,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     setEpisodesPaging(prev => ({
                         ...prev,
                         total,
-                        exhausted: md.length < episodesPaging.size,
+                        exhausted: md.length < prev.size,
                         start: returned,
-                        size: episodesPaging.size
+                        size: prev.size
                     }));
 
                     const newEpisodes: EpisodeItem[] = [];
@@ -809,35 +859,80 @@ export default function PreviewContainer({server, library, onBack}: Props) {
 
             setPreviewLoading(true);
 
-            const tasks = itemsToProcess.map(async (item) => {
-                if (item.type === "movie") {
-                    const m = item as MovieItem;
-                    const collections = (m as any).Collection || (m as any).collection || [];
-                    const collectionName = Array.isArray(collections) && collections.length > 0
-                        ? (collections[0]?.tag || collections[0])
-                        : "";
-                    const tpl = settings.templates.movie || template;
-                    const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
-                    row.metadata = m;
-                    return row;
+            // Separate episodes from other items for multi-episode handling
+            const episodes = itemsToProcess.filter(item => item.type === "episode") as EpisodeItem[];
+            const nonEpisodes = itemsToProcess.filter(item => item.type !== "episode");
+
+            // Group episodes by file path for multi-episode detection
+            const episodesByFile: { [filePath: string]: EpisodeItem[] } = {};
+            for (const episode of episodes) {
+                const resolvedPath = resolvePlexFilePath(episode.file, libraryFolder);
+                if (!episodesByFile[resolvedPath]) {
+                    episodesByFile[resolvedPath] = [];
                 }
-                if (item.type === "music") {
-                    const m = item as MusicItem;
-                    const tpl = settings.templates.music || template;
-                    const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || []);
-                    row.metadata = m;
-                    return row;
-                }
-                if (item.type === "episode") {
-                    const e = item as EpisodeItem;
-                    const tpl = settings.templates.episode || template;
-                    const useSeasonFolders = !!settings.tv.seasonFolders;
-                    const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder, library.roots || []);
-                    proposal.metadata = e;
-                    return proposal;
-                }
-                return null;
-            });
+                episodesByFile[resolvedPath].push(episode);
+            }
+
+            const movieHeuristics = computeMovieLibraryHeuristics(
+                rawItems.filter((it) => it.type === "movie").map((it) => (it as MovieItem).file),
+            );
+
+            const tasks = [
+                // Process non-episode items
+                ...nonEpisodes.map(async (item) => {
+                    if (item.type === "movie") {
+                        const m = item as MovieItem;
+                        const collections = (m as any).Collection || (m as any).collection || [];
+                        const collectionName = Array.isArray(collections) && collections.length > 0
+                            ? (collections[0]?.tag || collections[0])
+                            : "";
+                        const tpl = settings.templates.movie || template;
+                        const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
+                        row.metadata = m;
+                        return row;
+                    }
+                    if (item.type === "music") {
+                        const m = item as MusicItem;
+                        const tpl = settings.templates.music || template;
+                        const row = await computeMusicProposal(m, tpl, settings, libraryFolder, library.roots || []);
+                        row.metadata = m;
+                        return row;
+                    }
+                    return null;
+                }),
+                // Process episodes grouped by file
+                ...Object.entries(episodesByFile).map(async ([filePath, fileEpisodes]) => {
+                    try {
+                        const tpl = settings.templates.episode || template;
+                        const useSeasonFolders = !!settings.tv.seasonFolders;
+
+                        if (!fileEpisodes || fileEpisodes.length === 0) {
+                            console.error("Empty fileEpisodes for path:", filePath);
+                            return null;
+                        }
+
+                        if (fileEpisodes.length === 1) {
+                            // Single episode
+                            const e = fileEpisodes[0];
+                            if (!e) {
+                                console.error("Undefined episode in fileEpisodes");
+                                return null;
+                            }
+                            const proposal = await computeEpisodeProposal(e, tpl, useSeasonFolders, settings, libraryFolder, library.roots || []);
+                            proposal.metadata = e;
+                            return proposal;
+                        } else {
+                            // Multi-episode file
+                            const proposal = await computeMultiEpisodeProposal(fileEpisodes, tpl, useSeasonFolders, settings, libraryFolder, library.roots || []);
+                            proposal.metadata = fileEpisodes[0];
+                            return proposal;
+                        }
+                    } catch (error) {
+                        console.error("Error processing episodes for file:", filePath, error);
+                        return null;
+                    }
+                })
+            ];
 
             const newRows = (await Promise.all(tasks)).filter(Boolean) as PreviewRow[];
 
@@ -1086,7 +1181,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 thumb: String(item.thumb ?? ""),
                             };
                             const tpl = settings.templates.movie || template;
-                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
+                            const movieHeuristics = computeMovieLibraryHeuristics(
+                                rawItemsRef.current
+                                    .filter((it) => it.type === "movie")
+                                    .map((it) => (it as MovieItem).file)
+                                    .concat([filePath]),
+                            );
+                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
                             row.metadata = m; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -1312,6 +1413,27 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 operations,
             });
 
+            // Refresh Plex metadata after successful renames
+            // TEMPORARILY DISABLED: Path-based refresh triggers unwanted full library scans
+            // TODO: Re-enable once we have a better approach that doesn't cause full scans
+            if (result.success && result.operations_applied > 0) {
+                console.log("[Preview] Plex refresh temporarily disabled to avoid triggering full library scans");
+                console.log("[Preview] Rename operations completed successfully - files may appear as 'Unavailable' in Plex until manual refresh");
+
+                // Future: Re-enable with improved approach
+                // console.log("[Preview] Waiting 2 seconds before Plex refresh to ensure filesystem operations are committed...");
+                // await new Promise(resolve => setTimeout(resolve, 2000));
+                // try {
+                //     await refreshPlexMetadataAfterRenames(operations, server, library);
+                // } catch (refreshError) {
+                //     console.warn("[Preview] Failed to refresh Plex metadata:", refreshError);
+                //     if (String(refreshError).includes("401") || String(refreshError).includes("Unauthorized")) {
+                //         console.warn("[Preview] Plex refresh failed due to authentication. Please log in to Plex first.");
+                //         alert("⚠️ Plex Refresh Failed\n\nThe rename operation succeeded, but Plex couldn't be updated because you're not logged in.\n\nPlease go back to the Home screen and authenticate with Plex first for automatic refreshes to work.");
+                //     }
+                // }
+            }
+
             if (!result.success) {
                 // Log detailed errors to console
                 console.error("Failed to apply renames:", {
@@ -1321,16 +1443,23 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     errors: result.errors
                 });
 
-                // Show detailed errors to user
-                const errorDetails = result.errors && result.errors.length > 0
-                    ? `\n\nError details:\n${result.errors.slice(0, 5).join('\n')}${result.errors.length > 5 ? `\n... and ${result.errors.length - 5} more errors` : ''}`
-                    : '';
-
-                alert(`Applied ${result.operations_applied} operations, but ${result.operations_failed} failed.\n\nRollback log saved to: ${result.rollback_log_path}${errorDetails}\n\nCheck console (F12) for complete error details.`);
+                setRenameResultModal({
+                    success: result.success,
+                    operations_applied: result.operations_applied,
+                    operations_failed: result.operations_failed,
+                    rollback_log_path: result.rollback_log_path,
+                    errors: result.errors || []
+                });
             }
         } catch (error) {
             console.error("Failed to apply renames:", error);
-            alert(`Failed to apply renames: ${error}`);
+            setRenameResultModal({
+                success: false,
+                operations_applied: 0,
+                operations_failed: 0,
+                rollback_log_path: "",
+                errors: [String(error)]
+            });
         } finally {
             setLoading(false);
             setApplyInProgress(false);
@@ -1388,7 +1517,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             const result = await invoke<any>("undo_last_rename");
 
             if (result.success) {
-                alert(`Successfully undid ${result.operations_applied} operations.`);
+                setUndoResultModal({
+                    success: true,
+                    operations_applied: result.operations_applied,
+                    operations_failed: result.operations_failed,
+                    rollback_log_path: result.rollback_log_path,
+                    errors: result.errors || []
+                });
                 // Reload the page to reflect changes
                 setReloadTick(t => t + 1);
             } else {
@@ -1400,16 +1535,23 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     errors: result.errors
                 });
 
-                // Show detailed errors to user
-                const errorDetails = result.errors && result.errors.length > 0
-                    ? `\n\nError details:\n${result.errors.slice(0, 5).join('\n')}${result.errors.length > 5 ? `\n... and ${result.errors.length - 5} more errors` : ''}`
-                    : '';
-
-                alert(`Undid ${result.operations_applied} operations, but ${result.operations_failed} failed.\n\nRollback log saved to: ${result.rollback_log_path}${errorDetails}\n\nCheck console (F12) for complete error details.`);
+                setUndoResultModal({
+                    success: false,
+                    operations_applied: result.operations_applied,
+                    operations_failed: result.operations_failed,
+                    rollback_log_path: result.rollback_log_path,
+                    errors: result.errors || []
+                });
             }
         } catch (error) {
             console.error("Failed to undo renames:", error);
-            alert(`Failed to undo renames: ${error}`);
+            setUndoResultModal({
+                success: false,
+                operations_applied: 0,
+                operations_failed: 0,
+                rollback_log_path: "",
+                errors: [String(error)]
+            });
         } finally {
             setLoading(false);
         }
@@ -1473,9 +1615,15 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             };
 
             const path = await invoke<string>("export_preview_snapshot", { snapshot });
-            alert(`Preview snapshot saved.\n\nPath: ${path}`);
+            setPreviewExportModal({
+                success: true,
+                path: path
+            });
         } catch (error) {
-            alert(`Failed to export preview snapshot: ${error}`);
+            setPreviewExportModal({
+                success: false,
+                error: String(error)
+            });
         }
     }
 
@@ -1621,7 +1769,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     thumb: String(item.thumb ?? ""),
                 };
                 const tpl = settings.templates.movie || template;
-                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || []);
+                const movieHeuristics = computeMovieLibraryHeuristics(
+                    rowsRef.current
+                        .filter((r) => r.kind === "movie")
+                        .map((r) => r.plexPath || r.filePath)
+                        .concat([String(file)]),
+                );
+                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
                 row.metadata = m; // Store original metadata for popover
                 more.push(row);
             }
@@ -1709,6 +1863,12 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             showMapModal={showMapModal}
             showTemplateHelp={showTemplateHelp}
             editingItem={editingItem}
+            renameResultModal={renameResultModal}
+            undoResultModal={undoResultModal}
+            previewExportModal={previewExportModal}
+            onCloseRenameResultModal={() => setRenameResultModal(null)}
+            onCloseUndoResultModal={() => setUndoResultModal(null)}
+            onClosePreviewExportModal={() => setPreviewExportModal(null)}
             popoverData={popoverData}
             searchQuery={searchQuery}
             statusFilter={statusFilter}
