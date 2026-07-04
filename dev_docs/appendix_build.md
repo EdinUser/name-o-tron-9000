@@ -38,11 +38,12 @@ npm run tauri dev
 - `npm run build` - Build for production
 - `npm run tauri build` - Build cross-platform packages
 - `npm run mock:plex` - Start mock Plex server with test data
-- `npm run lint` - Run ESLint on frontend code
-- `npm run type-check` - Run TypeScript compiler checks
-- `npm test` - Run Vitest test suite
+- `npm test` - Run the frontend Vitest suite once
+- `npm run test:watch` - Run Vitest in watch mode
 - `npm run test:coverage` - Run tests with coverage report
-- `npm run test:ci` - Run TypeScript checks for CI
+- `npm run test:types` - Run TypeScript compiler checks
+- `npm run test:rust` - Run Rust tests from the root via `src-tauri/Cargo.toml`
+- `npm run test:all` - Run TypeScript, Vitest, and Rust tests from the repo root
 
 ### Building from Source
 
@@ -153,7 +154,7 @@ npm run tauri build -- --target x86_64-unknown-linux-gnu
 ### Test Infrastructure
 
 #### Mock Plex Server
-- **Location**: `tests/mock-plex-server.cjs`
+- **Location**: `tests/mock-plex/mock-plex-server.cjs`
 - **Data**: Comprehensive test fixtures in `tests/` directory
 - **Libraries**: Movies, TV Shows, Music with realistic metadata
 
@@ -164,14 +165,14 @@ Comprehensive React component and state management testing:
 - **Location**: `src/**/__tests__/*.test.tsx`
 - **Framework**: Vitest with React Testing Library
 - **Coverage**: Settings management, manual fixes, hooks, error handling
-- **Run**: `npm test` or `npm run test:coverage`
+- **Run**: `npm test`, `npm run test:watch`, or `npm run test:coverage`
 
 ##### Backend Tests (Rust)
 Comprehensive Rust backend functionality testing:
 - **Location**: `src-tauri/tests/*.rs`
 - **Framework**: Built-in Rust testing with cargo
 - **Coverage**: Settings persistence, deep merge, concurrency, integration
-- **Run**: `cargo test` or `cargo test --test <test_name>`
+- **Run**: `npm run test:rust` or `cargo test --manifest-path src-tauri/Cargo.toml --test <test_name>`
 
 #### Test Categories
 - **Unit Tests**: Individual function and component testing
@@ -197,8 +198,9 @@ Comprehensive Rust backend functionality testing:
 
 #### Version Management
 - **Semantic Versioning**: MAJOR.MINOR.PATCH format
-- **Release Branches**: `release/v*` branches for stabilization
-- **Tags**: Git tags for immutable release points
+- **Integration Branch**: `develop` for ongoing work and feature integration
+- **Protected Release Branch**: `main` for reviewed, releasable changes only
+- **Tags**: `v*` tags cut from `main` for immutable release points
 
 #### Distribution Channels
 - **GitHub Releases**: Primary distribution channel with auto-update support
@@ -225,6 +227,12 @@ Comprehensive Rust backend functionality testing:
 - **Rust**: Follow official Rust style guide, use `rustfmt`
 - **TypeScript**: ESLint configuration in `.eslintrc.js`
 - **Commits**: Conventional commit format for automated releases
+
+#### Branching Workflow
+- **Feature Branches**: Branch from `develop` using `feat/*`, `fix/*`, or `chore/*`
+- **Integration**: Merge feature branches into `develop` through pull requests
+- **Release Promotion**: Merge `develop` into `main` only for release preparation
+- **Protection**: Keep `main` locked behind reviews and CI checks in GitHub settings
 
 #### Testing Requirements
 - **New Features**: Must include unit tests

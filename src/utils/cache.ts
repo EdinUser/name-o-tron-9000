@@ -1,5 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 
+function debugCache(...args: unknown[]) {
+  if (typeof window !== "undefined" && (window as any).__NAMEOTRON_DEBUG_CACHE__) {
+    console.debug(...args);
+  }
+}
+
 export interface ShowMappingData {
   isMapped: boolean;
   location: string;
@@ -46,10 +52,10 @@ export async function generateMappingsChecksum(mappings: PathMapping[], serverId
   const payload: any = { serverId, server_id: serverId, mappings: camelMappings };
 
   try {
-    console.debug("[cache] generateMappingsChecksum → input", { serverId, mappingsSample: mappings?.[0], mappingsLength: mappings?.length });
-    console.debug("[cache] generateMappingsChecksum → payload", payload);
+    debugCache("[cache] generateMappingsChecksum → input", { serverId, mappingsSample: mappings?.[0], mappingsLength: mappings?.length });
+    debugCache("[cache] generateMappingsChecksum → payload", payload);
     const result = await invoke<string>("generate_mappings_checksum_cmd", payload);
-    console.debug("[cache] generateMappingsChecksum ← result", result);
+    debugCache("[cache] generateMappingsChecksum ← result", result);
     return result;
   } catch (err) {
     console.error("[cache] generateMappingsChecksum × error", err);
@@ -63,9 +69,9 @@ export async function generateMappingsChecksum(mappings: PathMapping[], serverId
 export async function loadShowMappingCache(serverId: string, libraryId: string): Promise<ShowMappingCache | null> {
   try {
     const payload = { serverId, server_id: serverId, libraryId, library_id: libraryId };
-    console.debug("[cache] loadShowMappingCache →", payload);
+    debugCache("[cache] loadShowMappingCache →", payload);
     const result = await invoke<ShowMappingCache | null>("load_show_mapping_cache", payload);
-    console.debug("[cache] loadShowMappingCache ←", { hasResult: !!result, keys: result ? Object.keys(result) : [] });
+    debugCache("[cache] loadShowMappingCache ←", { hasResult: !!result, keys: result ? Object.keys(result) : [] });
     return result;
   } catch (error) {
     console.warn("Failed to load show mapping cache:", error);
@@ -79,9 +85,9 @@ export async function loadShowMappingCache(serverId: string, libraryId: string):
 export async function saveShowMappingCache(serverId: string, libraryId: string, cache: ShowMappingCache): Promise<void> {
   try {
     const payload = { serverId, server_id: serverId, libraryId, library_id: libraryId, cache };
-    console.debug("[cache] saveShowMappingCache →", { serverId, libraryId, cacheSummary: { lastUpdated: cache?.lastUpdated, shows: cache ? Object.keys(cache.shows || {}).length : 0 } });
+    debugCache("[cache] saveShowMappingCache →", { serverId, libraryId, cacheSummary: { lastUpdated: cache?.lastUpdated, shows: cache ? Object.keys(cache.shows || {}).length : 0 } });
     await invoke<void>("save_show_mapping_cache", payload);
-    console.debug("[cache] saveShowMappingCache ← ok");
+    debugCache("[cache] saveShowMappingCache ← ok");
   } catch (error) {
     console.warn("Failed to save show mapping cache:", error);
   }
@@ -93,9 +99,9 @@ export async function saveShowMappingCache(serverId: string, libraryId: string, 
 export async function invalidateShowMappingCache(serverId: string, libraryId: string): Promise<void> {
   try {
     const payload = { serverId, server_id: serverId, libraryId, library_id: libraryId };
-    console.debug("[cache] invalidateShowMappingCache →", payload);
+    debugCache("[cache] invalidateShowMappingCache →", payload);
     await invoke<void>("invalidate_show_mapping_cache", payload);
-    console.debug("[cache] invalidateShowMappingCache ← ok");
+    debugCache("[cache] invalidateShowMappingCache ← ok");
   } catch (error) {
     console.warn("Failed to invalidate show mapping cache:", error);
   }
@@ -161,41 +167,39 @@ function canResolvePath(plexPath: string, pathMappings: PathMapping[], serverId:
   // Normalize path separators
   const normalizedPath = plexPath.replace(/\\/g, '/');
 
-  console.log(`[canResolvePath] Checking path: ${normalizedPath} with ${pathMappings.length} mappings for server ${serverId}`);
+  debugCache(`[canResolvePath] Checking path: ${normalizedPath} with ${pathMappings.length} mappings for server ${serverId}`);
 
   // Find the best matching mapping for this server
   let bestMatch: PathMapping | null = null;
   let bestMatchLength = 0;
 
   for (const mapping of pathMappings) {
-    console.log(`[canResolvePath] Checking mapping: server_id=${mapping.server_id}, plex_root=${mapping.plex_root}`);
+    debugCache(`[canResolvePath] Checking mapping: server_id=${mapping.server_id}, plex_root=${mapping.plex_root}`);
 
     // Check if mapping is for this server (similar to backend server_ids_match)
     if (!serverIdsMatch(mapping.server_id, serverId)) {
-      console.log(`[canResolvePath] Skipping mapping - server ID doesn't match`);
+      debugCache(`[canResolvePath] Skipping mapping - server ID doesn't match`);
       continue;
     }
 
     // Normalize mapping root
     const normalizedRoot = mapping.plex_root.replace(/\\/g, '/').replace(/\/$/, '');
 
-    console.log(`[canResolvePath] Comparing: "${normalizedPath}" starts with "${normalizedRoot}/"`);
+    debugCache(`[canResolvePath] Comparing: "${normalizedPath}" starts with "${normalizedRoot}/"`);
 
     // Check if the path starts with this root (same logic as backend)
     if (normalizedPath === normalizedRoot || normalizedPath.startsWith(normalizedRoot + '/')) {
-      console.log(`[canResolvePath] Match found! Root length: ${normalizedRoot.length}`);
+      debugCache(`[canResolvePath] Match found! Root length: ${normalizedRoot.length}`);
       if (normalizedRoot.length > bestMatchLength) {
         bestMatch = mapping;
         bestMatchLength = normalizedRoot.length;
-        console.log(`[canResolvePath] This is the best match so far`);
+        debugCache(`[canResolvePath] This is the best match so far`);
       }
-    } else {
-      console.log(`[canResolvePath] No match`);
     }
   }
 
   const result = bestMatch !== null;
-  console.log(`[canResolvePath] Final result: ${result}`);
+  debugCache(`[canResolvePath] Final result: ${result}`);
   return result;
 }
 

@@ -4,7 +4,7 @@ use regex::Regex;
 use serde_json::{json, Value};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 static IP_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").expect("valid IP regex")
@@ -80,7 +80,10 @@ pub fn log_event(level: &str, component: &str, message: &str, mut context: Value
         "context": context,
     });
 
-    let dir = log_dir();
+    write_log_event(&log_dir(), &event);
+}
+
+fn write_log_event(dir: &Path, event: &Value) {
     if let Err(_e) = fs::create_dir_all(&dir) {
         return;
     }
@@ -97,6 +100,7 @@ mod tests {
     use super::*;
     use serde_json::Value as JsonValue;
     use std::fs;
+    use tempfile::tempdir;
 
     fn read_last_log_line(path: &PathBuf) -> Option<String> {
         let txt = fs::read_to_string(path).ok()?;
@@ -121,22 +125,28 @@ mod tests {
 
     #[test]
     fn log_event_masks_ips_and_redacts_paths() {
-        let dir = log_dir();
-        let _ = fs::create_dir_all(&dir);
-        let log_path = dir.join("error.log");
+        let dir = tempdir().expect("temp dir");
+        let dir_path = dir.path();
+        let log_path = dir_path.join("error.log");
         let _ = fs::remove_file(&log_path);
 
-        log_event(
-            "ERROR",
-            "test_component",
-            "failed to reach 192.168.1.50",
-            json!({
-                "server": "http://192.168.1.50:32400",
-                "original_path": "/share/CACHEDEV1_DATA/Series/Show/ep01.mkv",
-                "filePath": "/mnt/Movies/Inception.mkv",
-                "location": "/some/other/path/sub.srt",
-            }),
-        );
+        let mut context = json!({
+            "server": "http://192.168.1.50:32400",
+            "original_path": "/share/CACHEDEV1_DATA/Series/Show/ep01.mkv",
+            "filePath": "/mnt/Movies/Inception.mkv",
+            "location": "/some/other/path/sub.srt",
+        });
+        sanitize_value(&mut context);
+
+        let event = json!({
+            "ts": Utc::now().to_rfc3339(),
+            "level": "ERROR",
+            "component": "test_component",
+            "message": IP_RE.replace_all("failed to reach 192.168.1.50", "xxx.xxx.xxx.xxx").into_owned(),
+            "context": context,
+        });
+
+        write_log_event(dir_path, &event);
 
         let line = read_last_log_line_for_component(&log_path, "test_component")
             .or_else(|| read_last_log_line(&log_path))

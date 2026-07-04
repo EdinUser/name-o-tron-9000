@@ -2,30 +2,34 @@ name: Build Name-o-Tron 9000 App (Cross-Platform)
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
 
 jobs:
   # =====================================================
   # LINUX BUILD (runs on YOUR MINT MACHINE)
   # =====================================================
   build-linux:
-    runs-on: [self-hosted, mint]
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'develop') }}
+    runs-on: [self-hosted, linux, mint]
     permissions:
       contents: write
     env:
       SKIP_APT_INSTALL: "true"
 
     steps:
-      - name: Read version from package.json
-        id: app-version
-        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           clean: true
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.ref }}
+
+      - name: Read version from package.json
+        id: app-version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Install Linux dependencies
         if: ${{ env.SKIP_APT_INSTALL != 'true' }}
@@ -91,11 +95,12 @@ jobs:
             libgtk-3-0 \
             libgdk-pixbuf2.0-0
 
-      # Tests are run in CI on PRs to main; skipping here for faster release builds.
+      # Tests are run in CI on PRs to develop and main; skipping here for post-merge build speed.
       # - name: Run tests
       #   run: |
-      #     npm run test:ci
-      #     cd src-tauri && cargo test
+      #     npm run test:types
+      #     npm test
+      #     npm run test:rust
 
       - name: Build Tauri App (Linux)
         uses: tauri-apps/tauri-action@v0
@@ -104,14 +109,10 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: "1"
           TAURI_BUILD_VERSION: ${{ steps.app-version.outputs.version }}
         with:
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || format('Release {0}', steps.app-version.outputs.version) }}
-          releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || format('Build {0}', steps.app-version.outputs.version) }}
           releaseDraft: false
           prerelease: false
 
       - name: Upload Linux installers
-        if: "!startsWith(github.ref, 'refs/tags/')"
         uses: actions/upload-artifact@v4
         with:
           name: tauri-installers-linux
@@ -122,8 +123,7 @@ jobs:
   # WINDOWS BUILD (GitHub-hosted)
   # =====================================================
   build-windows:
-    # Temporarily disabled while testing Linux-only builds.
-    # Remove or change this condition to re-enable Windows builds.
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'develop') }}
     runs-on: windows-latest
     permissions:
       contents: write
@@ -131,6 +131,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -159,25 +161,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Tests are run in CI on PRs to main; skipping here for faster release builds.
+      # Tests are run in CI on PRs to develop and main; skipping here for post-merge build speed.
       # - name: Run tests
       #   run: |
-      #     npm run test:ci
-      #     cd src-tauri && cargo test
+      #     npm run test:types
+      #     npm test
+      #     npm run test:rust
 
       - name: Build Tauri App (Windows)
         uses: tauri-apps/tauri-action@v0
         env:
           TAURI_BUILD_VERSION: ${{ steps.app-version-win.outputs.version }}
         with:
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          releaseName: ${{ github.ref_type == 'tag' && format('Release {0}', github.ref_name) || '' }}
-          releaseBody: ${{ github.ref_type == 'tag' && 'Cross-platform installers are available below.' || '' }}
           releaseDraft: false
           prerelease: false
 
       - name: Upload Windows installers
-        if: "!startsWith(github.ref, 'refs/tags/')"
         uses: actions/upload-artifact@v4
         with:
           name: tauri-installers-windows
@@ -188,12 +187,15 @@ jobs:
   # DEPLOY
   # =====================================================
   deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'develop') }}
     needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.ref }}
 
       - name: Read version from package.json
         id: app-version
@@ -280,4 +282,3 @@ jobs:
             chown -R web22:client1 /var/www/name-o-tron.kirilov.dev/web/
             find /var/www/name-o-tron.kirilov.dev/web/ -type d -exec chmod 755 {} \;
             find /var/www/name-o-tron.kirilov.dev/web/ -type f -exec chmod 644 {} \;
-
