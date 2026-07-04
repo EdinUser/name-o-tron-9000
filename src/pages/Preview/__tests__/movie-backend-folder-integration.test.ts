@@ -125,4 +125,63 @@ describe("Movie backend folder integration", () => {
     expect(row.proposed).toBe("Extras/Inception extras.mkv");
     expect(row.flags).toContain("moved-to-extras");
   });
+
+  it("uses the collection folder as the primary grouping when collections are enabled", async () => {
+    const movie: MovieItem = {
+      type: "movie",
+      ratingKey: "rk-collection",
+      title: "Inception",
+      year: 2010,
+      file: "/media/Movies/A-D/Inception (2010).mkv",
+      plexPath: "/media/Movies/A-D/Inception (2010).mkv",
+      collection: "Nolan Collection",
+    } as any;
+
+    const settings = JSON.parse(JSON.stringify(baseSettings));
+    settings.movies.collections.enabled = true;
+    settings.movies.folderStructure = "alpha";
+
+    const row = await computeMovieProposal(
+      movie,
+      "{title}[ ({year})]{ext}",
+      true,
+      true,
+      "Nolan Collection",
+      settings,
+      "/mnt/Movies",
+      ["/media/Movies"],
+    );
+
+    expect(row.proposed).toBe("Nolan Collection/Inception/Inception (2010).mkv");
+  });
+
+  it("keeps collection items directly under the collection folder when ownFolderPerMovie is disabled", async () => {
+    const movie: MovieItem = {
+      type: "movie",
+      ratingKey: "rk-collection-flat",
+      title: "Inception",
+      year: 2010,
+      file: "/media/Movies/A-D/Inception (2010).mkv",
+      plexPath: "/media/Movies/A-D/Inception (2010).mkv",
+      collection: "Nolan Collection",
+    } as any;
+
+    const settings = JSON.parse(JSON.stringify(baseSettings));
+    settings.movies.collections.enabled = true;
+    settings.movies.folderStructure = "alpha";
+    settings.movies.ownFolderPerMovie = false;
+
+    const row = await computeMovieProposal(
+      movie,
+      "{title}[ ({year})]{ext}",
+      false,
+      true,
+      "Nolan Collection",
+      settings,
+      "/mnt/Movies",
+      ["/media/Movies"],
+    );
+
+    expect(row.proposed).toBe("Nolan Collection/Inception (2010).mkv");
+  });
 });

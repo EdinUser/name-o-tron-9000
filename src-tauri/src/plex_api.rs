@@ -610,8 +610,24 @@ fn xml_directory_to_json(xml: &str) -> Option<serde_json::Value> {
     reader.trim_text(true);
     let mut buf = Vec::new();
     let mut dirs: Vec<Value> = Vec::new();
+    let mut total_size: Option<i64> = None;
+    let mut size: Option<i64> = None;
+    let mut offset: Option<i64> = None;
     loop {
         match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) if e.name().as_ref() == b"MediaContainer" => {
+                for a in e.attributes().flatten() {
+                    let k = a.key.as_ref();
+                    let v = a.unescape_value().unwrap_or_default();
+                    if k == b"totalSize" || k == b"total" {
+                        if let Ok(n) = v.parse::<i64>() { total_size = Some(n); }
+                    } else if k == b"size" {
+                        if let Ok(n) = v.parse::<i64>() { size = Some(n); }
+                    } else if k == b"offset" {
+                        if let Ok(n) = v.parse::<i64>() { offset = Some(n); }
+                    }
+                }
+            }
             Ok(Event::Start(e)) if e.name().as_ref() == b"Directory" => {
                 let mut rating_key: Option<String> = None;
                 let mut key: Option<String> = None;
@@ -658,7 +674,11 @@ fn xml_directory_to_json(xml: &str) -> Option<serde_json::Value> {
         }
         buf.clear();
     }
-    Some(json!({"MediaContainer": {"Directory": dirs}}))
+    let mut media_container = json!({"Directory": dirs});
+    if let Some(total) = total_size { media_container["totalSize"] = json!(total); }
+    if let Some(len) = size { media_container["size"] = json!(len); }
+    if let Some(off) = offset { media_container["offset"] = json!(off); }
+    Some(json!({"MediaContainer": media_container}))
 }
 
 // -- Additional helpers for TV-specific flows --
@@ -773,7 +793,17 @@ pub async fn fetch_tv_shows(
                         dirs.push(it.clone());
                     }
                 }
-                let out = serde_json::json!({"MediaContainer": {"Directory": dirs}});
+                let mut out_mc = serde_json::json!({"Directory": dirs});
+                if let Some(total_size) = mc.get("totalSize").cloned().or_else(|| mc.get("total").cloned()) {
+                    out_mc["totalSize"] = total_size;
+                }
+                if let Some(size) = mc.get("size").cloned() {
+                    out_mc["size"] = size;
+                }
+                if let Some(offset) = mc.get("offset").cloned() {
+                    out_mc["offset"] = offset;
+                }
+                let out = serde_json::json!({"MediaContainer": out_mc});
                 return Ok(out);
             }
             return Ok(v);
@@ -848,18 +878,217 @@ pub async fn search_content(
 }
 
 fn xml_search_to_json(xml_text: &str) -> Option<serde_json::Value> {
-    // Parse XML response from /hubs/search and convert to JSON structure
-    // For now, return a basic structure - in a real implementation, this would need proper XML parsing
-    if xml_text.contains("MediaContainer") {
-        // Return a basic structure that matches what we expect
-        Some(serde_json::json!({
-            "MediaContainer": {
-                "Hub": []
-            }
-        }))
-    } else {
-        None
+    use quick_xml::events::Event;
+    use quick_xml::Reader;
+    use serde_json::{json, Value};
+
+    #[derive(Default, Debug)]
+    struct SearchItem {
+        title: Option<String>,
+        rating_key: Option<String>,
+        key: Option<String>,
+        year: Option<i64>,
+        index: Option<i64>,
+        parent_index: Option<i64>,
+        parent_title: Option<String>,
+        grandparent_title: Option<String>,
+        thumb: Option<String>,
+        content_rating: Option<String>,
+        studio: Option<String>,
+        director: Option<String>,
+        writer: Option<String>,
+        country: Option<String>,
+        tagline: Option<String>,
+        summary: Option<String>,
+        edition: Option<String>,
+        edition_title: Option<String>,
+        guid: Option<String>,
+        files: Vec<String>,
+        genres: Vec<String>,
+        collections: Vec<String>,
     }
+
+    #[derive(Default, Debug)]
+    struct Hub {
+        section_id: Option<String>,
+        metadata: Vec<Value>,
+    }
+
+    let mut reader = Reader::from_str(xml_text);
+    reader.trim_text(true);
+    let mut buf = Vec::new();
+    let mut hubs: Vec<Hub> = Vec::new();
+    let mut current_hub: Option<Hub> = None;
+    let mut current_item: Option<SearchItem> = None;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                let name = e.name();
+                if name.as_ref() == b"Hub" {
+                    let mut hub = Hub::default();
+                    for a in e.attributes().flatten() {
+                        let key = a.key.as_ref();
+                        let value = a.unescape_value().unwrap_or_default();
+                        if key == b"sectionId" || key == b"librarySectionID" {
+                            hub.section_id = Some(value.to_string());
+                        }
+                    }
+                    current_hub = Some(hub);
+                } else if name.as_ref() == b"Video" {
+                    let mut item = SearchItem::default();
+                    for a in e.attributes().flatten() {
+                        let key = a.key.as_ref();
+                        let value = a.unescape_value().unwrap_or_default();
+                        if key == b"title" { item.title = Some(value.to_string()); }
+                        else if key == b"ratingKey" { item.rating_key = Some(value.to_string()); }
+                        else if key == b"key" { item.key = Some(value.to_string()); }
+                        else if key == b"year" { if let Ok(n) = value.parse::<i64>() { item.year = Some(n); } }
+                        else if key == b"index" { if let Ok(n) = value.parse::<i64>() { item.index = Some(n); } }
+                        else if key == b"parentIndex" { if let Ok(n) = value.parse::<i64>() { item.parent_index = Some(n); } }
+                        else if key == b"parentTitle" { item.parent_title = Some(value.to_string()); }
+                        else if key == b"grandparentTitle" { item.grandparent_title = Some(value.to_string()); }
+                        else if key == b"thumb" { item.thumb = Some(value.to_string()); }
+                        else if key == b"contentRating" { item.content_rating = Some(value.to_string()); }
+                        else if key == b"studio" { item.studio = Some(value.to_string()); }
+                        else if key == b"director" { item.director = Some(value.to_string()); }
+                        else if key == b"writer" { item.writer = Some(value.to_string()); }
+                        else if key == b"country" { item.country = Some(value.to_string()); }
+                        else if key == b"tagline" { item.tagline = Some(value.to_string()); }
+                        else if key == b"summary" { item.summary = Some(value.to_string()); }
+                        else if key == b"edition" { item.edition = Some(value.to_string()); }
+                        else if key == b"editionTitle" { item.edition_title = Some(value.to_string()); }
+                        else if key == b"guid" { item.guid = Some(value.to_string()); }
+                    }
+                    current_item = Some(item);
+                }
+            }
+            Ok(Event::Empty(e)) => {
+                let name = e.name();
+                if name.as_ref() == b"Part" {
+                    if let Some(item) = current_item.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"file" {
+                                item.files.push(a.unescape_value().unwrap_or_default().to_string());
+                            }
+                        }
+                    }
+                } else if name.as_ref() == b"Genre" {
+                    if let Some(item) = current_item.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"tag" {
+                                item.genres.push(a.unescape_value().unwrap_or_default().to_string());
+                            }
+                        }
+                    }
+                } else if name.as_ref() == b"Collection" {
+                    if let Some(item) = current_item.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"tag" {
+                                item.collections.push(a.unescape_value().unwrap_or_default().to_string());
+                            }
+                        }
+                    }
+                } else if name.as_ref() == b"Director" {
+                    if let Some(item) = current_item.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"tag" {
+                                item.director = Some(a.unescape_value().unwrap_or_default().to_string());
+                            }
+                        }
+                    }
+                } else if name.as_ref() == b"Writer" {
+                    if let Some(item) = current_item.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"tag" {
+                                item.writer = Some(a.unescape_value().unwrap_or_default().to_string());
+                            }
+                        }
+                    }
+                } else if name.as_ref() == b"Video" {
+                    let mut item = SearchItem::default();
+                    for a in e.attributes().flatten() {
+                        let key = a.key.as_ref();
+                        let value = a.unescape_value().unwrap_or_default();
+                        if key == b"title" { item.title = Some(value.to_string()); }
+                        else if key == b"ratingKey" { item.rating_key = Some(value.to_string()); }
+                        else if key == b"key" { item.key = Some(value.to_string()); }
+                        else if key == b"thumb" { item.thumb = Some(value.to_string()); }
+                    }
+                    if let Some(hub) = current_hub.as_mut() {
+                        let mut obj = json!({
+                            "title": item.title.unwrap_or_default(),
+                        });
+                        if let Some(rk) = item.rating_key { obj["ratingKey"] = json!(rk); }
+                        if let Some(key) = item.key { obj["key"] = json!(key); }
+                        if let Some(thumb) = item.thumb { obj["thumb"] = json!(thumb); }
+                        hub.metadata.push(obj);
+                    }
+                }
+            }
+            Ok(Event::End(e)) => {
+                if e.name().as_ref() == b"Video" {
+                    if let Some(item) = current_item.take() {
+                        if let Some(hub) = current_hub.as_mut() {
+                            let parts: Vec<Value> = item.files.into_iter().map(|f| json!({"file": f})).collect();
+                            let media = if parts.is_empty() { Vec::new() } else { vec![json!({"Part": parts})] };
+                            let mut obj = json!({
+                                "title": item.title.unwrap_or_default(),
+                                "Media": media,
+                            });
+                            if let Some(rk) = item.rating_key { obj["ratingKey"] = json!(rk); }
+                            if let Some(key) = item.key { obj["key"] = json!(key); }
+                            if let Some(year) = item.year { obj["year"] = json!(year); }
+                            if let Some(index) = item.index { obj["index"] = json!(index); }
+                            if let Some(parent_index) = item.parent_index { obj["parentIndex"] = json!(parent_index); }
+                            if let Some(parent_title) = item.parent_title { obj["parentTitle"] = json!(parent_title); }
+                            if let Some(grandparent_title) = item.grandparent_title { obj["grandparentTitle"] = json!(grandparent_title); }
+                            if let Some(thumb) = item.thumb { obj["thumb"] = json!(thumb); }
+                            if let Some(content_rating) = item.content_rating { obj["contentRating"] = json!(content_rating); }
+                            if let Some(studio) = item.studio { obj["studio"] = json!(studio); }
+                            if let Some(director) = item.director { obj["director"] = json!(director); }
+                            if let Some(writer) = item.writer { obj["writer"] = json!(writer); }
+                            if let Some(country) = item.country { obj["country"] = json!(country); }
+                            if let Some(tagline) = item.tagline { obj["tagline"] = json!(tagline); }
+                            if let Some(summary) = item.summary { obj["summary"] = json!(summary); }
+                            if let Some(edition) = item.edition { obj["edition"] = json!(edition); }
+                            if let Some(edition_title) = item.edition_title { obj["editionTitle"] = json!(edition_title); }
+                            if let Some(guid) = item.guid { obj["guid"] = json!(guid); }
+                            if !item.genres.is_empty() {
+                                obj["Genre"] = json!(item.genres.into_iter().map(|tag| json!({"tag": tag})).collect::<Vec<Value>>());
+                            }
+                            if !item.collections.is_empty() {
+                                obj["Collection"] = json!(item.collections.into_iter().map(|tag| json!({"tag": tag})).collect::<Vec<Value>>());
+                            }
+                            hub.metadata.push(obj);
+                        }
+                    }
+                } else if e.name().as_ref() == b"Hub" {
+                    if let Some(hub) = current_hub.take() {
+                        hubs.push(hub);
+                    }
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => return None,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Some(json!({
+        "MediaContainer": {
+            "Hub": hubs.into_iter().map(|hub| {
+                let mut obj = json!({
+                    "Metadata": hub.metadata,
+                });
+                if let Some(section_id) = hub.section_id {
+                    obj["sectionId"] = json!(section_id);
+                }
+                obj
+            }).collect::<Vec<Value>>()
+        }
+    }))
 }
 
 #[tauri::command]

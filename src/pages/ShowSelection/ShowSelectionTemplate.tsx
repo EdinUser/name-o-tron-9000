@@ -27,14 +27,13 @@ type Props = {
   filteredShows: TvShow[];
   pagedShows: TvShow[];
   query: string;
-  paging: React.MutableRefObject<{ start: number; size: number; exhausted: boolean }>;
   resolvedTheme: string;
   currentPage: number;
   totalPages: number;
   onBack: () => void;
   onSelectShow: (show: { ratingKey: string; title: string }, currentPage: number) => void;
   onSetQuery: (query: string) => void;
-  onLoad: (reset?: boolean) => void;
+  onRefresh: () => void;
   onPageChange: (page: number) => void;
   onToggleTheme: () => void;
 };
@@ -50,14 +49,13 @@ export default function ShowSelectionTemplate({
   filteredShows,
   pagedShows,
   query,
-  paging,
   resolvedTheme,
   currentPage,
   totalPages,
   onBack,
   onSelectShow,
   onSetQuery,
-  onLoad,
+  onRefresh,
   onPageChange,
   onToggleTheme,
 }: Props) {
@@ -114,7 +112,7 @@ export default function ShowSelectionTemplate({
                 </button>
               )}
             </div>
-            <button onClick={() => onLoad(true)} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
+            <button onClick={onRefresh} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
               <IconRefresh className="h-5 w-5" />
               Refresh
             </button>
@@ -216,23 +214,6 @@ export default function ShowSelectionTemplate({
               })}
             </ul>
           )}
-
-          <div className="mt-4 flex items-center justify-center">
-            {shows.length > 0 && (
-              <button
-                onClick={() => {
-                  if (!paging.current.exhausted) {
-                    paging.current.start += paging.current.size;
-                    onLoad(false);
-                  }
-                }}
-                disabled={paging.current.exhausted}
-                className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700 disabled:opacity-50"
-              >
-                Load more
-              </button>
-            )}
-          </div>
 
           {/* Pagination Controls */}
           {filteredShows.length > 0 && (
