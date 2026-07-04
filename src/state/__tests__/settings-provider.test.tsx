@@ -175,4 +175,29 @@ describe('SettingsProvider and useSettings hook', () => {
     // Version should have incremented
     expect(result.current.settingsVersion).toBe(1);
   });
+
+  it('should propagate pagination defaults immediately to consumers', () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <SettingsProvider>{children}</SettingsProvider>
+    );
+
+    const { result } = renderHook(() => useSettings(), { wrapper });
+
+    act(() => {
+      result.current.updateSettings({
+        ...result.current.settings,
+        general: {
+          ...result.current.settings.general,
+          pagination: {
+            ...result.current.settings.general.pagination,
+            defaultMovieLimit: 20,
+            defaultShowLimit: 30,
+          },
+        },
+      });
+    });
+
+    expect(result.current.settings.general.pagination.defaultMovieLimit).toBe(20);
+    expect(result.current.settings.general.pagination.defaultShowLimit).toBe(30);
+  });
 });

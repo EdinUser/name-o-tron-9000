@@ -32,9 +32,16 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const rawItemsRef = useRef<Array<MovieItem | EpisodeItem | MusicItem>>([]);
     const reloadTriggeredRef = useRef(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const getDefaultPageSize = useCallback(() => {
+        if (library.type === "show") {
+            return Math.max(1, settings.general.pagination.defaultShowLimit || 20);
+        }
+        return Math.max(1, settings.general.pagination.defaultMovieLimit || 20);
+    }, [library.type, settings.general.pagination.defaultMovieLimit, settings.general.pagination.defaultShowLimit]);
+
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(25);
-    const [moviesPaging, setMoviesPaging] = useState({ start: 0, size: 25, total: null as number | null, exhausted: false });
+    const [pageSize, setPageSize] = useState(() => getDefaultPageSize());
+    const [moviesPaging, setMoviesPaging] = useState(() => ({ start: 0, size: getDefaultPageSize(), total: null as number | null, exhausted: false }));
 
     // Update pagination when user changes page size
     useEffect(() => {
@@ -46,6 +53,10 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         });
         setPage(1);
     }, [pageSize]);
+    useEffect(() => {
+        const nextDefaultPageSize = getDefaultPageSize();
+        setPageSize((current) => (current === nextDefaultPageSize ? current : nextDefaultPageSize));
+    }, [getDefaultPageSize]);
     const [episodesPaging, setEpisodesPaging] = useState({ start: 0, size: 50, total: null as number | null, exhausted: false });
     const seasonLoadRequestIdRef = useRef(0);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -120,6 +131,46 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         return { flatRatio, flatThreshold: MOVIE_INTELLIGENT_FLAT_THRESHOLD };
     }
 
+    function extractCollectionName(item: any): string {
+        const collections = item?.Collection || item?.collection || [];
+        if (!Array.isArray(collections) || collections.length === 0) return "";
+        return String(collections[0]?.tag || collections[0] || "").trim();
+    }
+
+    function buildMovieItem(item: any, file: string): MovieItem {
+        return {
+            type: "movie",
+            ratingKey: String(item.ratingKey ?? item.key ?? file),
+            title: String(item.title ?? "Unknown"),
+            year: item.year ? Number(item.year) : undefined,
+            file: String(file),
+            plexPath: String(file),
+            edition: String(item.edition ?? item.editionTitle ?? ""),
+            genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
+            rating: String(item.contentRating ?? ""),
+            studio: String(item.studio ?? ""),
+            director: String(item.Director?.[0]?.tag ?? item.director ?? ""),
+            writer: String(item.writer ?? ""),
+            country: String(item.country ?? ""),
+            tagline: String(item.tagline ?? ""),
+            summary: String(item.summary ?? ""),
+            collection: extractCollectionName(item),
+            guid: String(item.guid ?? ""),
+            thumb: String(item.thumb ?? ""),
+        };
+    }
+
+    function getMetadataSearchTexts(metadata?: MovieItem | EpisodeItem | MusicItem | null): string[] {
+        if (!metadata) return [];
+        if (metadata.type === "movie") {
+            return [metadata.title, metadata.collection || "", metadata.genre || "", metadata.director || "", metadata.studio || ""];
+        }
+        if (metadata.type === "episode") {
+            return [metadata.title, metadata.showTitle, metadata.grandparentTitle || "", metadata.parentTitle || ""];
+        }
+        return [metadata.track, metadata.artist, metadata.album, metadata.genre || ""];
+    }
+
     // Apply / cleanup state
     const [applyInProgress, setApplyInProgress] = useState(false);
     const [applyOperationCount, setApplyOperationCount] = useState(0);
@@ -163,10 +214,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const handleMouseEnter = useCallback((event: React.MouseEvent<HTMLDivElement>, row: PreviewRow) => {
         if (!row.metadata) return;
 
-        const rect = event.currentTarget.getBoundingClientRect();
         const position = {
-            x: rect.left + rect.width / 2,
-            y: rect.top - 10 // Position above the element
+            x: event.clientX,
+            y: event.clientY
         };
 
         setPopoverData({ metadata: row.metadata, position });
@@ -309,26 +359,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     for (const item of md) {
                         const file = item?.Media?.[0]?.Part?.[0]?.file;
                         if (!file) continue;
-                        const movieRatingKey = String(item.ratingKey ?? item.key ?? file);
-
-                        const m: MovieItem = {
-                            type: "movie",
-                            ratingKey: movieRatingKey,
-                            title: String(item.title ?? "Unknown"),
-                            year: item.year ? Number(item.year) : undefined,
-                            file: String(file),
-                            plexPath: String(file),
-                            edition: String(item.edition ?? item.editionTitle ?? ""),
-                            genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
-                            rating: String(item.contentRating ?? ""),
-                            studio: String(item.studio ?? ""),
-                            director: String(item.Director?.[0]?.tag ?? item.director ?? ""),
-                            writer: String(item.writer ?? ""),
-                            country: String(item.country ?? ""),
-                            tagline: String(item.tagline ?? ""),
-                            summary: String(item.summary ?? ""),
-                            thumb: String(item.thumb ?? ""),
-                        };
+                        const m: MovieItem = buildMovieItem(item, String(file));
                         rawItems.push(m);
                     }
 
@@ -358,25 +389,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 for (const item of mdMore) {
                                     const file = item?.Media?.[0]?.Part?.[0]?.file;
                                     if (!file) continue;
-                                    const movieRatingKey = String(item.ratingKey ?? item.key ?? file);
-                                    const m: MovieItem = {
-                                        type: "movie",
-                                        ratingKey: movieRatingKey,
-                                        title: String(item.title ?? "Unknown"),
-                                        year: item.year ? Number(item.year) : undefined,
-                                        file: String(file),
-                                        plexPath: String(file),
-                                        edition: String(item.edition ?? item.editionTitle ?? ""),
-                                        genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
-                                        rating: String(item.contentRating ?? ""),
-                                        studio: String(item.studio ?? ""),
-                                        director: String(item.Director?.[0]?.tag ?? item.director ?? ""),
-                                        writer: String(item.writer ?? ""),
-                                        country: String(item.country ?? ""),
-                                        tagline: String(item.tagline ?? ""),
-                                        summary: String(item.summary ?? ""),
-                                        thumb: String(item.thumb ?? ""),
-                                    };
+                                    const m: MovieItem = buildMovieItem(item, String(file));
                                     moreItems.push(m);
                                 }
                                 if (moreItems.length > 0) {
@@ -882,12 +895,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 ...nonEpisodes.map(async (item) => {
                     if (item.type === "movie") {
                         const m = item as MovieItem;
-                        const collections = (m as any).Collection || (m as any).collection || [];
-                        const collectionName = Array.isArray(collections) && collections.length > 0
-                            ? (collections[0]?.tag || collections[0])
-                            : "";
                         const tpl = settings.templates.movie || template;
-                        const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
+                        const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, m.collection || "", settings, libraryFolder, library.roots || [], movieHeuristics);
                         row.metadata = m;
                         return row;
                     }
@@ -1056,7 +1065,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 const currentPath = shortenFilePath(r.filePath, libraryRoots).toLowerCase();
                 const proposedName = r.proposed.toLowerCase();
                 const fullPath = r.filePath.toLowerCase();
-                return currentPath.includes(query) || proposedName.includes(query) || fullPath.includes(query);
+                const metadataMatches = getMetadataSearchTexts(r.metadata).some(text => text.toLowerCase().includes(query));
+                return currentPath.includes(query) || proposedName.includes(query) || fullPath.includes(query) || metadataMatches;
             });
         }
 
@@ -1085,12 +1095,6 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             setRemoteResults([]);
             setRemoteQuery("");
             setSearching(false);
-            return;
-        }
-
-        // If we're currently loading initial data, wait for it to complete
-        if (loading) {
-            // Effect will re-run because of dependency on `loading`
             return;
         }
         let isCancelled = false;
@@ -1128,8 +1132,26 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     const items = hub.Directory || hub.Metadata || [];
                     if (!Array.isArray(items)) continue;
                     for (const item of items) {
+                        let detailedItem = item;
                         let filePath = "";
                         try { filePath = String(item?.Media?.[0]?.Part?.[0]?.file || ""); } catch {}
+
+                        if (!filePath && (item?.key || item?.ratingKey)) {
+                            try {
+                                const plexKey = String(item.key || `/library/metadata/${item.ratingKey}`);
+                                const detailedResp = await invoke<any>("fetch_plex_metadata", {
+                                    server: server.address,
+                                    plexKey,
+                                    token,
+                                    start: 0,
+                                    size: 1,
+                                });
+                                detailedItem = detailedResp?.MediaContainer?.Metadata?.[0] || detailedResp?.MediaContainer?.Directory?.[0] || item;
+                                filePath = String(detailedItem?.Media?.[0]?.Part?.[0]?.file || "");
+                            } catch {
+                                detailedItem = item;
+                            }
+                        }
 
                         // Skip items that don't have actual file paths (API endpoints, metadata, etc.)
                         if (!filePath || filePath.startsWith('/library/') || filePath.includes('?') || !filePath.includes('.')) {
@@ -1154,32 +1176,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             if (!filePath || filePath.length === 0) {
                                 continue;
                             }
-
-                            const movieRatingKey = String(item.ratingKey || item.key || filePath || Math.random());
-                            // Extract collection information directly from movie metadata
-                            const collections = item.Collection || item.collection || [];
-                            const collectionName = Array.isArray(collections) && collections.length > 0
-                                ? (collections[0].tag || collections[0])
-                                : "";
-
-                            const m: MovieItem = {
-                                type: "movie",
-                                ratingKey: movieRatingKey,
-                                title: String(item.title || "Unknown"),
-                                year: item.year ? Number(item.year) : undefined,
-                                file: filePath,
-                                plexPath: filePath,
-                                edition: String(item.edition ?? item.editionTitle ?? ""),
-                                genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
-                                rating: String(item.contentRating ?? ""),
-                                studio: String(item.studio ?? ""),
-                                director: String(item.Director?.[0]?.tag ?? item.director ?? ""),
-                                writer: String(item.writer ?? ""),
-                                country: String(item.country ?? ""),
-                                tagline: String(item.tagline ?? ""),
-                                summary: String(item.summary ?? ""),
-                                thumb: String(item.thumb ?? ""),
-                            };
+                            const m: MovieItem = buildMovieItem(detailedItem, filePath);
                             const tpl = settings.templates.movie || template;
                             const movieHeuristics = computeMovieLibraryHeuristics(
                                 rawItemsRef.current
@@ -1187,7 +1184,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                     .map((it) => (it as MovieItem).file)
                                     .concat([filePath]),
                             );
-                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
+                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, m.collection || "", settings, libraryFolder, library.roots || [], movieHeuristics);
                             row.metadata = m; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -1203,18 +1200,18 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             const epIndex = typeof item.index === "number" ? item.index : (item.index ? Number(item.index) : undefined);
                             const e: EpisodeItem = {
                                 type: "episode",
-                                ratingKey: String(item.ratingKey || item.key || filePath || Math.random()),
+                                ratingKey: String(detailedItem.ratingKey || item.ratingKey || item.key || filePath || Math.random()),
                                 showTitle,
-                                title: String(item.title || "Episode"),
+                                title: String(detailedItem.title || item.title || "Episode"),
                                 season: seasonNum,
                                 index: epIndex,
                                 file: filePath,
                                 plexPath: filePath,
-                                year: item.year ? Number(item.year) : undefined,
-                                grandparentTitle: String(item.grandparentTitle ?? showTitle),
-                                parentTitle: String(item.parentTitle ?? ""),
-                                parentIndex: item.parentIndex ? Number(item.parentIndex) : seasonNum,
-                                thumb: String(item.thumb ?? ""),
+                                year: detailedItem.year ? Number(detailedItem.year) : (item.year ? Number(item.year) : undefined),
+                                grandparentTitle: String(detailedItem.grandparentTitle ?? item.grandparentTitle ?? showTitle),
+                                parentTitle: String(detailedItem.parentTitle ?? item.parentTitle ?? ""),
+                                parentIndex: detailedItem.parentIndex ? Number(detailedItem.parentIndex) : (item.parentIndex ? Number(item.parentIndex) : seasonNum),
+                                thumb: String(detailedItem.thumb ?? item.thumb ?? ""),
                             };
                             const tpl = settings.templates.episode || template;
                             const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || []);
@@ -1235,23 +1232,35 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         })();
         return () => { isCancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [debouncedSearchQuery, filteredRows.length, library.key, server.address, loading]);
+    }, [
+        debouncedSearchQuery,
+        library.key,
+        library.type,
+        server.address,
+        libraryFolder,
+        settingsVersion,
+        template,
+    ]);
 
     // Final rows to display - combine local and remote results
     const displayRows = useMemo(() => {
         if (!debouncedSearchQuery.trim()) return filteredRows;
 
-        // Combine local filtered results with remote results
-        let combined: PreviewRow[] = [];
+        const combined: PreviewRow[] = [];
+        const seen = new Set<string>();
 
-        // Add local results first
-        if (filteredRows.length > 0) {
-            combined.push(...filteredRows);
+        for (const row of filteredRows) {
+            if (seen.has(row.id)) continue;
+            seen.add(row.id);
+            combined.push(row);
         }
 
-        // Add remote results if they match the current query
-        if (remoteQuery === debouncedSearchQuery && remoteResults.length > 0) {
-            combined.push(...remoteResults);
+        if (remoteQuery === debouncedSearchQuery) {
+            for (const row of remoteResults) {
+                if (seen.has(row.id)) continue;
+                seen.add(row.id);
+                combined.push(row);
+            }
         }
 
         return combined;
@@ -1259,6 +1268,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
 
     const anyRedSelected = useMemo(() => displayRows.some(r => r.status === "error" && selectedIds.has(r.id)), [displayRows, selectedIds]);
     const totalItemsForPaging = useMemo(() => {
+        if (debouncedSearchQuery.trim()) {
+            return displayRows.length;
+        }
         if (library.type === "movie" && moviesPaging.total) {
             return moviesPaging.total;
         }
@@ -1266,7 +1278,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             return episodesPaging.total;
         }
         return displayRows.length;
-    }, [library.type, moviesPaging.total, episodesPaging.total, displayRows.length]);
+    }, [debouncedSearchQuery, library.type, moviesPaging.total, episodesPaging.total, displayRows.length]);
     const totalPages = Math.max(1, Math.ceil(totalItemsForPaging / pageSize));
     const pageRows = useMemo(() => displayRows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize), [displayRows, page, pageSize]);
     useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
@@ -1744,30 +1756,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             for (const item of md) {
                 const file = item?.Media?.[0]?.Part?.[0]?.file;
                 if (!file) continue;
-                const movieRatingKey = String(item.ratingKey ?? item.key ?? file);
-                // Extract collection information directly from movie metadata
-                const collections = item.Collection || item.collection || [];
-                const collectionName = Array.isArray(collections) && collections.length > 0
-                    ? (collections[0].tag || collections[0])
-                    : "";
-
-                const m: MovieItem = {
-                    type: "movie",
-                    ratingKey: movieRatingKey,
-                    title: String(item.title ?? "Unknown"),
-                    year: item.year ? Number(item.year) : undefined,
-                    file: resolvePlexFilePath(String(file), libraryFolder),
-                    edition: String(item.edition ?? item.editionTitle ?? ""),
-                    genre: String(item.genre ?? ""),
-                    rating: String(item.contentRating ?? ""),
-                    studio: String(item.studio ?? ""),
-                    director: String(item.director ?? ""),
-                    writer: String(item.writer ?? ""),
-                    country: String(item.country ?? ""),
-                    tagline: String(item.tagline ?? ""),
-                    summary: String(item.summary ?? ""),
-                    thumb: String(item.thumb ?? ""),
-                };
+                const m: MovieItem = buildMovieItem(item, resolvePlexFilePath(String(file), libraryFolder));
                 const tpl = settings.templates.movie || template;
                 const movieHeuristics = computeMovieLibraryHeuristics(
                     rowsRef.current
@@ -1775,7 +1764,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         .map((r) => r.plexPath || r.filePath)
                         .concat([String(file)]),
                 );
-                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
+                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, m.collection || "", settings, libraryFolder, library.roots || [], movieHeuristics);
                 row.metadata = m; // Store original metadata for popover
                 more.push(row);
             }

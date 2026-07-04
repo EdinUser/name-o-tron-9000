@@ -40,7 +40,7 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 ## 2026-07-04
 
 - Summary: Reduced frontend test noise by gating debug logs, adding a shared `scrollTo` stub, tightening async tests, and narrowing fake Tauri runtime usage to the tests that actually need it.
-- Files or areas: `src/state/settings.tsx`, `src/utils/cache.ts`, `src/test/setup.tsx`, `src/state/__tests__/test-utils/settings-setup.tsx`, `src/state/__tests__/settings-provider.test.tsx`, `src/components/__tests__/PathMappingModal.test.tsx`, `src/pages/Settings/__tests__/general-diagnostics.test.tsx`, `src/pages/ShowSelection/ShowSelectionContainer.tsx`.
+- Files or areas: `src/state/settings.tsx`, `src/utils/cache.ts`, `src/test/setup.tsx`, `src/state/__tests__/test-utils/settings-setup.tsx`, `src/state/__tests__/settings-provider.test.tsx`, `src/components/__tests__/PathMappingModal.test.tsx`, related frontend tests.
 - Verification:
   - `npm run test:ci` passed.
   - `npx vitest run --reporter=dot` passed with no unhandled errors.
@@ -129,3 +129,55 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - Public repo references now point to `tests/mock-plex/mock-plex-server.cjs` instead of `_helpers/`.
 - Follow-ups:
   - Keep future local-only demo media and personal helper scripts under `_helpers/` without wiring tracked repo scripts to that path.
+
+## 2026-07-04
+
+- Summary: Added a short implementation map for the current UI issue set under `_helpers/work`, covering likely change points and test follow-ups for TV pagination, movie search, collections, and hover-card behavior.
+- Files or areas: `_helpers/work/ui-issues-map.md`.
+- Verification:
+  - Documentation-only change.
+  - No tests run.
+- Follow-ups:
+  - Use the note as the working checklist when implementing fixes for the four analyzed issues.
+
+## 2026-07-04
+
+- Summary: Updated the `_helpers/work` issue note to reflect agreed directions for TV pagination, hybrid movie search, and hover-card behavior while leaving collections open for further design discussion.
+- Files or areas: `_helpers/work/ui-issues-map.md`.
+- Verification:
+  - Documentation-only change.
+  - No tests run.
+- Follow-ups:
+  - Finalize collection-folder precedence before implementation starts on point 3.
+
+## 2026-07-04
+
+- Summary: Implemented the agreed fixes for TV page-driven lazy pagination, hybrid movie search fallback/deduping, collection-first movie grouping, and hover-card anti-flicker behavior.
+- Files or areas: `src/pages/ShowSelection/*`, `src/pages/Preview/*`, `src/components/PlexPopoverCard.tsx`, `src-tauri/src/plex_api.rs`, `_helpers/work/ui-issues-map.md`.
+- Verification:
+  - `npm run test:types` passed.
+  - `npx vitest run src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml --lib -- --nocapture` passed.
+- Follow-ups:
+  - Add more targeted coverage for preview remote-search behavior and hover-card positioning if we want tighter regression protection around those flows.
+
+## 2026-07-04
+
+- Summary: Fixed the follow-up regressions by preventing movie remote search from re-running on page loads, syncing preview page size to saved pagination defaults, and broadening TV total-count parsing for Plex responses that omit `totalSize`.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/ShowSelection/ShowSelectionContainer.tsx`, `src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx`, `src/state/__tests__/settings-provider.test.tsx`.
+- Verification:
+  - `npm run test:types` passed.
+  - `npx vitest run src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx src/state/__tests__/settings-provider.test.tsx src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml --lib -- --nocapture` passed.
+- Follow-ups:
+  - If TV page totals still read as `1/1` against a specific Plex server, capture the raw `fetch_tv_shows` payload from that server to extend the count-field fallback precisely instead of guessing.
+
+## 2026-07-04
+
+- Summary: Added regression coverage for preview movie search pagination stability and kept the expanded TV pagination coverage around capped and missing-total Plex responses.
+- Files or areas: `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`, `src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx`.
+- Verification:
+  - `npm run test:types` passed.
+  - `npx vitest run src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed.
+- Follow-ups:
+  - Add a similar preview integration test for TV episode search if that flow starts getting the same local-plus-remote behavior as movies.

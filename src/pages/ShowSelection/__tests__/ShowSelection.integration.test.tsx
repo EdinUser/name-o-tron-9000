@@ -601,6 +601,228 @@ describe('ShowSelection Integration Tests', () => {
     });
   });
 
+  it('loads the next backend page from pagination controls without showing Load more', async () => {
+    const pageOneShows = Array.from({ length: 20 }, (_, index) => ({
+      ratingKey: `show-${index + 1}`,
+      title: `Show ${index + 1}`,
+      thumb: `/library/metadata/show-${index + 1}/thumb/123`,
+      year: '2000',
+      Genre: [{ tag: 'Drama' }],
+      studio: 'Studio',
+      childCount: 1,
+    }));
+    const pageTwoShows = Array.from({ length: 5 }, (_, index) => ({
+      ratingKey: `show-${index + 21}`,
+      title: `Show ${index + 21}`,
+      thumb: `/library/metadata/show-${index + 21}/thumb/123`,
+      year: '2001',
+      Genre: [{ tag: 'Comedy' }],
+      studio: 'Studio',
+      childCount: 1,
+    }));
+
+    mockInvoke.mockImplementation((command: string, args?: any) => {
+      switch (command) {
+        case 'get_settings':
+          return Promise.resolve({ pathMappings: mockMappings });
+        case 'fetch_tv_shows':
+          if (args?.start === 0) {
+            return Promise.resolve({ MediaContainer: { Directory: pageOneShows, totalSize: 25, size: 20, offset: 0 } });
+          }
+          if (args?.start === 20) {
+            return Promise.resolve({ MediaContainer: { Directory: pageTwoShows, totalSize: 25, size: 5, offset: 20 } });
+          }
+          return Promise.resolve({ MediaContainer: { Directory: [], totalSize: 25, size: 0, offset: args?.start ?? 0 } });
+        case 'fetch_show_episodes':
+          return Promise.resolve(mockEpisodeData);
+        case 'fetch_plex_image':
+          return Promise.resolve('data:image/jpeg;base64,fake-image-data');
+        case 'generate_mappings_checksum_cmd':
+          return Promise.resolve('test-checksum');
+        case 'load_show_mapping_cache':
+          return Promise.resolve(null);
+        case 'save_show_mapping_cache':
+          return Promise.resolve();
+        case 'invalidate_show_mapping_cache':
+          return Promise.resolve();
+        default:
+          return Promise.reject(new Error(`Unknown command: ${command}`));
+      }
+    });
+
+    renderWithProviders(
+      <ShowSelectionContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={mockOnBack}
+        onSelectShow={mockOnSelectShow}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Show 1')).toBeInTheDocument();
+      expect(screen.getByText('Page 1 / 2')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Load more')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('fetch_tv_shows', expect.objectContaining({
+        start: 20,
+        size: 20,
+        query: null,
+      }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Show 21')).toBeInTheDocument();
+    }, { timeout: 3000 });
+  });
+
+  it('uses fallback total-count fields when Plex omits totalSize', async () => {
+    const showsPage = Array.from({ length: 20 }, (_, index) => ({
+      ratingKey: `fallback-show-${index + 1}`,
+      title: `Fallback Show ${index + 1}`,
+      thumb: `/library/metadata/fallback-show-${index + 1}/thumb/123`,
+      year: '2000',
+      Genre: [{ tag: 'Drama' }],
+      studio: 'Studio',
+      childCount: 1,
+    }));
+
+    mockInvoke.mockImplementation((command: string) => {
+      switch (command) {
+        case 'get_settings':
+          return Promise.resolve({ pathMappings: mockMappings });
+        case 'fetch_tv_shows':
+          return Promise.resolve({
+            MediaContainer: {
+              Directory: showsPage,
+              librarySectionSize: 85,
+              size: 20,
+              offset: 0,
+            }
+          });
+        case 'fetch_show_episodes':
+          return Promise.resolve(mockEpisodeData);
+        case 'fetch_plex_image':
+          return Promise.resolve('data:image/jpeg;base64,fake-image-data');
+        case 'generate_mappings_checksum_cmd':
+          return Promise.resolve('test-checksum');
+        case 'load_show_mapping_cache':
+          return Promise.resolve(null);
+        case 'save_show_mapping_cache':
+          return Promise.resolve();
+        case 'invalidate_show_mapping_cache':
+          return Promise.resolve();
+        default:
+          return Promise.reject(new Error(`Unknown command: ${command}`));
+      }
+    });
+
+    renderWithProviders(
+      <ShowSelectionContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={mockOnBack}
+        onSelectShow={mockOnSelectShow}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Fallback Show 1')).toBeInTheDocument();
+      expect(screen.getByText('Page 1 / 5')).toBeInTheDocument();
+    });
+  });
+
+  it('keeps fetching TV pages when Plex omits totals and caps each response', async () => {
+    const allShows = Array.from({ length: 40 }, (_, index) => ({
+      ratingKey: `capped-show-${index + 1}`,
+      title: `Capped Show ${index + 1}`,
+      thumb: `/library/metadata/capped-show-${index + 1}/thumb/123`,
+      year: '2000',
+      Genre: [{ tag: 'Drama' }],
+      studio: 'Studio',
+      childCount: 1,
+    }));
+    const cachedShows = Object.fromEntries(
+      allShows.map((show) => [
+        show.ratingKey,
+        {
+          isMapped: true,
+          location: `/media/TV Shows/${show.title}/Season 1/${show.title} - S01E01.mkv`,
+          lastChecked: Date.now(),
+          posterUrl: `http://192.168.1.100:32400${show.thumb}`,
+          year: 2000,
+          genre: 'Drama',
+          studio: 'Studio',
+          creators: ['Creator'],
+          yearsRunning: '2000-2001',
+        }
+      ])
+    );
+
+    mockInvoke.mockImplementation((command: string, args?: any) => {
+      switch (command) {
+        case 'get_settings':
+          return Promise.resolve({ pathMappings: mockMappings });
+        case 'fetch_tv_shows': {
+          const start = Number(args?.start ?? 0);
+          const page = allShows.slice(start, start + 8);
+          return Promise.resolve({
+            MediaContainer: {
+              Directory: page,
+              size: page.length,
+              offset: start,
+            }
+          });
+        }
+        case 'fetch_show_episodes':
+          return Promise.resolve(mockEpisodeData);
+        case 'fetch_plex_image':
+          return Promise.resolve('data:image/jpeg;base64,fake-image-data');
+        case 'generate_mappings_checksum_cmd':
+          return Promise.resolve('test-checksum');
+        case 'load_show_mapping_cache':
+          return Promise.resolve({
+            lastUpdated: Date.now(),
+            mappingsChecksum: 'test-checksum',
+            shows: cachedShows,
+          });
+        case 'save_show_mapping_cache':
+          return Promise.resolve();
+        case 'invalidate_show_mapping_cache':
+          return Promise.resolve();
+        default:
+          return Promise.reject(new Error(`Unknown command: ${command}`));
+      }
+    });
+
+    renderWithProviders(
+      <ShowSelectionContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={mockOnBack}
+        onSelectShow={mockOnSelectShow}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Capped Show 1')).toBeInTheDocument();
+      expect(screen.getByText('Page 1 / 2')).toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('fetch_tv_shows', expect.objectContaining({
+        start: 8,
+        size: 20,
+        query: null,
+      }));
+    });
+  });
+
   it('handles search query correctly', async () => {
     renderWithProviders(
       <ShowSelectionContainer
