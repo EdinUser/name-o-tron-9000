@@ -36,11 +36,15 @@ export const mockTauriError = (_error: Error) => {
   // We don't need to mock it again here
 };
 
-// Mock window.__TAURI__
-Object.defineProperty(window, '__TAURI__', {
-  value: true,
-  writable: true,
-});
+export const setTauriRuntime = (enabled: boolean) => {
+  Object.defineProperty(window, '__TAURI__', {
+    value: enabled,
+    writable: true,
+    configurable: true,
+  });
+};
+
+setTauriRuntime(false);
 
 // Default settings object for testing
 export const createDefaultSettings = (overrides: any = {}) => ({

@@ -17,6 +17,12 @@ import {
   type PathMapping
 } from "../../utils/cache";
 
+function debugShowSelection(...args: unknown[]) {
+  if (typeof window !== "undefined" && (window as any).__NAMEOTRON_DEBUG_SHOW_SELECTION__) {
+    console.debug(...args);
+  }
+}
+
 /**
  * Fetch and cache poster image using the same approach as PlexPopoverCard
  */
@@ -220,12 +226,12 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
         const settings = await invoke<{ pathMappings?: PathMapping[] }>("get_settings");
         const mappings = settings.pathMappings || [];
-        console.log(`[ShowSelection] Loaded ${mappings.length} path mappings:`, mappings);
+        debugShowSelection(`[ShowSelection] Loaded ${mappings.length} path mappings:`, mappings);
         setMappings(mappings);
 
         // Use proper server ID generation
         const cleanServerId = generateServerId(server);
-        console.log(`[ShowSelection] Generated server ID: ${cleanServerId}`);
+        debugShowSelection(`[ShowSelection] Generated server ID: ${cleanServerId}`);
         setServerId(cleanServerId);
       } catch (error) {
         // Set error state regardless of mount state - errors should always be visible
@@ -300,11 +306,11 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       }
 
       // Generate current mappings checksum for cache validation
-      console.log("[ShowSelection] Generating checksum for mappings");
+      debugShowSelection("[ShowSelection] Generating checksum for mappings");
       const currentMappingsChecksum = await generateMappingsChecksum(mappings, serverId);
 
       // Load existing cache
-      console.log("[ShowSelection] Loading cache for server:", serverId, "library:", library.key);
+      debugShowSelection("[ShowSelection] Loading cache for server:", serverId, "library:", library.key);
       const cache = await loadShowMappingCache(serverId, library.key);
 
       // Check if cache is valid
@@ -457,7 +463,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
 
       // Update shows with final mapping status after cache is built
-      console.log("[ShowSelection] Setting shows in UI:", finalShows.length, "shows");
+      debugShowSelection("[ShowSelection] Setting shows in UI:", finalShows.length, "shows");
       if (reset) setShows(finalShows);
       else setShows(prev => [...prev, ...finalShows]);
 
@@ -472,7 +478,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       setError(e?.message ?? String(e));
       setInitialized(true);
     } finally {
-      console.log("[ShowSelection] Load function completed");
+      debugShowSelection("[ShowSelection] Load function completed");
       inFlightCountRef.current = Math.max(0, inFlightCountRef.current - 1);
       if (!shortCircuited && inFlightCountRef.current === 0) setLoading(false);
     }

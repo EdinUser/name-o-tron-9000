@@ -147,6 +147,7 @@ export async function computeMultiEpisodeProposal(
     }
 
     // Apply folder structure settings
+    let showFolderName = "";
     let folderPrefix = "";
 
     // For "Keep unchanged" ID setting, preserve existing show folder structure
@@ -184,6 +185,8 @@ export async function computeMultiEpisodeProposal(
             // Preserve ID tags
             showFolder = showFolder.replace(/\((imdb-tt\d+|tvdb-\d+|tmdb-\d+)\)/g, '{$1}');
 
+            showFolderName = showFolder;
+
             if (useSeasonFolders) {
                 const seasonLabel = typeof detectedSeason === "number" ? `Season ${String(detectedSeason).padStart(2, "0")}` : "Season 00";
                 folderPrefix = `${showFolder}/${seasonLabel}/`;
@@ -193,11 +196,12 @@ export async function computeMultiEpisodeProposal(
         }
     } else {
         // For other ID settings, create standard folder structure
+        showFolderName = safeFolderName(showTitle);
         if (useSeasonFolders) {
             const seasonLabel = typeof detectedSeason === "number" ? `Season ${String(detectedSeason).padStart(2, "0")}` : "Season 00";
-            folderPrefix = `${safeFolderName(showTitle)}/${seasonLabel}/`;
+            folderPrefix = `${showFolderName}/${seasonLabel}/`;
         } else {
-            folderPrefix = `${safeFolderName(showTitle)}/`;
+            folderPrefix = `${showFolderName}/`;
         }
     }
 
@@ -243,6 +247,7 @@ export async function computeMultiEpisodeProposal(
     // Handle specials
     if (settings.tv.specials.moveExtras) {
         const filename = basename(filePath).toLowerCase();
+        const looksLikeNumberedEpisode = /\bs\d{1,2}e\d{1,2}\b/i.test(filename);
         const extrasPatterns = [
             /\bextra\b/, /\bextras\b/, /\bdeleted\b/, /\bscene\b/, /\bbehind.the.scenes\b/,
             /\binterview\b/, /\btrailer\b/, /\bfeaturette\b/, /\bbloopers?\b/,
@@ -251,9 +256,14 @@ export async function computeMultiEpisodeProposal(
 
         const isExtras = extrasPatterns.some(pattern => pattern.test(filename));
         if (isExtras) {
-            const fileName = basename(proposed);
-            proposed = `Extras/${fileName}`;
-            flags.push("moved-to-extras");
+            // Avoid false positives for normal numbered episodes like "S01E05 ... (Deleted Scene).mkv"
+            // Only move to Extras when this is Season 00 (specials) or the filename doesn't look like a standard episode.
+            if (detectedSeason === 0 || !looksLikeNumberedEpisode) {
+                const fileName = basename(proposed);
+                const extrasFolder = showFolderName ? `${showFolderName}/Extras/` : "Extras/";
+                proposed = `${extrasFolder}${fileName}`;
+                flags.push("moved-to-extras");
+            }
         }
     }
 
@@ -452,6 +462,7 @@ export async function computeEpisodeProposal(
     }
 
     // Apply folder structure settings BEFORE template rendering
+    let showFolderName = "";
     let folderPrefix = "";
 
     // For "Keep unchanged" ID setting, preserve existing show folder structure
@@ -491,6 +502,8 @@ export async function computeEpisodeProposal(
             // Preserve ID tags if present in parentheses in the picked folder
             showFolder = showFolder.replace(/\((imdb-tt\d+|tvdb-\d+|tmdb-\d+)\)/g, '{$1}');
 
+            showFolderName = showFolder;
+
             if (useSeasonFolders) {
                 // Create Series/Season XX/ structure
                 const seasonLabel = typeof detectedSeason === "number" ? `Season ${String(detectedSeason).padStart(2, "0")}` : "Season 00";
@@ -502,13 +515,14 @@ export async function computeEpisodeProposal(
         }
     } else {
         // For other ID settings, ALWAYS create Series folder
+        showFolderName = safeFolderName(e.showTitle);
         if (useSeasonFolders) {
             // Create Series/Season XX/ structure
             const seasonLabel = typeof detectedSeason === "number" ? `Season ${String(detectedSeason).padStart(2, "0")}` : "Season 00";
-            folderPrefix = `${safeFolderName(e.showTitle)}/${seasonLabel}/`;
+            folderPrefix = `${showFolderName}/${seasonLabel}/`;
         } else {
             // Create Series/Episode structure (no season folders)
-            folderPrefix = `${safeFolderName(e.showTitle)}/`;
+            folderPrefix = `${showFolderName}/`;
         }
     }
 
@@ -551,6 +565,7 @@ export async function computeEpisodeProposal(
     if (settings.tv.specials.moveExtras) {
         // Check if this looks like an extras file (common patterns)
         const filename = basename(e.file).toLowerCase();
+        const looksLikeNumberedEpisode = /\bs\d{1,2}e\d{1,2}\b/i.test(filename);
         const extrasPatterns = [
             /\bextra\b/, /\bextras\b/, /\bdeleted\b/, /\bscene\b/, /\bbehind.the.scenes\b/,
             /\binterview\b/, /\btrailer\b/, /\bfeaturette\b/, /\bbloopers?\b/,
@@ -559,10 +574,15 @@ export async function computeEpisodeProposal(
 
         const isExtras = extrasPatterns.some(pattern => pattern.test(filename));
         if (isExtras) {
-            // Move to Extras folder
-            const fileName = basename(proposed);
-            proposed = `Extras/${fileName}`;
-            flags.push("moved-to-extras");
+            // Avoid false positives for normal numbered episodes like "S01E05 ... (Deleted Scene).mkv"
+            // Only move to Extras when this is Season 00 (specials) or the filename doesn't look like a standard episode.
+            if (detectedSeason === 0 || !looksLikeNumberedEpisode) {
+                // Move to Extras folder under the show folder (not at library root)
+                const fileName = basename(proposed);
+                const extrasFolder = showFolderName ? `${showFolderName}/Extras/` : "Extras/";
+                proposed = `${extrasFolder}${fileName}`;
+                flags.push("moved-to-extras");
+            }
         }
     }
 

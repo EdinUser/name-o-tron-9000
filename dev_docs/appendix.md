@@ -5,6 +5,8 @@ This appendix provides an overview of the technical details for Name-o-Tron 9000
 - **[Technical Architecture](appendix_architecture.md)** - System architecture, project structure, and performance characteristics
 - **[Building from Source](appendix_build.md)** - Development environment, build instructions, and deployment
 - **[API Reference & Configuration](appendix_api.md)** - Tauri IPC commands, settings schema, and configuration details
+- **[Playbooks](playbooks/README.md)** - task-oriented operating guides for common work segments
+- **[Work Log](work-log.md)** - ongoing trace of audits, implementation work, and follow-ups
 
 ## Developer Documentation Map
 
@@ -13,6 +15,10 @@ This appendix provides an overview of the technical details for Name-o-Tron 9000
 **See Build for compiling** - Find development environment setup, build instructions, and deployment details in [Building from Source](appendix_build.md).
 
 **See API for automation** - Discover Tauri IPC commands, settings schema, and configuration details in [API Reference & Configuration](appendix_api.md).
+
+**See Playbooks for execution** - Follow the task-specific operating guides in [Playbooks](playbooks/README.md) before substantial audits or implementation work.
+
+**See Work Log for recent activity** - Review [Work Log](work-log.md) to understand the latest audits, risks, and active follow-ups.
 
 ## Overview for Developers
 

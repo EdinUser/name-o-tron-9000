@@ -6,7 +6,8 @@ This folder contains contributor-facing documentation that assumes access to the
 - `appendix_architecture.md` — architecture and project structure
 - `appendix_api.md` — IPC/command reference and settings schema
 - `appendix.md` — overview and pointers to the detailed appendices
+- `playbooks/README.md` — task-oriented playbooks for audits, frontend, backend, safety, testing, docs, and work tracking
 - `roadmap.md` — roadmap and contributing guidelines
+- `work-log.md` — dated work log for audits, decisions, and implementation traces
 
 For end-user docs (features, setup, downloads), visit the published site or see the `docs/` folder.
-

@@ -1,6 +1,6 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::Serialize;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use plex_api::list_libraries;
 mod plex_auth;
 use plex_auth::{plex_login, plex_login_status, plex_logout};
@@ -670,6 +670,19 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let icon_path = app
+                .path()
+                .resolve("icons/icon.png", tauri::path::BaseDirectory::Resource)?;
+
+            if let Some(window) = app.get_webview_window("main") {
+                if let Ok(icon) = tauri::image::Image::from_path(icon_path) {
+                    let _ = window.set_icon(icon);
+                }
+            }
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             plex_discover,
             plex_login,

@@ -9,13 +9,14 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:icons": "node scripts/generate-icons.js",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "vitest run --reporter=dot",
+    "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "test:all": "npm test && cargo test",
-    "test:ci": "tsc --noEmit",
-    "mock:plex": "node _helpers/tests/mock-plex-server.cjs"
+    "test:types": "tsc --noEmit",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:all": "npm run test:types && npm run test && npm run test:rust",
+    "mock:plex": "node tests/mock-plex/mock-plex-server.cjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

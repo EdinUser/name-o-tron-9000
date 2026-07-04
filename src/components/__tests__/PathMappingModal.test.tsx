@@ -48,11 +48,13 @@ describe('PathMappingModal', () => {
 
     render(<PathMappingModal {...defaultProps} />)
 
-    expect(screen.getByText('Map Plex Paths')).toBeInTheDocument()
-    expect(screen.getByText('Movies (movie)')).toBeInTheDocument()
-    expect(screen.getByText('TV Shows (show)')).toBeInTheDocument()
-    expect(screen.getByText('/media/Movies')).toBeInTheDocument()
-    expect(screen.getByText('/media/TV Shows')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Map Plex Paths')).toBeInTheDocument()
+      expect(screen.getByText('Movies (movie)')).toBeInTheDocument()
+      expect(screen.getByText('TV Shows (show)')).toBeInTheDocument()
+      expect(screen.getByText('/media/Movies')).toBeInTheDocument()
+      expect(screen.getByText('/media/TV Shows')).toBeInTheDocument()
+    })
   })
 
   it('displays Pick buttons for each plex folder', async () => {
@@ -344,7 +346,9 @@ describe('PathMappingModal', () => {
 
     render(<PathMappingModal {...defaultProps} libraries={[]} />)
 
-    expect(screen.getByText('No libraries found. Try reloading libraries or ensure the Plex token is valid.')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('No libraries found. Try reloading libraries or ensure the Plex token is valid.')).toBeInTheDocument()
+    })
   })
 
   it('handles manual path entry via prompt fallback', async () => {

@@ -146,6 +146,11 @@ Object.defineProperty(globalThis, 'self', {
   writable: true,
 });
 
+Object.defineProperty(globalThis, 'scrollTo', {
+  value: vi.fn(),
+  writable: true,
+});
+
 // Test wrapper with providers
 export function renderWithProviders(component: ReactNode) {
   return render(

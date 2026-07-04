@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
   workflow_dispatch:
 
 concurrency:
@@ -10,10 +10,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate-pr-route:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Enforce PR routing policy
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.base_ref }}" = "main" ] && [ "${{ github.head_ref }}" != "develop" ]; then
+            echo "Pull requests into main must come from develop."
+            exit 1
+          fi
+
   # Linux self-hosted (Mint) – runs everything inside an Ubuntu container
   test-linux:
+    needs: validate-pr-route
     # if: ${{ false }}
-    runs-on: mint
+    runs-on: [self-hosted, linux, mint]
     container:
       image: ubuntu:22.04
 
@@ -60,23 +72,22 @@ jobs:
         run: npm install -g @tauri-apps/cli
 
       - name: Run frontend type checking
-        run: npm run test:ci
+        run: npm run test:types
 
       - name: Run frontend tests
-        run: npm run test:run
+        run: npm test
 
       - name: Run Rust tests
-        working-directory: ./src-tauri
-        run: cargo test
+        run: npm run test:rust
 
       - name: Run Rust integration tests
-        working-directory: ./src-tauri
-        run: cargo test --test integration_tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --test integration_tests
 
   # Windows GitHub-hosted runner – kept as before
   test-windows:
+    needs: validate-pr-route
     # if: ${{ false }}
-
+    if: ${{ github.base_ref == 'main' }}
     runs-on: windows-latest
 
     steps:
@@ -109,15 +120,13 @@ jobs:
         run: npm install -g @tauri-apps/cli
 
       - name: Run frontend type checking
-        run: npm run test:ci
+        run: npm run test:types
 
       - name: Run frontend tests
-        run: npm run test:run
+        run: npm test
 
       - name: Run Rust tests
-        working-directory: ./src-tauri
-        run: cargo test
+        run: npm run test:rust
 
       - name: Run Rust integration tests
-        working-directory: ./src-tauri
-        run: cargo test --test integration_tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --test integration_tests
