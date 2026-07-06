@@ -181,3 +181,340 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - `npx vitest run src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed.
 - Follow-ups:
   - Add a similar preview integration test for TV episode search if that flow starts getting the same local-plus-remote behavior as movies.
+
+## 2026-07-04
+
+- Summary: Refreshed the Rust backend analysis note so it matches the current codebase and narrowed the recommendation from broad optimization to targeted refactoring of the largest maintenance hotspots.
+- Files or areas: `_helpers/rust-codebase-analysis.md`, `src-tauri/src/video_rename.rs`, `src-tauri/src/plex_api.rs`, `src-tauri/src/lib.rs`, `src-tauri/src/subtitle.rs`.
+- Verification:
+  - `wc -l src-tauri/src/*.rs` used to refresh file-size totals.
+  - Reviewed current command boundaries and duplicated DTOs in Rust backend modules.
+- Follow-ups:
+  - If this work is resumed, start with shared rename/request/result DTO extraction before splitting `video_rename.rs`.
+
+## 2026-07-04
+
+- Summary: Added rename-regression tests around proposal generation, subtitle conversion, and apply-time filesystem behavior; expanded the rename safety note into a concrete renaming playbook with current implementation invariants and refactor guardrails.
+- Files or areas: `src-tauri/src/video_rename.rs`, `src-tauri/src/subtitle.rs`, `dev_docs/playbooks/rename-safety-playbook.md`, `dev_docs/playbooks/README.md`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed after fixing extension handling in rename proposals.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_map` passed.
+  - `npm run test:rust` still fails in sandboxed integration tests that try to bind wiremock ports; all unit tests and rename-focused tests passed.
+- Follow-ups:
+  - If full Rust integration verification is needed, rerun `npm run test:rust` outside the sandbox so wiremock can bind local ports.
+  - Add higher-level preview/apply parity tests once the rename DTOs and path-resolution helpers are easier to exercise without a full Tauri app handle.
+
+## 2026-07-04
+
+- Summary: Closed the next rename-safety backend gaps by testing mixed video+subtitle apply batches, rollback-log contents, current overwrite behavior on existing targets, empty-folder cleanup rules, and relative target resolution under path mappings.
+- Files or areas: `src-tauri/src/video_rename.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_map` passed.
+- Follow-ups:
+  - Full `npm run test:rust` is still expected to hit sandbox limits in wiremock-based integration tests unless rerun with port-binding permission.
+  - Preview/apply parity through the public `apply_video_renames(...)` Tauri command still deserves a higher-level harness if we want contract coverage above helper-level behavior.
+
+## 2026-07-05
+
+- Summary: Tightened the renaming playbook with explicit extraction rules for helper-based refactoring and documented the remaining post-refactor test backlog for command-level parity, undo, and consolidation work.
+- Files or areas: `dev_docs/playbooks/rename-safety-playbook.md`.
+- Verification:
+  - Documentation-only change.
+  - No tests run.
+- Follow-ups:
+  - Use the helper-extraction rules as the contract during the Rust refactor.
+  - Treat the post-refactor backlog as the next rename-safety tranche after structural consolidation.
+
+## 2026-07-05
+
+- Summary: Started the Rust rename refactor by consolidating mapping-selection logic in `preview_video_renames(...)` and converting `subtitle::apply_renames(...)` to the same thin-wrapper-plus-helper pattern already used in the video rename path.
+- Files or areas: `src-tauri/src/video_rename.rs`, `src-tauri/src/subtitle.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_map` passed.
+- Follow-ups:
+  - Continue consolidating duplicated rename/path-resolution code onto shared implementation points instead of adding parallel helpers.
+  - Next likely target is unifying mapping selection and apply-time path resolution across `preview_video_renames(...)`, `apply_video_renames(...)`, and `subtitle::apply_renames(...)`.
+
+## 2026-07-05
+
+- Summary: Consolidated rollback-log execution onto one shared helper and one shared log-path builder, leaving the video path responsible only for its mixed video-versus-subtitle dispatch.
+- Files or areas: `src-tauri/src/subtitle.rs`, `src-tauri/src/video_rename.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_map` passed.
+- Follow-ups:
+  - Mapping selection and apply-time path resolution are still intentionally separate because video and subtitle apply semantics differ today.
+  - Next safe consolidation target is shared mapping-loading primitives, but only if they preserve the current hostname/exact-match behavior in the video path.
+
+## 2026-07-05
+
+- Summary: Moved path-mapping JSON loading and server filtering into `path_map.rs`, so subtitle and video rename flows now share the same parsing and hostname-match behavior instead of re-implementing it locally.
+- Files or areas: `src-tauri/src/path_map.rs`, `src-tauri/src/path_map_tests.rs`, `src-tauri/src/subtitle.rs`, `src-tauri/src/video_rename.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_map` passed.
+- Follow-ups:
+  - Apply-time path resolution is still intentionally split because the video path accepts already-local and library-root-relative targets while subtitle apply does not.
+  - If we consolidate resolution next, it needs explicit mode differences rather than one flattened helper.
+
+## 2026-07-05
+
+- Summary: Consolidated apply-time path resolution into shared `path_map.rs` helpers with explicit modes for strict mapped paths, already-local acceptance, and library-root-relative targets; updated subtitle and video apply paths to delegate to those helpers.
+- Files or areas: `src-tauri/src/path_map.rs`, `src-tauri/src/path_map_tests.rs`, `src-tauri/src/subtitle.rs`, `src-tauri/src/video_rename.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_map` passed.
+- Follow-ups:
+  - Backup-path handling is still intentionally fallback-tolerant and remains string-preserving when strict resolution fails.
+  - The next consolidation target should be cleanup path resolution, which still repeats the allow-local-or-mapped branch inline.
+
+## 2026-07-05
+
+- Summary: Moved empty-folder cleanup path resolution onto the shared allow-local apply helper so cleanup now uses the same mapped-versus-local decision path as the rest of the video apply flow.
+- Files or areas: `src-tauri/src/video_rename.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_map` passed.
+- Follow-ups:
+  - The remaining cleanup-specific logic is now the upward directory walk and mapped-root boundary checks rather than path resolution itself.
+
+## 2026-07-05
+
+- Summary: Extracted shared rename DTOs into a dedicated backend module and rewired subtitle and video rename flows to depend on it directly instead of duplicating shapes or routing through `subtitle.rs` for shared request/result types.
+- Files or areas: `src-tauri/src/rename_types.rs`, `src-tauri/src/lib.rs`, `src-tauri/src/subtitle.rs`, `src-tauri/src/video_rename.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_map` passed.
+- Follow-ups:
+  - `video_rename.rs` still remains the largest maintenance hotspot even after the DTO extraction.
+  - Re-audit the Rust backend analysis note so it reflects the reduced rename-path duplication and the remaining true hotspots.
+
+## 2026-07-05
+
+- Summary: Expanded the dedicated mock-Plex harness note into an implementation handoff with concrete file layout, phase-by-phase steps, first-slice deliverables, and rules for a fresh agent to continue without re-planning.
+- Files or areas: `_helpers/work/mock-plex-harness-design-2026-07-05.md`.
+- Verification:
+  - reviewed the existing design note and filled the missing handoff details: target files, scenario manifests, builder script, initial Rust test names, and phase stop conditions.
+- Follow-ups:
+  - the next agent should be able to start directly from the “First Implementation Slice” and “Handoff Checklist” sections.
+
+## 2026-07-05
+
+- Summary: Added a dedicated mock-Plex harness design note that consolidates the existing Plex payload examples, prior mock-server guide, and generated test-media approach into one focused plan for API mock plus generated filesystem plus backend integration tests.
+- Files or areas: `_helpers/work/mock-plex-harness-design-2026-07-05.md`.
+- Verification:
+  - inspected `_helpers/full_plex_examples/*.json`, `_helpers/mock-plex-server-implementation-guide.md`, `_helpers/tests/MOCK_SERVER_README.md`, and `_helpers/tests/setup-test-media-ultimate.sh`.
+- Follow-ups:
+  - the recommended architecture is a three-part harness, not a single giant fake Plex server.
+  - next concrete step is to define the manifest contract for generated fixtures and Plex payload generation.
+
+## 2026-07-05
+
+- Summary: Implemented the first mergeable mock-Plex harness wave with richer tracked API fixtures, a manifest-driven filesystem builder, a backend integration suite, and a safer existing-target failure path for apply-time rename tests.
+- Files or areas: `tests/mock-plex/*`, `src-tauri/tests/fixtures/mock_plex/*`, `src-tauri/tests/fixtures/bin/build_fixture_tree.sh`, `src-tauri/tests/mock_plex_harness_tests.rs`, `src-tauri/src/video_rename.rs`, `src-tauri/src/video_rename/apply.rs`, `src-tauri/src/video_rename/tests.rs`, `src-tauri/src/subtitle.rs`.
+- Verification:
+  - `cargo fmt --manifest-path src-tauri/Cargo.toml` passed.
+  - `node --check tests/mock-plex/mock-plex-server.cjs` passed.
+  - `bash -n src-tauri/tests/fixtures/bin/build_fixture_tree.sh` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests -- --nocapture` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename -- --nocapture` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle -- --nocapture` passed.
+- Follow-ups:
+  - The tracked mock server is still intentionally static; it does not mutate state after apply/undo.
+  - The next harness slice should add TV-first manifests and, if needed, explicit contract coverage for conflict-policy variants beyond the new safe default failure path.
+
+## 2026-07-05
+
+- Summary: Consolidated the supported mock-Plex setup flow under `tests/mock-plex/` by adding tracked media/setup/verify shell scripts, wiring package scripts to them, updating the README, and turning the old `_helpers/tests` mock-server/path-mapping entrypoints into compatibility wrappers.
+- Files or areas: `tests/mock-plex/README.md`, `tests/mock-plex/bin/*`, `package.json`, `.gitignore`, `_helpers/tests/mock-plex-server.cjs`, `_helpers/tests/setup-mock-path-mappings.sh`, `_helpers/tests/README.txt`, `_helpers/tests/MOCK_SERVER_README.md`.
+- Verification:
+  - `bash -n tests/mock-plex/bin/setup-test-media.sh` passed.
+  - `bash -n tests/mock-plex/bin/write-path-mappings.sh` passed.
+  - `bash -n tests/mock-plex/bin/verify-mock-plex.sh` passed.
+  - `node --check tests/mock-plex/mock-plex-server.cjs` passed.
+  - `npm run mock:setup` printed the expected setup output, but the `ctx-wire` wrapper did not preserve the created files for follow-up inspection in this environment.
+  - Direct runs of `bash tests/mock-plex/bin/setup-test-media.sh --out ./test_media` and `bash tests/mock-plex/bin/write-path-mappings.sh --media-root ./test_media --out ./tests/mock-plex/generated/mock-path-mappings.json` produced the expected files.
+  - Live localhost verification passed outside the sandbox: `bash tests/mock-plex/bin/verify-mock-plex.sh --base-url http://localhost:32400 --media-root ./test_media`.
+- Follow-ups:
+  - The tracked scripts now cover the current mock bundle, while `_helpers/tests/setup-test-media-ultimate.sh` remains the larger local-only torture-tree generator rather than the default tracked setup path.
+
+## 2026-07-05
+
+- Summary: Created a focused next-steps backlog note under `_helpers/work` covering dependency updates, mock Plex replacement strategy, blocks-view thumbnail audit, template live-update defects, and per-library template history.
+- Files or areas: `_helpers/work/next-steps-backlog-2026-07-05.md`.
+- Verification:
+  - inspected `package.json`, `src-tauri/Cargo.toml`, `tests/mock-plex/`, and Preview/template-related frontend/backend files to ground the plan in current code.
+- Follow-ups:
+  - the note recommends doing template correctness/history first, then the real rename integration harness, then poster pagination, then dependency updates.
+
+## 2026-07-05
+
+- Summary: Continued the `video_rename` split by extracting common path/name helpers, template rendering, edition parsing, organization helpers, and sanitization into dedicated submodules while keeping the existing command and test surface stable.
+- Files or areas: `src-tauri/src/video_rename.rs`, `src-tauri/src/video_rename/common.rs`, `src-tauri/src/video_rename/template.rs`, `src-tauri/src/video_rename/editions.rs`, `src-tauri/src/video_rename/organize.rs`, `src-tauri/src/video_rename/sanitize.rs`, `_helpers/rust-codebase-analysis.md`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_map` passed.
+- Follow-ups:
+  - `video_rename.rs` is now down to 888 lines, but still owns preview/apply orchestration and the very large `has_non_latin(...)` helper.
+  - `plex_api.rs` remains the clearest backend monolith at 2,184 lines.
+
+## 2026-07-05
+
+- Summary: Rewrote the Rust backend analysis note against the current codebase after the rename-path cleanup, updating file sizes, resolved findings, and next-step recommendations.
+- Files or areas: `_helpers/rust-codebase-analysis.md`, `src-tauri/src/*.rs`.
+- Verification:
+  - `wc -l src-tauri/src/*.rs` used to refresh file-size totals.
+  - `rg -n "TODO|FIXME|TODO:" src-tauri/src` used to refresh explicit behavior-debt markers.
+- Follow-ups:
+  - The refreshed audit now points at `video_rename.rs` and `plex_api.rs` as the real remaining hotspots.
+  - If refactoring continues, the next structural step should be splitting `video_rename.rs`, not another round of minor helper extraction.
+
+## 2026-07-06
+
+- Summary: Reworked the movie-edition fixtures so the mock library now contains sibling entries for the same movie title/year with different editions, covering theatrical vs director's cut and theatrical vs extended handling.
+- Files or areas: `tests/mock-plex/fixtures/movies_all.json`, `tests/mock-plex/fixtures/search_movies.json`, `tests/mock-plex/bin/setup-test-media.sh`, `tests/mock-plex/bin/verify-mock-plex.sh`, `tests/mock-plex/README.md`.
+- Verification:
+  - `jq empty tests/mock-plex/fixtures/movies_all.json tests/mock-plex/fixtures/search_movies.json` passed.
+  - `bash -n tests/mock-plex/bin/setup-test-media.sh tests/mock-plex/bin/verify-mock-plex.sh` passed.
+  - `node --check tests/mock-plex/mock-plex-server.cjs` passed.
+  - `npm run mock:setup` passed.
+  - `npm run mock:verify` passed against a fresh mock server process outside the sandbox because localhost socket verification is blocked in the sandbox.
+- Follow-ups:
+  - If we want to stress collection workflows further, the next step should be adding collection payloads that explicitly group these sibling editions.
+
+## 2026-07-06
+
+- Summary: Expanded the TV side of the tracked mock Plex bundle to a multi-show library with generated season lists, multi-season and limited-series examples, and aggregated episode fixtures that now behave more like a real Plex server.
+- Files or areas: `tests/mock-plex/fixtures/shows_all.json`, `tests/mock-plex/fixtures/tv_all_leaves.json`, `tests/mock-plex/fixtures/search_tv.json`, `tests/mock-plex/mock-plex-server.cjs`, `tests/mock-plex/bin/setup-test-media.sh`, `tests/mock-plex/bin/verify-mock-plex.sh`, `tests/mock-plex/README.md`.
+- Verification:
+  - `jq empty tests/mock-plex/fixtures/shows_all.json tests/mock-plex/fixtures/tv_all_leaves.json tests/mock-plex/fixtures/search_tv.json` passed.
+  - `node --check tests/mock-plex/mock-plex-server.cjs` passed.
+  - `bash -n tests/mock-plex/bin/setup-test-media.sh tests/mock-plex/bin/verify-mock-plex.sh` passed.
+  - `npm run mock:setup` passed.
+  - direct endpoint check for `GET /library/metadata/201/children` returned the expected season directories.
+  - `npm run mock:verify` passed against a fresh mock server process outside the sandbox because localhost socket verification is blocked in the sandbox.
+- Follow-ups:
+  - If we want even broader TV realism, the next additions should be one long-running sitcom-style catalog and one show with alternate version/cut naming on episode files.
+
+## 2026-07-06
+
+- Summary: Fixed two mock-Plex frontend regressions by preventing `ShowSelection` loads from leaving the spinner latched after short-circuit/overlap cases and by resetting movie reload fetches to offset `0` instead of reusing stale Preview pagination state.
+- Files or areas: `src/pages/ShowSelection/ShowSelectionContainer.tsx`, `src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx`, `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`.
+- Verification:
+  - `npm run test -- src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed.
+  - `npm run test -- src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` passed.
+  - `npm run test:types` passed.
+- Follow-ups:
+  - Preview movie pagination still has overlapping initial-load and load-more paths; if more paging bugs appear, that state machine should be simplified instead of patched incrementally.
+
+## 2026-07-06
+
+- Summary: Expanded the tracked mock Plex bundle with richer movie edition cases, TV multi-episode and specials cases, matching local media generation, filtered hub search behavior, and updated mock verification/docs.
+- Files or areas: `tests/mock-plex/fixtures/movies_all.json`, `tests/mock-plex/fixtures/shows_all.json`, `tests/mock-plex/fixtures/show_200_children.json`, `tests/mock-plex/fixtures/show_200_all_leaves.json`, `tests/mock-plex/fixtures/search_movies.json`, `tests/mock-plex/fixtures/search_tv.json`, `tests/mock-plex/fixtures/metadata_200.json`, `tests/mock-plex/mock-plex-server.cjs`, `tests/mock-plex/bin/setup-test-media.sh`, `tests/mock-plex/bin/verify-mock-plex.sh`, `tests/mock-plex/README.md`.
+- Verification:
+  - `jq empty tests/mock-plex/fixtures/*.json` passed.
+  - `node --check tests/mock-plex/mock-plex-server.cjs` passed.
+  - `bash -n tests/mock-plex/bin/setup-test-media.sh tests/mock-plex/bin/write-path-mappings.sh tests/mock-plex/bin/verify-mock-plex.sh` passed.
+  - `npm run mock:setup` passed.
+  - `npm run mock:verify` passed outside the sandbox because localhost socket access is blocked inside the sandbox.
+- Follow-ups:
+  - The next mock-fixture wave should add more than one TV show and separate collection payload coverage for edition-heavy movie cases if we want broader collection-scope workflow testing.
+
+## 2026-07-06
+
+- Summary: Adjusted Home discovery persistence so remembered Plex servers survive a fresh Discover run, added per-server removal in the discovered list, and covered the new behavior with focused HomeContainer tests.
+- Files or areas: `src/pages/Home/HomeContainer.tsx`, `src/pages/Home/HomeTemplate.tsx`, `src/pages/Home/__tests__/HomeContainer.test.tsx`.
+- Verification:
+  - `npm run test -- src/pages/Home/__tests__/HomeContainer.test.tsx` passed.
+  - `npm run test:types` passed.
+- Follow-ups:
+  - If we want automatic stale cleanup later, add a lightweight reachability flag or failed-interaction counter rather than deleting servers on a single missed discovery pass.
+
+## 2026-07-06
+
+- Summary: Fixed Home restore logic so saved `http://localhost:32400` entries are no longer treated as removable legacy mock servers and now persist across navigation back to Home.
+- Files or areas: `src/pages/Home/HomeContainer.tsx`, `src/pages/Home/__tests__/HomeContainer.test.tsx`.
+- Verification:
+  - `npm run test -- src/pages/Home/__tests__/HomeContainer.test.tsx` passed.
+  - `npm run test:types` passed.
+- Follow-ups:
+  - If the legacy mock cleanup is still needed, it should key off explicit mock metadata rather than the generic localhost address.
+
+## 2026-07-05
+
+- Summary: Started the structural split of the `video_rename` module by extracting types, apply/cleanup helpers, destination helpers, and the main test block into `src-tauri/src/video_rename/` submodules while keeping the public command surface stable.
+- Files or areas: `src-tauri/src/video_rename.rs`, `src-tauri/src/video_rename/types.rs`, `src-tauri/src/video_rename/apply.rs`, `src-tauri/src/video_rename/destinations.rs`, `src-tauri/src/video_rename/tests.rs`, `src-tauri/src/lib.rs`, `_helpers/rust-codebase-analysis.md`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_map` passed.
+- Follow-ups:
+  - The root `video_rename.rs` file is smaller now but still owns proposal generation, sanitization, and preview orchestration.
+  - The next extractions should target template/sanitize/movie/episode/preview logic inside the remaining root module.
+
+## 2026-07-05
+
+- Summary: Continued the `video_rename` split by moving movie and episode proposal builders into dedicated submodules and finishing the migration of stray root-level tests into `video_rename/tests.rs`.
+- Files or areas: `src-tauri/src/video_rename.rs`, `src-tauri/src/video_rename/movies.rs`, `src-tauri/src/video_rename/episodes.rs`, `src-tauri/src/video_rename/tests.rs`, `_helpers/rust-codebase-analysis.md`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_map` passed.
+- Follow-ups:
+  - `video_rename.rs` is now down to 1,296 lines, but still owns preview orchestration plus the remaining helper/sanitization layer.
+  - The next extractions should target the helper layer and then preview orchestration so the root becomes mostly command wiring.
+  - A temporary unused `helpers.rs` extraction was intentionally removed in the same pass so the module split does not leave a shadow implementation behind.
+
+## 2026-07-05
+
+- Summary: Fixed mock-Plex library loading for full server URLs by centralizing Plex base-URL normalization in `plex_api.rs` and extracting shared library JSON parsing that is now covered directly by the tracked `tests/mock-plex/fixtures/libraries.json` payload.
+- Files or areas: `src-tauri/src/plex_api.rs`.
+- Verification:
+  - `cargo fmt --manifest-path src-tauri/Cargo.toml --check` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml build_base_variants -- --nocapture` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml parse_libraries_from_mock_fixture_preserves_roots -- --nocapture` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml test_list_libraries_with_mock_plex_server -- --nocapture` could not complete in the sandbox because wiremock could not bind a local port.
+- Follow-ups:
+  - If we want end-to-end regression coverage for the Libraries flow, rerun the mock-server integration test outside the sandbox so the local listener can bind normally.
+
+## 2026-07-06
+
+- Summary: Normalized TV episode rename tokens to Plex-style multi-episode output, preserved supported split-part suffixes, and extracted the token parsing/rendering rules into dedicated frontend and backend helpers instead of expanding the existing proposal files.
+- Files or areas: `src/pages/Preview/episodeProposal.ts`, `src/pages/Preview/episodeTokens.ts`, `src/pages/Preview/__tests__/tv-episode-token-normalization.test.ts`, `src/pages/Settings/TV.tsx`, `src/components/TemplateHelpModal.tsx`, `src/state/settings.tsx`, `docs/features.md`, `docs/settings.md`, `docs/tips.md`, `src-tauri/src/video_rename/episode_tokens.rs`, `src-tauri/src/video_rename/episodes.rs`, `src-tauri/src/video_rename/tests.rs`.
+- Verification:
+  - `npm run test -- src/pages/Preview/__tests__/tv-episode-token-normalization.test.ts src/pages/Preview/__tests__/tv-extras-detection.test.ts` passed.
+  - `npm run test:types` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename::tests -- --nocapture` passed.
+- Follow-ups:
+  - Split-part handling now preserves suffixes on individual files, but full multi-part episode support still depends on loading every Plex `Part` entry end-to-end in the TV browsing flow.
+
+## 2026-07-06
+
+- Summary: Fixed TV season pagination so page 2 triggers a real episode fetch instead of getting stuck on the loading placeholder, and corrected exhausted/page-count logic so grouped episode rows do not leave phantom extra pages.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`.
+- Verification:
+  - `npm run test -- src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` passed.
+  - `npm run test:types` passed.
+- Follow-ups:
+  - TV pagination now has its own incremental fetch path; if we later support “all seasons” paging in Preview, it should reuse the same fetch/exhaustion rules instead of adding another parallel path.
+
+## 2026-07-06
+
+- Summary: Relaxed the Preview page-transition loading gate so TV page 2 renders already-built episode rows instead of showing the loading placeholder indefinitely when background recompute flags lag behind the actual row state.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`.
+- Verification:
+  - `npm run test -- src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` passed.
+  - `npm run test:types` passed.
+- Follow-ups:
+  - If TV proposal generation gets more async work later, keep the page-transition gate keyed to page-row availability rather than broad global loading flags.

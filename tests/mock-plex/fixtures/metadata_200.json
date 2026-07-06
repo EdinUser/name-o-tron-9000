@@ -1,0 +1,21 @@
+{
+  "MediaContainer": {
+    "size": 1,
+    "Metadata": [
+      {
+        "ratingKey": "200",
+        "key": "/library/metadata/200",
+        "guid": "plex://show/mock-abyssal-gate",
+        "type": "show",
+        "title": "Abyssal Gate",
+        "summary": "Mock TV show fixture for endpoint coverage.",
+        "thumb": "/library/metadata/200/thumb",
+        "art": "/library/metadata/200/art",
+        "Genre": [{ "tag": "Science Fiction" }],
+        "studio": "Mock Network",
+        "leafCount": 7,
+        "year": 2023
+      }
+    ]
+  }
+}

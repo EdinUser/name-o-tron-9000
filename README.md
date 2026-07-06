@@ -27,7 +27,7 @@ It requires access to a Plex Media Server and its metadata.
 
 ## Features
 
-- **Plex Integration**: Discover and authenticate with Plex Media Servers using automatic server discovery and PIN-based authentication
+- **Plex Integration**: Discover and authenticate with Plex Media Servers using automatic server discovery, remembered server entries, and PIN-based authentication
 - **Safety-First Design**: Traffic-light status system (Green/Yellow/Red) with comprehensive validation and batch guards
 - **Preview System**: Generate rename proposals with real filesystem validation before applying changes
 - **Rollback Support**: Complete rollback logging with one-click undo functionality for all operations (see [Rollback & Recovery](docs/features.md#rollback--recovery))
@@ -75,6 +75,7 @@ Docs are hosted at https://name-o-tron.kirilov.dev/ (built from the `docs/` fold
 
 2. **Development with mock server**:
    ```bash
+   npm run mock:setup # Optional: rebuild local mock media tree
    npm run mock:plex  # Terminal A - starts mock Plex server
    npm run tauri dev  # Terminal B - starts the app
    ```
@@ -97,7 +98,7 @@ Complete documentation is available in the [`docs/`](./docs/) folder:
 
 ### First Launch Workflow
 
-1. **Server Discovery** - App automatically finds Plex servers on your network
+1. **Server Discovery** - App automatically finds Plex servers on your network and keeps discovered/manual entries until you remove them
 2. **Authentication** - Login with your Plex account (PIN-based flow)
 3. **Path Mapping** - Map Plex library paths to your local folder structure
 4. **Library Selection** - Choose Movies, TV Shows, or Music libraries
@@ -160,7 +161,8 @@ All rename operations include multiple safety layers:
 **"No Plex servers found"**
 - Ensure Plex Media Server is running and accessible on your network
 - Check firewall settings allow network discovery
-- Try manual server addition in settings
+- Try Home → Advanced Scan or manual server addition
+- Remove stale saved entries from Home if an old server address keeps reappearing
 
 **"Path mapping failed"**
 - Verify Plex library root paths match your local folder structure

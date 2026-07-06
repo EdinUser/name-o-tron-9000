@@ -1,0 +1,142 @@
+{
+  "MediaContainer": {
+    "size": 1,
+    "Hub": [
+      {
+        "type": "movie",
+        "title": "Movies",
+        "Metadata": [
+          {
+            "ratingKey": "101",
+            "key": "/library/metadata/101",
+            "type": "movie",
+            "title": "Interstellar",
+            "year": 2014,
+            "thumb": "/library/metadata/101/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/mount/server/HDD1/Movies/Incoming/Interstellar.2014.1080p.BluRay.x264.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "102",
+            "key": "/library/metadata/102",
+            "type": "movie",
+            "title": "Arrival",
+            "year": 2016,
+            "thumb": "/library/metadata/102/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/mount/server/HDD1/Movies/Staging/Arrival.2016.1080p.WEB-DL.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "104",
+            "key": "/library/metadata/104",
+            "type": "movie",
+            "title": "Blade Runner",
+            "year": 1982,
+            "edition": "{edition-directors-cut}",
+            "editionTitle": "Director's Cut",
+            "thumb": "/library/metadata/104/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/mount/server/HDD1/Movies/Editions/Blade.Runner.1982.Directors.Cut.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "105",
+            "key": "/library/metadata/105",
+            "type": "movie",
+            "title": "Kingdom of Heaven",
+            "year": 2005,
+            "edition": "{edition-theatrical}",
+            "editionTitle": "Theatrical Release",
+            "thumb": "/library/metadata/105/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/mount/server/HDD1/Movies/Editions/Kingdom.of.Heaven.2005.Theatrical.Release.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "106",
+            "key": "/library/metadata/106",
+            "type": "movie",
+            "title": "Kingdom of Heaven",
+            "year": 2005,
+            "edition": "{edition-directors-cut}",
+            "editionTitle": "Director's Cut",
+            "thumb": "/library/metadata/106/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/mount/server/HDD1/Movies/Editions/Kingdom.of.Heaven.2005.Directors.Cut.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "107",
+            "key": "/library/metadata/107",
+            "type": "movie",
+            "title": "The Lord of the Rings: The Two Towers",
+            "year": 2002,
+            "edition": "{edition-theatrical}",
+            "editionTitle": "Theatrical Release",
+            "thumb": "/library/metadata/107/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/mount/server/HDD1/Movies/Editions/The.Lord.of.the.Rings.The.Two.Towers.2002.Theatrical.Release.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "108",
+            "key": "/library/metadata/108",
+            "type": "movie",
+            "title": "The Lord of the Rings: The Two Towers",
+            "year": 2002,
+            "edition": "{edition-extended}",
+            "editionTitle": "Extended Edition",
+            "thumb": "/library/metadata/108/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/mount/server/HDD1/Movies/Editions/The.Lord.of.the.Rings.The.Two.Towers.2002.Extended.Edition.mkv"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

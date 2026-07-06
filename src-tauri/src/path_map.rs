@@ -61,6 +61,95 @@ fn server_ids_match(mapping_id: &str, server_id: &str) -> bool {
     host_only(mapping_id) == host_only(server_id)
 }
 
+pub fn path_mappings_from_settings(settings: &serde_json::Value) -> Vec<PathMapping> {
+    settings
+        .get("pathMappings")
+        .and_then(|pm| pm.as_array())
+        .map(|mappings_array| {
+            mappings_array
+                .iter()
+                .filter_map(|mapping| {
+                    let obj = mapping.as_object()?;
+                    Some(PathMapping {
+                        server_id: obj.get("server_id")?.as_str()?.to_string(),
+                        plex_root: obj.get("plex_root")?.as_str()?.to_string(),
+                        local_root: obj.get("local_root")?.as_str()?.to_string(),
+                        platform: obj
+                            .get("platform")
+                            .and_then(|value| value.as_str())
+                            .map(|value| value.to_string()),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+pub fn mappings_for_server(settings: &serde_json::Value, server_id: &str) -> Vec<PathMapping> {
+    filter_mappings_for_server(&path_mappings_from_settings(settings), server_id)
+}
+
+pub fn filter_mappings_for_server(mappings: &[PathMapping], server_id: &str) -> Vec<PathMapping> {
+    mappings
+        .iter()
+        .filter(|mapping| server_ids_match(&mapping.server_id, server_id))
+        .cloned()
+        .collect()
+}
+
+pub fn extract_library_root_from_path(
+    resolved_path: &Path,
+    mappings: &[PathMapping],
+) -> Option<PathBuf> {
+    let path_str = resolved_path.to_string_lossy();
+    let mut best_root: Option<&str> = None;
+    let mut best_len = 0;
+
+    for mapping in mappings {
+        let local_root = &mapping.local_root;
+        if path_str.starts_with(local_root) && local_root.len() > best_len {
+            best_root = Some(local_root);
+            best_len = local_root.len();
+        }
+    }
+
+    best_root.map(PathBuf::from)
+}
+
+pub fn resolve_apply_path_strict(
+    path: &str,
+    mappings: &[PathMapping],
+    server_id: &str,
+) -> Option<PathBuf> {
+    resolve_plex_path(path, mappings, server_id, None)
+}
+
+pub fn resolve_apply_path_allow_local(
+    path: &str,
+    mappings: &[PathMapping],
+    server_id: &str,
+) -> Option<PathBuf> {
+    if is_already_local_path(path, mappings, server_id, None) {
+        Some(PathBuf::from(path))
+    } else {
+        resolve_plex_path(path, mappings, server_id, None)
+    }
+}
+
+pub fn resolve_apply_path_allow_local_or_relative(
+    path: &str,
+    mappings: &[PathMapping],
+    server_id: &str,
+    resolved_original_path: &Path,
+) -> Option<PathBuf> {
+    if let Some(resolved) = resolve_apply_path_allow_local(path, mappings, server_id) {
+        return Some(resolved);
+    }
+
+    extract_library_root_from_path(resolved_original_path, mappings)
+        .map(|library_root| library_root.join(path))
+}
+
 /// Check if a path is already resolved to a local filesystem path.
 /// Returns true if the path starts with any local root in the mappings.
 pub fn is_already_local_path(
@@ -192,5 +281,10 @@ pub fn test_mapping(
     }
 
     let ok = exists && writable;
-    Ok(TestMappingResult { ok, exists, writable, details })
+    Ok(TestMappingResult {
+        ok,
+        exists,
+        writable,
+        details,
+    })
 }

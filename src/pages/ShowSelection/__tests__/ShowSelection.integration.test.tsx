@@ -230,6 +230,49 @@ describe('ShowSelection Integration Tests', () => {
     });
   });
 
+  it('clears the loading state even if poster fetching fails', async () => {
+    mockInvoke.mockImplementation((command: string, _args?: any) => {
+      switch (command) {
+        case 'get_settings':
+          return Promise.resolve({ pathMappings: mockMappings });
+        case 'fetch_tv_shows':
+          return Promise.resolve({ MediaContainer: { Directory: [mockShows[0]], totalSize: 1, size: 1, offset: 0 } });
+        case 'fetch_show_episodes':
+          return Promise.resolve(mockEpisodeData);
+        case 'fetch_plex_image':
+          return Promise.reject(new Error('poster fetch failed'));
+        case 'generate_mappings_checksum_cmd':
+          return Promise.resolve('test-checksum');
+        case 'load_show_mapping_cache':
+          return Promise.resolve(mockCache);
+        case 'save_show_mapping_cache':
+          return Promise.resolve();
+        case 'invalidate_show_mapping_cache':
+          return Promise.resolve();
+        default:
+          return Promise.reject(new Error(`Unknown command: ${command}`));
+      }
+    });
+
+    renderWithProviders(
+      <ShowSelectionContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={mockOnBack}
+        onSelectShow={mockOnSelectShow}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading shows…')).not.toBeInTheDocument();
+      expect(screen.queryByText('Building cache…')).not.toBeInTheDocument();
+    });
+  });
+
   it('handles cache miss and builds cache from scratch', async () => {
     // Mock cache not found
     mockInvoke.mockImplementation((command: string, _args?: any) => {

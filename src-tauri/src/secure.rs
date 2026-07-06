@@ -28,4 +28,3 @@ pub fn secure_clear_token() -> Result<(), String> {
         Err(e) => Err(e.to_string()),
     }
 }
-

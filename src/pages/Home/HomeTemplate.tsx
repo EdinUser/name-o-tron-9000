@@ -34,6 +34,7 @@ type Props = {
     onSetManualAddr: (addr: string) => void;
     onToggleTheme: () => void;
     onClearServers: () => void;
+    onRemoveServer: (idx: number) => void;
 };
 
 export default function HomeTemplate({
@@ -68,6 +69,7 @@ export default function HomeTemplate({
     onSetManualAddr,
     onToggleTheme,
     onClearServers,
+    onRemoveServer,
 }: Props) {
     return (
         <main className="min-h-screen bg-neutral-900 text-neutral-100" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
@@ -177,7 +179,17 @@ export default function HomeTemplate({
                                             <div className="text-xs text-neutral-400">{s.address}</div>
                                         </div>
                                     </label>
-                                    {s.owned && <span className="rounded bg-neutral-700/60 px-2 py-0.5 text-[11px] text-neutral-200">Owner</span>}
+                                    <div className="flex items-center gap-2">
+                                        {s.owned && <span className="rounded bg-neutral-700/60 px-2 py-0.5 text-[11px] text-neutral-200">Owner</span>}
+                                        <button
+                                            type="button"
+                                            onClick={() => onRemoveServer(i)}
+                                            className="rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 text-[11px] text-neutral-300 hover:bg-neutral-700"
+                                            aria-label={`Remove ${s.name}`}
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
                                 </li>
                             ))}
                         </ul>

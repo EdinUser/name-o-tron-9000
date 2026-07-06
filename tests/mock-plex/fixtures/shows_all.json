@@ -1,0 +1,54 @@
+{
+  "MediaContainer": {
+    "size": 3,
+    "totalSize": 3,
+    "offset": 0,
+    "Directory": [
+      {
+        "ratingKey": "200",
+        "key": "/library/metadata/200",
+        "guid": "plex://show/mock-abyssal-gate",
+        "type": "show",
+        "title": "Abyssal Gate",
+        "summary": "Mock TV show fixture for endpoint coverage.",
+        "thumb": "/library/metadata/200/thumb",
+        "art": "/library/metadata/200/art",
+        "studio": "Mock Network",
+        "Genre": [{ "tag": "Science Fiction" }],
+        "leafCount": 7,
+        "viewedLeafCount": 0,
+        "year": 2023
+      },
+      {
+        "ratingKey": "201",
+        "key": "/library/metadata/201",
+        "guid": "plex://show/mock-northwind-homicide",
+        "type": "show",
+        "title": "Northwind Homicide",
+        "summary": "A multi-season procedural with a holiday special and standard season boundaries.",
+        "thumb": "/library/metadata/201/thumb",
+        "art": "/library/metadata/201/art",
+        "studio": "Public Channel",
+        "Genre": [{ "tag": "Crime" }, { "tag": "Drama" }],
+        "leafCount": 5,
+        "viewedLeafCount": 0,
+        "year": 2019
+      },
+      {
+        "ratingKey": "202",
+        "key": "/library/metadata/202",
+        "guid": "plex://show/mock-quiet-harbor",
+        "type": "show",
+        "title": "Quiet Harbor",
+        "summary": "A prestige miniseries with a double-episode finale stored in a single file.",
+        "thumb": "/library/metadata/202/thumb",
+        "art": "/library/metadata/202/art",
+        "studio": "StreamWorks",
+        "Genre": [{ "tag": "Mystery" }, { "tag": "Drama" }],
+        "leafCount": 3,
+        "viewedLeafCount": 0,
+        "year": 2021
+      }
+    ]
+  }
+}

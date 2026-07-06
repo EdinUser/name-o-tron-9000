@@ -44,6 +44,8 @@ coverage/
 htmlcov/
 site/
 release.json
+/test_media/
+/tests/mock-plex/generated/
 
 # Python tooling
 __pycache__/

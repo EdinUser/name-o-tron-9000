@@ -1,342 +1,44 @@
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use crate::rename_types::{
+    ApplyRenamesRequest, ApplyResult, PreviewRenamesRequest, PreviewResult, RenameOperation,
+};
 use std::path::Path;
-use std::fs;
-use regex::Regex;
 use tauri::command;
+mod apply;
+mod common;
+mod destinations;
+mod editions;
+mod episodes;
+mod episode_tokens;
+mod movies;
+mod organize;
+mod sanitize;
+mod template;
+#[cfg(test)]
+mod tests;
+mod types;
 
-// Types for video items (matching frontend types)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MovieItem {
-    pub rating_key: String,
-    pub title: String,
-    pub year: Option<i32>,
-    pub file: String,
-    pub genre: Vec<String>,
-    pub collection: Option<String>,
-    pub edition_title: Option<String>,
-    pub guids: Vec<String>,
-    pub imdb_id: Option<String>,
-    pub tmdb_id: Option<String>,
-    pub tvdb_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EpisodeItem {
-    pub rating_key: String,
-    pub title: String,
-    pub year: Option<i32>,
-    pub file: String,
-    pub genre: Vec<String>,
-    pub guids: Vec<String>,
-    pub imdb_id: Option<String>,
-    pub tmdb_id: Option<String>,
-    pub tvdb_id: Option<String>,
-    pub grandparent_title: String, // Show title
-    pub parent_title: String,     // Season title
-    pub parent_index: i32,        // Season number
-    pub index: i32,              // Episode number
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MusicItem {
-    pub rating_key: String,
-    pub title: String,
-    pub year: Option<i32>,
-    pub file: String,
-    pub genre: Vec<String>,
-    pub guids: Vec<String>,
-    pub imdb_id: Option<String>,
-    pub tmdb_id: Option<String>,
-    pub tvdb_id: Option<String>,
-    pub grandparent_title: String, // Artist
-    pub parent_title: String,     // Album
-    pub parent_index: i32,        // Disc number
-    pub index: i32,              // Track number
-}
-
-// Types for rename operations (matching subtitle.rs)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RenameOperation {
-    pub operation_type: String,  // "rename", "move"
-    pub original_path: String,
-    pub new_path: String,
-    pub backup_path: Option<String>,
-    pub operation_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PreviewResult {
-    pub video_operations: Vec<RenameOperation>,
-    pub subtitle_operations: Vec<RenameOperation>,
-    pub warnings: Vec<String>,
-    pub blocking_errors: Vec<String>,
-}
-
-// Template context for rendering
-type TemplateContext = HashMap<String, String>;
-
-/// Simple basename implementation
-fn basename(path: &str) -> String {
-    Path::new(path).file_name()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_string()
-}
-
-/// Template rendering engine (ported from frontend)
-fn render_template(template: &str, context: &TemplateContext) -> String {
-    if template.is_empty() {
-        return String::new();
-    }
-
-    // First, process bracketed optional groups.
-    let with_groups = Regex::new(r"\[(.+?)\]")
-        .unwrap()
-        .replace_all(template, |caps: &regex::Captures| {
-            let group = &caps[1];
-            // Resolve placeholders within the group to check if any have values
-            let resolved = Regex::new(r"\{([a-zA-Z0-9_]+)(?::(\d+))?\}")
-                .unwrap()
-                .replace_all(group, |inner_caps: &regex::Captures| {
-                    let key = &inner_caps[1];
-                    let fmt = inner_caps.get(2).map(|m| m.as_str());
-
-                    if let Some(value) = context.get(key) {
-                        if value.is_empty() {
-                            return String::new();
-                        }
-                        if let Some(fmt_width) = fmt.and_then(|f| f.parse::<usize>().ok()) {
-                            // Simple number formatting (pad with zeros)
-                            if let Ok(num) = value.parse::<i32>() {
-                                return format!("{:0width$}", num, width = fmt_width);
-                            }
-                        }
-                        return value.clone();
-                    }
-                    String::new()
-                });
-
-            // If the resolved group is empty or whitespace/punctuation only, drop the whole group
-            if Regex::new(r"[a-zA-Z0-9]").unwrap().is_match(&resolved) {
-                resolved.to_string()
-            } else {
-                String::new()
-            }
-        });
-
-    // Then, replace simple placeholders.
-    let replaced = Regex::new(r"\{([a-zA-Z0-9_]+)(?::(\d+))?\}")
-        .unwrap()
-        .replace_all(&with_groups, |caps: &regex::Captures| {
-            let key = &caps[1];
-            let fmt = caps.get(2).map(|m| m.as_str());
-
-            if let Some(value) = context.get(key) {
-                if value.is_empty() {
-                    return String::new();
-                }
-                if let Some(fmt_width) = fmt.and_then(|f| f.parse::<usize>().ok()) {
-                    // Simple number formatting (pad with zeros)
-                    if let Ok(num) = value.parse::<i32>() {
-                        return format!("{:0width$}", num, width = fmt_width);
-                    }
-                }
-                return value.clone();
-            }
-            String::new()
-        });
-
-    // Collapse duplicate slashes that may result from empty groups
-    replaced.replace("//", "/")
-        .replace("  ", " ")
-        .trim()
-        .to_string()
-}
-
-/// Detect edition information from a file path
-fn detect_edition_from_path(file_path: &str) -> Option<(String, String)> {
-    // Look for Plex edition tokens in path in multiple forms:
-    //  - {edition-Extended,Unrated}
-    //  - (edition-Extended,Unrated)
-    //  - [edition-Extended,Unrated]
-
-    let patterns = [
-        r"\{edition-([^}]+)\}",
-        r"\(edition-([^)]+)\)",
-        r"\[edition-([^\]]+)\]",
-    ];
-
-    for pattern in &patterns {
-        if let Ok(regex) = Regex::new(pattern) {
-            if let Some(captures) = regex.captures(file_path) {
-                if let Some(raw) = captures.get(1) {
-                    let raw_editions = raw.as_str();
-                    let parts: Vec<&str> = raw_editions.split(&[',', ' ', '\t'][..])
-                        .filter(|s| !s.is_empty())
-                        .collect();
-
-                    let mut titles = Vec::new();
-                    let mut tokens = Vec::new();
-
-                    for part in parts {
-                        let title = map_edition_token_to_title(part);
-                        if !title.is_empty() && !titles.contains(&title) {
-                            titles.push(title.clone());
-                        }
-                        let token_part = title_to_token_part(&title);
-                        if let Some(token) = token_part {
-                            if !tokens.contains(&token) {
-                                tokens.push(token);
-                            }
-                        }
-                    }
-
-                    if !titles.is_empty() || !tokens.is_empty() {
-                        let token = if tokens.is_empty() {
-                            None
-                        } else {
-                            Some(format!("{{edition-{}}}", tokens.join(",")))
-                        };
-                        let title = if titles.is_empty() {
-                            None
-                        } else {
-                            Some(titles.join(" "))
-                        };
-
-                        return Some((token.unwrap_or_default(), title.unwrap_or_default()));
-                    }
-                }
-            }
-        }
-    }
-
-    None
-}
-
-/// Map edition token to human-readable title
-fn map_edition_token_to_title(part: &str) -> String {
-    let key = part.to_lowercase();
-    match key.as_str() {
-        "extended" | "uncut" => "Extended Edition".to_string(),
-        "unrated" => "Unrated".to_string(),
-        "remastered" | "restored" => "Remastered".to_string(),
-        "theatrical" => "Theatrical Cut".to_string(),
-        "imax" => "IMAX Edition".to_string(),
-        "directors" | "dc" => "Director's Cut".to_string(),
-        "special" | "se" => "Special Edition".to_string(),
-        "collectors" | "ce" => "Collector's Edition".to_string(),
-        "deluxe" | "de" => "Deluxe Edition".to_string(),
-        "anniversary" | "ae" => "Anniversary Edition".to_string(),
-        "ultimate" | "ue" => "Ultimate Edition".to_string(),
-        "diamond" => "Diamond Edition".to_string(),
-        "platinum" => "Platinum Edition".to_string(),
-        "gold" => "Gold Edition".to_string(),
-        "silver" => "Silver Edition".to_string(),
-        "steelbook" => "Steelbook Edition".to_string(),
-        "criterion" | "cc" => "Criterion Collection".to_string(),
-        "4k" | "uhd" => "4K Edition".to_string(),
-        "hdr" | "hdr10" | "dolby" => "HDR Edition".to_string(),
-        "atmos" => "Dolby Atmos Edition".to_string(),
-        "bluray" | "blu" | "bd" => "Blu-ray Edition".to_string(),
-        "dvd" => "DVD Edition".to_string(),
-        "web" => "Web Edition".to_string(),
-        "hdtv" => "HDTV Edition".to_string(),
-        _ => part.to_string(),
-    }
-}
-
-/// Convert title to token part
-fn title_to_token_part(title: &str) -> Option<String> {
-    let t = title.to_lowercase();
-    if t.contains("director") {
-        Some("directors-cut".to_string())
-    } else if t.contains("extended") {
-        Some("extended".to_string())
-    } else if t.contains("unrated") {
-        Some("unrated".to_string())
-    } else if t.contains("imax") {
-        Some("imax".to_string())
-    } else if t.contains("theatrical") {
-        Some("theatrical".to_string())
-    } else if t.contains("remaster") {
-        Some("remastered".to_string())
-    } else if t.contains("special") {
-        Some("special".to_string())
-    } else if t.contains("collector") {
-        Some("collectors".to_string())
-    } else if t.contains("deluxe") {
-        Some("deluxe".to_string())
-    } else if t.contains("anniversary") {
-        Some("anniversary".to_string())
-    } else if t.contains("ultimate") {
-        Some("ultimate".to_string())
-    } else if t.contains("diamond") {
-        Some("diamond".to_string())
-    } else if t.contains("platinum") {
-        Some("platinum".to_string())
-    } else if t.contains("gold") {
-        Some("gold".to_string())
-    } else if t.contains("silver") {
-        Some("silver".to_string())
-    } else if t.contains("steelbook") {
-        Some("steelbook".to_string())
-    } else if t.contains("criterion") {
-        Some("criterion".to_string())
-    } else if t.contains("4k") {
-        Some("4k".to_string())
-    } else if t.contains("uhd") {
-        Some("uhd".to_string())
-    } else if t.contains("hdr") {
-        Some("hdr".to_string())
-    } else if t.contains("atmos") {
-        Some("atmos".to_string())
-    } else if t.contains("blu") {
-        Some("bluray".to_string())
-    } else if t.contains("dvd") {
-        Some("dvd".to_string())
-    } else if t.contains("web") {
-        Some("web".to_string())
-    } else if t.contains("hdtv") || t == "hd edition" || t == "hd" {
-        Some("hd".to_string())
-    } else if t.contains("standard") {
-        Some("sd".to_string())
-    } else {
-        None
-    }
-}
-
-/// Extract extension from file path
-fn extname(path: &str) -> String {
-    Path::new(path)
-        .extension()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_string()
-}
-
-/// Detect multi-episode files from filename patterns
-fn detect_multi_episode(file_path: &str) -> Option<(i32, i32)> {
-    let filename = basename(file_path);
-
-    // Look for patterns like "S01E01E02", "S01E01-E02", "E01-E02", etc.
-    if let Ok(re) = regex::Regex::new(r"[eE](\d{2})[eE](\d{2})|[eE](\d{2})-?[eE](\d{2})") {
-        if let Some(captures) = re.captures(&filename) {
-            let start = captures.get(1).or_else(|| captures.get(3));
-            let end = captures.get(2).or_else(|| captures.get(4));
-
-            if let (Some(s), Some(e)) = (start, end) {
-                if let (Ok(start_num), Ok(end_num)) = (s.as_str().parse::<i32>(), e.as_str().parse::<i32>()) {
-                    if start_num < end_num && end_num - start_num <= 10 { // Reasonable episode range
-                        return Some((start_num, end_num));
-                    }
-                }
-            }
-        }
-    }
-
-    None
-}
+#[cfg(test)]
+use apply::apply_single_video_operation;
+use apply::{
+    apply_mixed_operations_with_log_path, cleanup_empty_folders_with_mappings,
+    resolve_video_operations_for_apply,
+};
+use common::{basename, extname, normalize_unicode};
+use destinations::compute_movie_destinations_impl;
+#[cfg(test)]
+use destinations::compute_relative_dirs;
+use editions::detect_edition_from_path;
+use episodes::compute_episode_proposal;
+use movies::compute_movie_proposal;
+use organize::{
+    apply_chronological_prefix, format_collection_folder_name, get_organized_path, safe_folder_name,
+};
+use sanitize::sanitize_and_validate_path;
+use template::{render_template, TemplateContext};
+pub use types::{
+    CleanupEmptyFoldersRequest, CleanupEmptyFoldersResult, EpisodeItem, MovieDestinationItem,
+    MovieDestinationRequest, MovieDestinationResponseItem, MovieItem, MusicItem,
+};
 
 /// Check if path has non-Latin characters
 #[allow(dead_code)]
@@ -871,1050 +573,33 @@ fn has_non_latin(text: &str) -> bool {
     })
 }
 
-/// Normalize unicode for consistent path handling
-fn normalize_unicode(text: &str) -> String {
-    use unicode_normalization::UnicodeNormalization;
-    text.nfc().collect::<String>()
-}
-
-/// Get organized path based on movie settings
-fn get_organized_path(title: &str, year: Option<i32>, genre: &[String], folder_structure: &str) -> Option<String> {
-    match folder_structure {
-        "alpha" => {
-            // Alphabetical organization - first letter of title
-            let first_char = title.chars().next().unwrap_or('A').to_uppercase().to_string();
-            if let Some(y) = year {
-                Some(format!("{}/{} ({})", first_char, title, y))
-            } else {
-                Some(format!("{}/{}", first_char, title))
-            }
-        },
-        "alpha_ranges" => {
-            // Alphabetical ranges (A-C, D-F, etc.)
-            let first_char = title.chars().next().unwrap_or('A');
-            let range = match first_char {
-                'A'..='C' => "A-C",
-                'D'..='F' => "D-F",
-                'G'..='I' => "G-I",
-                'J'..='L' => "J-L",
-                'M'..='O' => "M-O",
-                'P'..='R' => "P-R",
-                'S'..='U' => "S-U",
-                'V'..='Z' => "V-Z",
-                _ => "Other",
-            };
-            if let Some(y) = year {
-                Some(format!("{}/{} ({})", range, title, y))
-            } else {
-                Some(format!("{}/{}", range, title))
-            }
-        },
-        "genre" => {
-            // Genre-based organization
-            let primary_genre = genre.first().cloned().unwrap_or_else(|| "Movies".to_string());
-            if let Some(y) = year {
-                Some(format!("{}/{} ({})", primary_genre, title, y))
-            } else {
-                Some(format!("{}/{}", primary_genre, title))
-            }
-        },
-        "year_decade" => {
-            // Decade-based organization
-            if let Some(y) = year {
-                let decade = (y / 10) * 10;
-                Some(format!("{}-{}/{}", decade, decade + 9, title))
-            } else {
-                Some("Undated".to_string())
-            }
-        },
-        _ => {
-            // Default behavior
-            if let Some(y) = year {
-                Some(format!("{} ({})", title, y))
-            } else {
-                Some(title.to_string())
-            }
-        }
-    }
-}
-
-/// Apply chronological prefix if needed
-fn apply_chronological_prefix(path: &str, year: i32) -> String {
-    let has_chronological_prefix = path.split('/').any(|folder| {
-        folder.trim_start().starts_with(&format!("{} -", year))
-    });
-
-    if !has_chronological_prefix {
-        // Find the first folder and add the prefix
-        if let Some(first_slash) = path.find('/') {
-            format!("{} - {}", year, &path[first_slash + 1..])
-        } else {
-            format!("{} - {}", year, path)
-        }
-    } else {
-        path.to_string()
-    }
-}
-
-/// Format collection folder name
-fn format_collection_folder_name(collection_name: &str, settings: &serde_json::Value) -> String {
-    // Use collection formatting from settings
-    let format_template = settings
-        .get("collections")
-        .and_then(|c| c.get("format"))
-        .and_then(|f| f.as_str())
-        .unwrap_or("{collection}");
-
-    let mut context = TemplateContext::new();
-    context.insert("collection".to_string(), collection_name.to_string());
-
-    render_template(format_template, &context)
-}
-
-/// Safe folder name generation
-fn safe_folder_name(title: &str) -> String {
-    // Remove invalid characters for folder names
-    title.chars()
-        .map(|c| match c {
-            '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => ' ',
-            c => c,
-        })
-        .collect::<String>()
-        .trim()
-        .to_string()
-}
-
-/// Comprehensive sanitization and validation respecting user settings
-fn sanitize_and_validate_path(path: &str, settings: &serde_json::Value) -> (String, Vec<String>, Vec<String>) {
-    let mut warnings = Vec::new();
-    let mut blocking_errors = Vec::new();
-    let mut sanitized = path.to_string();
-
-    // Get general settings
-    let general_settings = settings.get("general").unwrap_or(&serde_json::Value::Null);
-
-    // Check path length based on safety settings
-    if let Some(safety) = general_settings.get("safety") {
-        let path_length_check = safety.get("pathLengthCheck").and_then(|v| v.as_bool()).unwrap_or(true);
-        let reserved_names_check = safety.get("reservedNamesCheck").and_then(|v| v.as_bool()).unwrap_or(true);
-
-        if path_length_check {
-            if sanitized.len() > 255 {
-                blocking_errors.push(format!("Path too long ({}): {}", sanitized.len(), sanitized));
-            } else if sanitized.len() > 200 {
-                warnings.push(format!("Path length warning ({}): {}", sanitized.len(), sanitized));
-            }
-        }
-
-        // Check for invalid characters (always done for basic safety)
-        if regex::Regex::new(r#"[\\/:*?"<>|]"#).unwrap().is_match(&sanitized) {
-            blocking_errors.push(format!("Invalid characters in path: {}", sanitized));
-        }
-
-        // Check for non-Latin characters if enabled
-        if let Some(encoding) = general_settings.get("encoding") {
-            if encoding.get("highlightNonLatin").and_then(|v| v.as_bool()).unwrap_or(false) {
-                if has_non_latin(&sanitized) {
-                    warnings.push(format!("Non-Latin characters detected: {}", sanitized));
-                }
-            }
-        }
-
-        // Check for Windows reserved names if enabled
-        if reserved_names_check {
-            let basename = basename(&sanitized);
-            let reserved_names = ["CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"];
-            if reserved_names.contains(&basename.to_uppercase().as_str()) {
-                blocking_errors.push(format!("Reserved filename: {}", basename));
-            }
-        }
-    } else {
-        // Default safety checks if no settings provided
-        if sanitized.len() > 255 {
-            blocking_errors.push(format!("Path too long ({}): {}", sanitized.len(), sanitized));
-        }
-
-        if regex::Regex::new(r#"[\\/:*?"<>|]"#).unwrap().is_match(&sanitized) {
-            blocking_errors.push(format!("Invalid characters in path: {}", sanitized));
-        }
-    }
-
-    // Sanitize path - replace invalid characters
-    sanitized = sanitized.chars()
-        .map(|c| match c {
-            '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
-            c => c,
-        })
-        .collect();
-
-    (sanitized, warnings, blocking_errors)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn highlight_non_latin_respects_setting() {
-        let settings_with_highlight = json!({
-            "general": {
-                "safety": {
-                    "pathLengthCheck": true,
-                    "reservedNamesCheck": true,
-                    "permissionsCheck": true
-                },
-                "encoding": {
-                    "highlightNonLatin": true
-                }
-            }
-        });
-
-        // Use clearly non-Latin characters so detection is unambiguous
-        let path = "映画.mkv";
-        let (_sanitized, warnings, blocking_errors) =
-            sanitize_and_validate_path(path, &settings_with_highlight);
-
-        assert!(blocking_errors.is_empty());
-        assert!(warnings.iter().any(|w| w.contains("Non-Latin characters")));
-
-        let settings_without_highlight = json!({
-            "general": {
-                "safety": {
-                    "pathLengthCheck": true,
-                    "reservedNamesCheck": true,
-                    "permissionsCheck": true
-                },
-                "encoding": {
-                    "highlightNonLatin": false
-                }
-            }
-        });
-
-        let (_sanitized2, warnings2, blocking_errors2) =
-            sanitize_and_validate_path(path, &settings_without_highlight);
-
-        assert!(blocking_errors2.is_empty());
-        assert!(warnings2.iter().all(|w| !w.contains("Non-Latin characters")));
-    }
-
-    #[test]
-    fn path_length_checks_respect_safety_setting() {
-        let long_name: String = std::iter::repeat('A').take(260).collect();
-        let long_path = format!("{}.mkv", long_name);
-
-        let settings_with_checks = json!({
-            "general": {
-                "safety": {
-                    "pathLengthCheck": true,
-                    "reservedNamesCheck": false,
-                    "permissionsCheck": false
-                },
-                "encoding": {
-                    "highlightNonLatin": false
-                }
-            }
-        });
-
-        let (_sanitized, _warnings, blocking_errors) =
-            sanitize_and_validate_path(&long_path, &settings_with_checks);
-
-        assert!(blocking_errors
-            .iter()
-            .any(|w| w.contains("Path too long")));
-
-        let settings_without_checks = json!({
-            "general": {
-                "safety": {
-                    "pathLengthCheck": false,
-                    "reservedNamesCheck": false,
-                    "permissionsCheck": false
-                },
-                "encoding": {
-                    "highlightNonLatin": false
-                }
-            }
-        });
-
-        let (_sanitized2, _warnings2, blocking_errors2) =
-            sanitize_and_validate_path(&long_path, &settings_without_checks);
-
-        assert!(blocking_errors2
-            .iter()
-            .all(|w| !w.contains("Path too long")));
-    }
-
-    #[test]
-    fn episode_specials_folder_respects_detect_ovas_setting() {
-        let episode = EpisodeItem {
-            rating_key: "rk1".to_string(),
-            title: "Pilot".to_string(),
-            year: Some(2020),
-            file: "Show.S00E01.mkv".to_string(),
-            genre: vec![],
-            guids: vec![],
-            imdb_id: None,
-            tmdb_id: None,
-            tvdb_id: None,
-            grandparent_title: "Show".to_string(),
-            parent_title: "Season 00".to_string(),
-            parent_index: 0,
-            index: 1,
-        };
-
-        let settings_with_specials = json!({
-            "tv": {
-                "detectOVAsSeason00": true,
-                "normalizeMultiEpisode": true,
-                "seasonFolders": true
-            },
-            "general": {
-                "safety": {
-                    "pathLengthCheck": true,
-                    "reservedNamesCheck": true,
-                    "permissionsCheck": true
-                },
-                "encoding": {
-                    "highlightNonLatin": false
-                }
-            }
-        });
-
-        let op_specials = compute_episode_proposal(
-            &episode,
-            "{grandparentTitle} - S{parentIndex:02}E{index:02}{ext}",
-            &settings_with_specials,
-        )
-        .expect("episode proposal with Specials");
-
-        // Sanitization replaces path separators with '_', so we check prefix only
-        assert!(op_specials
-            .new_path
-            .starts_with("Specials_"));
-
-        let settings_without_specials = json!({
-            "tv": {
-                "detectOVAsSeason00": false,
-                "normalizeMultiEpisode": true,
-                "seasonFolders": true
-            },
-            "general": {
-                "safety": {
-                    "pathLengthCheck": true,
-                    "reservedNamesCheck": true,
-                    "permissionsCheck": true
-                },
-                "encoding": {
-                    "highlightNonLatin": false
-                }
-            }
-        });
-
-        let op_season00 = compute_episode_proposal(
-            &episode,
-            "{grandparentTitle} - S{parentIndex:02}E{index:02}{ext}",
-            &settings_without_specials,
-        )
-        .expect("episode proposal with Season 00");
-
-        assert!(op_season00
-            .new_path
-            .starts_with("Season 00_"));
-    }
-
-    #[test]
-    fn episode_multi_episode_normalization_respects_setting() {
-        let episode = EpisodeItem {
-            rating_key: "rk2".to_string(),
-            title: "Double Episode".to_string(),
-            year: Some(2020),
-            file: "Show.S01E01E02.mkv".to_string(),
-            genre: vec![],
-            guids: vec![],
-            imdb_id: None,
-            tmdb_id: None,
-            tvdb_id: None,
-            grandparent_title: "Show".to_string(),
-            parent_title: "Season 01".to_string(),
-            parent_index: 1,
-            index: 1,
-        };
-
-        let base_settings = json!({
-            "tv": {
-                "detectOVAsSeason00": true,
-                "seasonFolders": true
-            },
-            "general": {
-                "safety": {
-                    "pathLengthCheck": true,
-                    "reservedNamesCheck": true,
-                    "permissionsCheck": true
-                },
-                "encoding": {
-                    "highlightNonLatin": false
-                }
-            }
-        });
-
-        // With normalization enabled, template should receive multiEpisodeRange
-        let mut settings_with_norm = base_settings.clone();
-        settings_with_norm["tv"]["normalizeMultiEpisode"] = json!(true);
-
-        let op_norm = compute_episode_proposal(
-            &episode,
-            "{grandparentTitle} - S{parentIndex:02}{multiEpisodeRange}{ext}",
-            &settings_with_norm,
-        )
-        .expect("episode proposal with multi-episode normalization");
-
-        let name_norm = basename(&op_norm.new_path);
-        assert!(name_norm.contains("E01-E02"));
-
-        // With normalization disabled, multiEpisodeRange should not be injected
-        let mut settings_without_norm = base_settings.clone();
-        settings_without_norm["tv"]["normalizeMultiEpisode"] = json!(false);
-
-        let op_no_norm = compute_episode_proposal(
-            &episode,
-            "{grandparentTitle} - S{parentIndex:02}{multiEpisodeRange}{ext}",
-            &settings_without_norm,
-        )
-        .expect("episode proposal without multi-episode normalization");
-
-        let name_no_norm = basename(&op_no_norm.new_path);
-        assert!(!name_no_norm.contains("E01-E02"));
-    }
-
-    #[test]
-    fn movie_own_folder_setting_changes_output_path() {
-        let movie = MovieItem {
-            rating_key: "m1".to_string(),
-            title: "Inception".to_string(),
-            year: Some(2010),
-            file: "Inception (2010).mkv".to_string(),
-            genre: vec![],
-            collection: None,
-            edition_title: None,
-            guids: vec![],
-            imdb_id: None,
-            tmdb_id: None,
-            tvdb_id: None,
-        };
-
-        let base_settings = json!({
-            "movies": {
-                "folderStructure": "none"
-            },
-            "general": {
-                "safety": {
-                    "pathLengthCheck": true,
-                    "reservedNamesCheck": true,
-                    "permissionsCheck": true
-                },
-                "encoding": {
-                    "highlightNonLatin": false
-                }
-            }
-        });
-
-        // With ownFolderPerMovie = true, path should include the movie title as a folder
-        let mut with_folder = base_settings.clone();
-        with_folder["movies"]["ownFolderPerMovie"] = json!(true);
-
-        let op_with_folder = compute_movie_proposal(
-            &movie,
-            "{title}{ext}",
-            &with_folder,
-        )
-        .expect("movie proposal with own folder");
-
-        // After sanitization, the path separator becomes '_' but folder name remains visible
-        assert!(op_with_folder
-            .new_path
-            .starts_with("Inception_"));
-
-        // With ownFolderPerMovie = false, path should not be prefixed by a folder
-        let mut without_folder = base_settings.clone();
-        without_folder["movies"]["ownFolderPerMovie"] = json!(false);
-
-        let op_without_folder = compute_movie_proposal(
-            &movie,
-            "{title}{ext}",
-            &without_folder,
-        )
-        .expect("movie proposal without own folder");
-
-        // Current implementation appends the raw extension (without dot)
-        assert_eq!(op_without_folder.new_path, "Inceptionmkv");
-    }
-
-    #[test]
-    fn movie_collections_setting_adds_collection_folder() {
-        let movie = MovieItem {
-            rating_key: "m2".to_string(),
-            title: "Inception".to_string(),
-            year: Some(2010),
-            file: "Inception (2010).mkv".to_string(),
-            genre: vec![],
-            collection: Some("Nolan Collection".to_string()),
-            edition_title: None,
-            guids: vec![],
-            imdb_id: None,
-            tmdb_id: None,
-            tvdb_id: None,
-        };
-
-        let settings = json!({
-            "movies": {
-                "collections": {
-                    "enabled": true,
-                    "mode": "always",
-                    "format": "{collection}"
-                },
-                "folderStructure": "none",
-                "ownFolderPerMovie": false
-            },
-            "general": {
-                "safety": {
-                    "pathLengthCheck": true,
-                    "reservedNamesCheck": true,
-                    "permissionsCheck": true
-                },
-                "encoding": {
-                    "highlightNonLatin": false
-                }
-            }
-        });
-
-        let op = compute_movie_proposal(
-            &movie,
-            "{title}{ext}",
-            &settings,
-        )
-        .expect("movie proposal with collection folder");
-
-        // After sanitization, collection folder prefix uses '_' instead of '/'
-        assert!(op
-            .new_path
-            .starts_with("Nolan Collection_"));
-        assert!(op.new_path.contains("Inception"));
-    }
-
-    #[test]
-    fn movie_collections_if2plus_currently_excludes_collection_folder() {
-        let movie = MovieItem {
-            rating_key: "m3".to_string(),
-            title: "Inception".to_string(),
-            year: Some(2010),
-            file: "Inception (2010).mkv".to_string(),
-            genre: vec![],
-            collection: Some("Nolan Collection".to_string()),
-            edition_title: None,
-            guids: vec![],
-            imdb_id: None,
-            tmdb_id: None,
-            tvdb_id: None,
-        };
-
-        let settings = json!({
-            "movies": {
-                "collections": {
-                    "enabled": true,
-                    "mode": "if2plus",
-                    "format": "{collection}"
-                },
-                "folderStructure": "none",
-                "ownFolderPerMovie": false
-            },
-            "general": {
-                "safety": {
-                    "pathLengthCheck": true,
-                    "reservedNamesCheck": true,
-                    "permissionsCheck": true
-                },
-                "encoding": {
-                    "highlightNonLatin": false
-                }
-            }
-        });
-
-        let op = compute_movie_proposal(
-            &movie,
-            "{title}{ext}",
-            &settings,
-        )
-        .expect("movie proposal without collection folder for if2plus mode");
-
-        // Current implementation treats if2plus safely as non-collection (no prefix)
-        assert!(!op
-            .new_path
-            .starts_with("Nolan Collection_"));
-    }
-
-    #[test]
-    fn movie_folder_structure_alpha_groups_by_initial_letter() {
-        let movie = MovieItem {
-            rating_key: "m4".to_string(),
-            title: "Avatar".to_string(),
-            year: Some(2009),
-            file: "Avatar (2009).mkv".to_string(),
-            genre: vec![],
-            collection: None,
-            edition_title: None,
-            guids: vec![],
-            imdb_id: None,
-            tmdb_id: None,
-            tvdb_id: None,
-        };
-
-        let settings = json!({
-            "movies": {
-                "folderStructure": "alpha",
-                "ownFolderPerMovie": false
-            },
-            "general": {
-                "safety": {
-                    "pathLengthCheck": true,
-                    "reservedNamesCheck": true,
-                    "permissionsCheck": true
-                },
-                "encoding": {
-                    "highlightNonLatin": false
-                }
-            }
-        });
-
-        let op = compute_movie_proposal(
-            &movie,
-            "{title}{ext}",
-            &settings,
-        )
-        .expect("movie proposal with alpha folder structure");
-
-        // First folder is initial letter 'A', then title and extension
-        assert!(op
-            .new_path
-            .starts_with("A_"));
-        assert!(op.new_path.contains("Avatar"));
-    }
-
-    #[test]
-    fn movie_folder_structure_year_decade_groups_by_decade() {
-        let movie = MovieItem {
-            rating_key: "m5".to_string(),
-            title: "Avatar".to_string(),
-            year: Some(2009),
-            file: "Avatar (2009).mkv".to_string(),
-            genre: vec![],
-            collection: None,
-            edition_title: None,
-            guids: vec![],
-            imdb_id: None,
-            tmdb_id: None,
-            tvdb_id: None,
-        };
-
-        let settings = json!({
-            "movies": {
-                "folderStructure": "year_decade",
-                "ownFolderPerMovie": false
-            },
-            "general": {
-                "safety": {
-                    "pathLengthCheck": true,
-                    "reservedNamesCheck": true,
-                    "permissionsCheck": true
-                },
-                "encoding": {
-                    "highlightNonLatin": false
-                }
-            }
-        });
-
-        let op = compute_movie_proposal(
-            &movie,
-            "{title}{ext}",
-            &settings,
-        )
-        .expect("movie proposal with year_decade folder structure");
-
-        // Decade folder '2000-2009' appears as prefix after sanitization
-        assert!(op
-            .new_path
-            .starts_with("2000-2009_"));
-        assert!(op.new_path.contains("Avatar"));
-    }
-}
-
 /// Compute movie proposal respecting all movie settings
-fn compute_movie_proposal(
-    movie: &MovieItem,
-    template: &str,
-    settings: &serde_json::Value,
-) -> Result<RenameOperation, String> {
-    let mut context = TemplateContext::new();
-
-    // Build context for template rendering
-    context.insert("title".to_string(), movie.title.clone());
-    context.insert("year".to_string(), movie.year.map(|y| y.to_string()).unwrap_or_default());
-    context.insert("imdb".to_string(), movie.imdb_id.clone().unwrap_or_default());
-    context.insert("tmdb".to_string(), movie.tmdb_id.clone().unwrap_or_default());
-    context.insert("tvdb".to_string(), movie.tvdb_id.clone().unwrap_or_default());
-
-    // Process IDs
-    let mut processed_ids = Vec::new();
-    if let Some(imdb) = &movie.imdb_id {
-        processed_ids.push(format!("imdb:{}", imdb));
-    }
-    if let Some(tmdb) = &movie.tmdb_id {
-        processed_ids.push(format!("tmdb:{}", tmdb));
-    }
-    if let Some(tvdb) = &movie.tvdb_id {
-        processed_ids.push(format!("tvdb:{}", tvdb));
-    }
-    context.insert("ids".to_string(), processed_ids.join(","));
-
-    let ext = extname(&movie.file);
-    let mut proposed = render_template(template, &context);
-    if !proposed.ends_with(&ext) {
-        proposed.push_str(&ext);
-    }
-
-    // Handle edition display
-    let edition_display = detect_edition_from_path(&movie.file)
-        .map(|(_, title)| title)
-        .unwrap_or_default();
-
-    if !edition_display.is_empty() {
-        let lower = proposed.to_lowercase();
-        let has_edition_already = lower.contains("{edition-") ||
-            (!edition_display.is_empty() && lower.contains(&edition_display.to_lowercase()));
-
-        if !has_edition_already {
-            let injection = if edition_display.starts_with(" - ") {
-                edition_display
-            } else {
-                format!(" {}", edition_display)
-            };
-            if let Some(dot_pos) = proposed.rfind(&ext) {
-                proposed = format!("{}{}{}", &proposed[..dot_pos], injection, &proposed[dot_pos..]);
-            } else {
-                proposed.push_str(&injection);
-            }
-        }
-    }
-
-    // Get movie settings
-    let movie_settings = settings.get("movies").ok_or("Missing movie settings")?;
-
-    // Handle collections based on settings
-    let collections_enabled = movie_settings.get("collections")
-        .and_then(|c| c.get("enabled"))
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true);
-
-    if collections_enabled && movie.collection.is_some() {
-        let collection_mode = movie_settings.get("collections")
-            .and_then(|c| c.get("mode"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("always");
-
-        // Check if we should include this movie in collection based on mode
-        let should_include_in_collection = match collection_mode {
-            "always" => true,
-            "if2plus" => {
-                // For "if2plus" mode, we would need to check if there are multiple movies in the collection
-                // For now, assume we have this info or default to false for safety
-                false
-            },
-            _ => false,
-        };
-
-        if should_include_in_collection {
-            let collection_folder_name = format_collection_folder_name(&movie.collection.as_ref().unwrap(), movie_settings);
-            if !proposed.contains('/') {
-                proposed = format!("{}/{}", collection_folder_name, proposed);
-            } else {
-                let file_name = basename(&proposed);
-                proposed = format!("{}/{}", collection_folder_name, file_name);
-            }
-        }
-    }
-
-    // Apply folder structure logic based on settings
-    let folder_structure = movie_settings.get("folderStructure")
-        .and_then(|v| v.as_str())
-        .unwrap_or("none");
-
-    match folder_structure {
-        "none" => {
-            // No folder structure - just use the movie's own folder if enabled
-            let own_folder_per_movie = movie_settings.get("ownFolderPerMovie")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
-
-            if own_folder_per_movie && !proposed.contains('/') {
-                let folder_name = safe_folder_name(&movie.title);
-                proposed = format!("{}/{}", folder_name, proposed);
-            }
-        },
-        "alpha" | "alpha_ranges" | "genre" | "year_decade" => {
-            // Use organized path logic
-            let desired_path = get_organized_path(&movie.title, movie.year, &movie.genre, folder_structure);
-
-            if let Some(desired) = desired_path {
-                // Apply chronological prefix based on settings
-                let chronological_prefix = movie_settings.get("chronologicalPrefix")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("none");
-
-                let prefixed_path = match chronological_prefix {
-                    "year" => {
-                        if let Some(year) = movie.year {
-                            apply_chronological_prefix(&desired, year)
-                        } else {
-                            desired
-                        }
-                    },
-                    "collection_order" => {
-                        // For collection order, we'd need collection ordering info
-                        // For now, just use the desired path
-                        desired
-                    },
-                    _ => desired,
-                };
-
-                proposed = format!("{}/{}", prefixed_path, proposed);
-            } else {
-                // Fallback to own folder logic
-                let own_folder_per_movie = movie_settings.get("ownFolderPerMovie")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(true);
-
-                if own_folder_per_movie && !proposed.contains('/') {
-                    let folder_name = safe_folder_name(&movie.title);
-                    proposed = format!("{}/{}", folder_name, proposed);
-                }
-            }
-        },
-        _ => {
-            // Default behavior - use own folder if enabled
-            let own_folder_per_movie = movie_settings.get("ownFolderPerMovie")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
-
-            if own_folder_per_movie && !proposed.contains('/') {
-                let folder_name = safe_folder_name(&movie.title);
-                proposed = format!("{}/{}", folder_name, proposed);
-            }
-        }
-    }
-
-    // Normalize unicode
-    proposed = normalize_unicode(&proposed);
-
-    // Apply comprehensive sanitization and validation
-    let (sanitized_path, _warnings, _blocking_errors) = sanitize_and_validate_path(&proposed, settings);
-
-    Ok(RenameOperation {
-        operation_type: "rename".to_string(),
-        original_path: movie.file.clone(),
-        new_path: sanitized_path.clone(),
-        backup_path: None,
-        operation_id: format!("movie_{}", movie.rating_key),
-    })
-}
-
-/// Compute episode proposal respecting all TV settings
-fn compute_episode_proposal(
-    episode: &EpisodeItem,
-    template: &str,
-    settings: &serde_json::Value,
-) -> Result<RenameOperation, String> {
-    let mut context = TemplateContext::new();
-
-    // Build context for template rendering
-    context.insert("title".to_string(), episode.title.clone());
-    context.insert("year".to_string(), episode.year.map(|y| y.to_string()).unwrap_or_default());
-    context.insert("imdb".to_string(), episode.imdb_id.clone().unwrap_or_default());
-    context.insert("tmdb".to_string(), episode.tmdb_id.clone().unwrap_or_default());
-    context.insert("tvdb".to_string(), episode.tvdb_id.clone().unwrap_or_default());
-
-    // TV-specific context
-    context.insert("grandparentTitle".to_string(), episode.grandparent_title.clone());
-    context.insert("parentTitle".to_string(), episode.parent_title.clone());
-    context.insert("parentIndex".to_string(), episode.parent_index.to_string());
-    context.insert("index".to_string(), episode.index.to_string());
-
-    // Get TV settings
-    let tv_settings = settings.get("tv").ok_or("Missing TV settings")?;
-
-    // Handle specials (Season 0) - use Specials folder instead of Season 00 if enabled
-    let detect_ovas_season00 = tv_settings.get("detectOVAsSeason00")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true);
-
-    let season_folder_name = if episode.parent_index == 0 && detect_ovas_season00 {
-        "Specials".to_string()
-    } else {
-        format!("Season {:02}", episode.parent_index)
-    };
-
-    // Check for multi-episode files in the original filename if normalization is enabled
-    let normalize_multi_episode = tv_settings.get("normalizeMultiEpisode")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true);
-
-    if normalize_multi_episode {
-        let multi_episode_info = detect_multi_episode(&episode.file);
-        if let Some((start_ep, end_ep)) = multi_episode_info {
-            context.insert("multiEpisodeStart".to_string(), start_ep.to_string());
-            context.insert("multiEpisodeEnd".to_string(), end_ep.to_string());
-            context.insert("multiEpisodeRange".to_string(), format!("E{:02}-E{:02}", start_ep, end_ep));
-        }
-    }
-
-    // Process IDs
-    let mut processed_ids = Vec::new();
-    if let Some(imdb) = &episode.imdb_id {
-        processed_ids.push(format!("imdb:{}", imdb));
-    }
-    if let Some(tmdb) = &episode.tmdb_id {
-        processed_ids.push(format!("tmdb:{}", tmdb));
-    }
-    if let Some(tvdb) = &episode.tvdb_id {
-        processed_ids.push(format!("tvdb:{}", tvdb));
-    }
-    context.insert("ids".to_string(), processed_ids.join(","));
-
-    let ext = extname(&episode.file);
-    let mut proposed = render_template(template, &context);
-    if !proposed.ends_with(&ext) {
-        proposed.push_str(&ext);
-    }
-
-    // TV Series folder structure based on settings
-    let season_folders = tv_settings.get("seasonFolders")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true);
-
-    if season_folders {
-        if !proposed.contains('/') {
-            proposed = format!("{}/{}", season_folder_name, proposed);
-        }
-    }
-
-    // Normalize unicode
-    proposed = normalize_unicode(&proposed);
-
-    // Apply comprehensive sanitization and validation
-    let (sanitized_path, _warnings, _blocking_errors) = sanitize_and_validate_path(&proposed, settings);
-
-    Ok(RenameOperation {
-        operation_type: "rename".to_string(),
-        original_path: episode.file.clone(),
-        new_path: sanitized_path.clone(),
-        backup_path: None,
-        operation_id: format!("episode_{}", episode.rating_key),
-    })
-}
-
-/// Extract the library root from a resolved local path
-/// Finds the longest matching local_root from mappings that the path starts with
-fn extract_library_root_from_path(resolved_path: &std::path::PathBuf, mappings: &[crate::path_map::PathMapping]) -> Option<std::path::PathBuf> {
-    let path_str = resolved_path.to_string_lossy();
-    let mut best_root: Option<&str> = None;
-    let mut best_len = 0;
-
-    for mapping in mappings {
-        let local_root = &mapping.local_root;
-        if path_str.starts_with(local_root) && local_root.len() > best_len {
-            best_root = Some(local_root);
-            best_len = local_root.len();
-        }
-    }
-
-    best_root.map(|root| std::path::PathBuf::from(root))
-}
-
 /// Main preview function that handles both video and subtitle operations
 #[command]
-pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtitle::PreviewRenamesRequest) -> Result<crate::subtitle::PreviewResult, String> {
-    let mut video_operations: Vec<crate::subtitle::RenameOperation> = Vec::new();
-    let mut subtitle_operations: Vec<crate::subtitle::RenameOperation> = Vec::new();
+pub async fn preview_video_renames(
+    app: tauri::AppHandle,
+    request: PreviewRenamesRequest,
+) -> Result<PreviewResult, String> {
+    let mut video_operations: Vec<RenameOperation> = Vec::new();
+    let mut subtitle_operations: Vec<RenameOperation> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
     let mut blocking_errors: Vec<String> = Vec::new();
 
     // Load path mappings from backend settings for subtitle path resolution
     let mappings: Vec<crate::path_map::PathMapping> = match crate::settings::get_settings(app) {
-        Ok(settings) => {
-            let server_id = &request.server_id;
-
-            // Try to find mappings with current server_id format, or fallback to hostname-only
-            let hostname_only = if server_id.contains("://") {
-                // If current is full URL, extract hostname (e.g., 'http://192.168.1.132:32400' -> '192.168.1.132')
-                if let Some(host_part) = server_id.split("://").nth(1) {
-                    host_part.split(':').next().unwrap_or(server_id)
-                } else {
-                    server_id
-                }
-            } else {
-                server_id
-            };
-
-            let filtered_mappings: Vec<_> = settings
-                .get("pathMappings")
-                .and_then(|pm| pm.as_array())
-                .unwrap_or(&Vec::new())
-                .iter()
-                .filter_map(|m| {
-                    let obj = m.as_object()?;
-                    let mapping_server_id = obj.get("server_id")?.as_str()?;
-
-                    // Check if mapping matches either format:
-                    // 1. Exact match with current server_id
-                    // 2. Hostname match (for backward compatibility)
-                    let mapping_hostname = if mapping_server_id.contains("://") {
-                        if let Some(host_part) = mapping_server_id.split("://").nth(1) {
-                            host_part.split(':').next().unwrap_or(mapping_server_id)
-                        } else {
-                            mapping_server_id
-                        }
-                    } else {
-                        mapping_server_id
-                    };
-
-                    let exact_match = mapping_server_id == server_id;
-                    let hostname_match = mapping_hostname == hostname_only;
-
-                    if !exact_match && !hostname_match {
-                        return None;
-                    }
-
-                    let plex_root = obj.get("plex_root")?.as_str()?;
-                    let local_root = obj.get("local_root")?.as_str()?;
-                    let platform = obj.get("platform").and_then(|v| v.as_str()).map(|s| s.to_string());
-
-                    Some(crate::path_map::PathMapping {
-                        server_id: mapping_server_id.to_string(),
-                        plex_root: plex_root.to_string(),
-                        local_root: local_root.to_string(),
-                        platform,
-                    })
-                })
-                .collect();
-
-            filtered_mappings
-        }
-        Err(_) => {
-            Vec::new()
-        }
+        Ok(settings) => crate::path_map::mappings_for_server(&settings, &request.server_id),
+        Err(_) => Vec::new(),
     };
 
     // Parse settings
-    let general_settings = request.settings.get("general").ok_or("Missing general settings")?;
-    let movie_settings = request.settings.get("movies").ok_or("Missing movie settings")?;
+    let general_settings = request
+        .settings
+        .get("general")
+        .ok_or("Missing general settings")?;
+    let movie_settings = request
+        .settings
+        .get("movies")
+        .ok_or("Missing movie settings")?;
     let tv_settings = request.settings.get("tv").ok_or("Missing TV settings")?;
     let templates_opt = request.settings.get("templates");
     let movie_template: String = templates_opt
@@ -1932,7 +617,9 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
     for file_path in &request.scope {
         // Heuristic: determine library type from path segments
         let lowercase = file_path.to_lowercase();
-        let looks_tv = lowercase.contains("/season ") || lowercase.contains("\\season ") || lowercase.contains(" s01e");
+        let looks_tv = lowercase.contains("/season ")
+            || lowercase.contains("\\season ")
+            || lowercase.contains(" s01e");
         let looks_movie = !looks_tv;
 
         if looks_movie {
@@ -1962,13 +649,9 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
             };
 
             // Try to compute a movie proposal, but do not abort subtitle processing on failure
-            if let Ok(movie_op) = compute_movie_proposal(
-                &movie,
-                &movie_template,
-                movie_settings,
-            ) {
+            if let Ok(movie_op) = compute_movie_proposal(&movie, &movie_template, movie_settings) {
                 // Convert to shared RenameOperation
-                let operation = crate::subtitle::RenameOperation {
+                let operation = RenameOperation {
                     operation_type: movie_op.operation_type,
                     original_path: movie_op.original_path,
                     new_path: movie_op.new_path,
@@ -1979,23 +662,52 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
                 // The sanitization and validation is already handled in the proposal functions
                 video_operations.push(operation);
             } else {
-                blocking_errors.push(format!("Failed to compute movie proposal for {}", movie.title));
+                blocking_errors.push(format!(
+                    "Failed to compute movie proposal for {}",
+                    movie.title
+                ));
             }
         } else {
             // TV episode minimal metadata from filename like "Show - S01E02 - Title.ext"
-            let file_name = Path::new(file_path).file_name().unwrap_or_default().to_string_lossy();
-            let show_title = Path::new(file_path).parent().and_then(|p| p.parent()).and_then(|p| p.file_name()).map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "Show".to_string());
-            let season_index = if let Some(parent) = Path::new(file_path).parent() { parent.file_name().and_then(|s| {
-                let s = s.to_string_lossy().to_ascii_lowercase();
-                if s.starts_with("season ") { s[7..].trim().parse::<i32>().ok() } else { None }
-            }).unwrap_or(1) } else { 1 };
+            let file_name = Path::new(file_path)
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy();
+            let show_title = Path::new(file_path)
+                .parent()
+                .and_then(|p| p.parent())
+                .and_then(|p| p.file_name())
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "Show".to_string());
+            let season_index = if let Some(parent) = Path::new(file_path).parent() {
+                parent
+                    .file_name()
+                    .and_then(|s| {
+                        let s = s.to_string_lossy().to_ascii_lowercase();
+                        if s.starts_with("season ") {
+                            s[7..].trim().parse::<i32>().ok()
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or(1)
+            } else {
+                1
+            };
             let mut episode_index = 1;
             if let Ok(re) = regex::Regex::new(r"[sS](\d{2})[eE](\d{2})") {
                 if let Some(cap) = re.captures(&file_name) {
-                    episode_index = cap.get(2).and_then(|m| m.as_str().parse::<i32>().ok()).unwrap_or(1);
+                    episode_index = cap
+                        .get(2)
+                        .and_then(|m| m.as_str().parse::<i32>().ok())
+                        .unwrap_or(1);
                 }
             }
-            let title = Path::new(file_path).file_stem().unwrap_or_default().to_string_lossy().to_string();
+            let title = Path::new(file_path)
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
 
             let ep = EpisodeItem {
                 rating_key: "local".to_string(),
@@ -2014,12 +726,8 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
             };
 
             // Try to compute an episode proposal, but do not abort subtitle processing on failure
-            if let Ok(episode_op) = compute_episode_proposal(
-                &ep,
-                &episode_template,
-                tv_settings,
-            ) {
-                let operation = crate::subtitle::RenameOperation {
+            if let Ok(episode_op) = compute_episode_proposal(&ep, &episode_template, tv_settings) {
+                let operation = RenameOperation {
                     operation_type: episode_op.operation_type,
                     original_path: episode_op.original_path,
                     new_path: episode_op.new_path,
@@ -2054,14 +762,24 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
 
                 video_operations.push(operation);
             } else {
-                blocking_errors.push(format!("Failed to compute episode proposal for {}", ep.title));
+                blocking_errors.push(format!(
+                    "Failed to compute episode proposal for {}",
+                    ep.title
+                ));
             }
         }
 
         // Resolve video path to local filesystem path for subtitle discovery
-        let resolved_video_path = if crate::path_map::is_already_local_path(file_path, &mappings, &request.server_id, None) {
+        let resolved_video_path = if crate::path_map::is_already_local_path(
+            file_path,
+            &mappings,
+            &request.server_id,
+            None,
+        ) {
             std::path::PathBuf::from(file_path)
-        } else if let Some(resolved) = crate::path_map::resolve_plex_path(file_path, &mappings, &request.server_id, None) {
+        } else if let Some(resolved) =
+            crate::path_map::resolve_plex_path(file_path, &mappings, &request.server_id, None)
+        {
             resolved
         } else {
             std::path::PathBuf::from(file_path)
@@ -2089,9 +807,7 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
                 crate::subtitle::SubtitleClassification::VideoSubtitle(lang_suffix) => {
                     format!("{}.{}", new_basename, lang_suffix)
                 }
-                crate::subtitle::SubtitleClassification::Unknown => {
-                    new_basename
-                }
+                crate::subtitle::SubtitleClassification::Unknown => new_basename,
             };
 
             let new_path = Path::new(&subtitle.original_path)
@@ -2103,7 +819,7 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
 
             // TODO: Apply movie/TV-specific subtitle rules based on settings
 
-            let operation = crate::subtitle::RenameOperation {
+            let operation = RenameOperation {
                 operation_type: "rename".to_string(),
                 original_path: subtitle.original_path.clone(),
                 new_path: subtitle.proposed_path.clone(),
@@ -2115,7 +831,7 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
         }
     }
 
-    Ok(crate::subtitle::PreviewResult {
+    Ok(PreviewResult {
         video_operations,
         subtitle_operations,
         warnings,
@@ -2124,80 +840,14 @@ pub async fn preview_video_renames(app: tauri::AppHandle, request: crate::subtit
 }
 
 #[command]
-pub async fn apply_video_renames(app: tauri::AppHandle, request: crate::subtitle::ApplyRenamesRequest) -> Result<crate::subtitle::ApplyResult, String> {
-    // Apply both video and subtitle operations together
-    use std::fs;
-    use std::path::PathBuf;
-    use chrono;
-
-    let mut operations_applied = 0;
-    let mut operations_failed = 0;
-    let mut errors = Vec::new();
-    let mut all_operations = Vec::new();
-
+pub async fn apply_video_renames(
+    app: tauri::AppHandle,
+    request: ApplyRenamesRequest,
+) -> Result<ApplyResult, String> {
     // Get path mappings from settings
     let settings_result = crate::settings::get_settings(app);
     let mappings: Vec<crate::path_map::PathMapping> = match settings_result {
-        Ok(settings) => {
-            let server_id = &request.server_id;
-
-            // Try to find mappings with current server_id format, or fallback to hostname-only
-            let hostname_only = if server_id.contains("://") {
-                // If current is full URL, extract hostname (e.g., 'http://192.168.1.132:32400' -> '192.168.1.132')
-                if let Some(host_part) = server_id.split("://").nth(1) {
-                    host_part.split(':').next().unwrap_or(server_id)
-                } else {
-                    server_id
-                }
-            } else {
-                server_id
-            };
-
-            let filtered_mappings: Vec<_> = settings
-                .get("pathMappings")
-                .and_then(|pm| pm.as_array())
-                .unwrap_or(&Vec::new())
-                .iter()
-                .filter_map(|m| {
-                    let obj = m.as_object()?;
-                    let mapping_server_id = obj.get("server_id")?.as_str()?;
-
-                    // Check if mapping matches either format:
-                    // 1. Exact match with current server_id
-                    // 2. Hostname match (for backward compatibility)
-                    let mapping_hostname = if mapping_server_id.contains("://") {
-                        // Extract hostname from URL (e.g., 'http://192.168.1.132:32400' -> '192.168.1.132')
-                        if let Some(host_part) = mapping_server_id.split("://").nth(1) {
-                            host_part.split(':').next().unwrap_or(mapping_server_id)
-                        } else {
-                            mapping_server_id
-                        }
-                    } else {
-                        mapping_server_id
-                    };
-
-                    let exact_match = mapping_server_id == server_id;
-                    let hostname_match = mapping_hostname == hostname_only;
-
-                    if !exact_match && !hostname_match {
-                        return None;
-                    }
-
-                    let plex_root = obj.get("plex_root")?.as_str()?;
-                    let local_root = obj.get("local_root")?.as_str()?;
-                    let platform = obj.get("platform").and_then(|v| v.as_str()).map(|s| s.to_string());
-
-                    Some(crate::path_map::PathMapping {
-                        server_id: mapping_server_id.to_string(),
-                        plex_root: plex_root.to_string(),
-                        local_root: local_root.to_string(),
-                        platform,
-                    })
-                })
-                .collect();
-
-            filtered_mappings
-        }
+        Ok(settings) => crate::path_map::mappings_for_server(&settings, &request.server_id),
         Err(e) => {
             let msg = format!("Failed to get settings: {}", e);
             crate::logging::log_event(
@@ -2210,236 +860,54 @@ pub async fn apply_video_renames(app: tauri::AppHandle, request: crate::subtitle
         }
     };
 
-    // Resolve all paths in operations
-    let mut resolved_operations = Vec::new();
-    for operation in &request.operations {
-        // Resolve original path: use as-is if already local, otherwise resolve from Plex
-        let resolved_original = if crate::path_map::is_already_local_path(&operation.original_path, &mappings, &request.server_id, None) {
-            std::path::PathBuf::from(&operation.original_path)
-        } else {
-            crate::path_map::resolve_plex_path(&operation.original_path, &mappings, &request.server_id, None)
-                .ok_or_else(|| format!("Failed to resolve original path: {}", operation.original_path))?
-        };
-
-        // Resolve new path: use as-is if already local, try Plex resolution, or treat as relative to library root
-        let resolved_new = if crate::path_map::is_already_local_path(&operation.new_path, &mappings, &request.server_id, None) {
-            std::path::PathBuf::from(&operation.new_path)
-        } else if let Some(resolved) = crate::path_map::resolve_plex_path(&operation.new_path, &mappings, &request.server_id, None) {
-            resolved
-        } else {
-            // New path might be relative to the library root used for the original path
-            if let Some(library_root) = extract_library_root_from_path(&resolved_original, &mappings) {
-                library_root.join(&operation.new_path)
-            } else {
-                let msg = format!("Failed to resolve new path: {}", operation.new_path);
+    let operations =
+        resolve_video_operations_for_apply(&request.operations, &mappings, &request.server_id)
+            .map_err(|msg| {
                 crate::logging::log_event(
                     "ERROR",
                     "apply_video_renames",
                     &msg,
-                    serde_json::json!({ "operation_id": operation.operation_id }),
+                    serde_json::json!({ "server_id": request.server_id }),
                 );
-                return Err(msg);
-            }
-        };
+                msg
+            })?;
 
-        resolved_operations.push(crate::subtitle::RenameOperation {
-            operation_type: operation.operation_type.clone(),
-            original_path: resolved_original.to_string_lossy().to_string(),
-            new_path: resolved_new.to_string_lossy().to_string(),
-            backup_path: operation.backup_path.as_ref().map(|backup| {
-                crate::path_map::resolve_plex_path(backup, &mappings, &request.server_id, None)
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|| backup.clone())
-            }),
-            operation_id: operation.operation_id.clone(),
-        });
-    }
+    let log_path = crate::subtitle::rollback_log_path();
 
-    // Use resolved operations
-    let operations = resolved_operations;
-
-    // Create rollback log directory
-    let log_dir = dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("~/.nameotron"))
-        .join("logs");
-    fs::create_dir_all(&log_dir)
-        .map_err(|e| format!("Failed to create log directory: {}", e))?;
-
-    let log_path = log_dir.join(format!("rollback_{}.json", chrono::Utc::now().timestamp()));
-
-    for operation in &operations {
-        let result = if operation.operation_id.starts_with("subtitle_") {
-            // Subtitle operation - use subtitle apply function
-            crate::subtitle::apply_single_operation(operation)
-        } else {
-            // Video operation - use video apply function
-            apply_single_video_operation(operation)
-        };
-
-        match result {
-            Ok(_) => {
-                operations_applied += 1;
-                all_operations.push(serde_json::json!({
-                    "operation_type": operation.operation_type,
-                    "original_path": operation.original_path,
-                    "new_path": operation.new_path,
-                    "backup_path": operation.backup_path,
-                    "operation_id": operation.operation_id,
-                    "status": "success"
-                }));
-            }
-            Err(e) => {
-                operations_failed += 1;
-                errors.push(e.clone());
-                all_operations.push(serde_json::json!({
-                    "operation_type": operation.operation_type,
-                    "original_path": operation.original_path,
-                    "new_path": operation.new_path,
-                    "backup_path": operation.backup_path,
-                    "operation_id": operation.operation_id,
-                    "status": "failed",
-                    "error": e
-                }));
-            }
-        }
-    }
-
-    // Write rollback log
-    let log_content = serde_json::to_string_pretty(&all_operations)
-        .map_err(|e| format!("Failed to serialize rollback log: {}", e))?;
-
-    fs::write(&log_path, log_content)
-        .map_err(|e| format!("Failed to write rollback log: {}", e))?;
-
-    Ok(crate::subtitle::ApplyResult {
-        success: operations_failed == 0,
-        operations_applied,
-        operations_failed,
-        rollback_log_path: log_path.to_string_lossy().to_string(),
-        errors,
-    })
+    apply_mixed_operations_with_log_path(&operations, &log_path)
 }
 
-fn apply_single_video_operation(operation: &crate::subtitle::RenameOperation) -> Result<(), String> {
-    let original_path = Path::new(&operation.original_path);
-    let new_path = Path::new(&operation.new_path);
-
-    // Create parent directory if it doesn't exist
-    if let Some(parent) = new_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory {}: {}", parent.display(), e))?;
-    }
-
-    match operation.operation_type.as_str() {
-        "rename" => {
-            // Check if source exists and target doesn't (or we're overwriting)
-            if !original_path.exists() {
-                return Err(format!("Source file does not exist: {}", operation.original_path));
-            }
-
-            if new_path.exists() {
-                // For video files, we might want to handle conflicts differently
-                // For now, we'll allow overwriting but log it
-            }
-
-            // Simple rename
-            fs::rename(&operation.original_path, &operation.new_path)
-                .map_err(|e| format!("Failed to rename {} to {}: {}", operation.original_path, operation.new_path, e))?;
-        }
-        "move" => {
-            // Move operation (different directories)
-            // For simplicity, using rename which works across directories on same filesystem
-            if !original_path.exists() {
-                return Err(format!("Source file does not exist: {}", operation.original_path));
-            }
-
-            fs::rename(&operation.original_path, &operation.new_path)
-                .map_err(|e| format!("Failed to move {} to {}: {}", operation.original_path, operation.new_path, e))?;
-        }
-        _ => {
-            return Err(format!("Unknown operation type: {}", operation.operation_type));
-        }
-    }
-
-    Ok(())
+pub fn apply_operations_with_mappings_to_log_path(
+    operations: &[RenameOperation],
+    mappings: &[crate::path_map::PathMapping],
+    server_id: &str,
+    log_path: &Path,
+) -> Result<ApplyResult, String> {
+    let operations = resolve_video_operations_for_apply(operations, mappings, server_id)?;
+    apply_mixed_operations_with_log_path(&operations, log_path)
 }
 
-#[derive(Debug, Deserialize)]
-pub struct CleanupEmptyFoldersRequest {
-    pub server_id: String,
-    pub original_paths: Vec<String>,
+pub fn cleanup_empty_folders_with_explicit_mappings(
+    mappings: &[crate::path_map::PathMapping],
+    server_id: &str,
+    original_paths: &[String],
+) -> CleanupEmptyFoldersResult {
+    cleanup_empty_folders_with_mappings(mappings, server_id, original_paths)
 }
 
-#[derive(Debug, Serialize)]
-pub struct CleanupEmptyFoldersResult {
-    pub removed_directories: Vec<String>,
-    pub errors: Vec<String>,
+pub fn undo_operations_from_log_path(log_path: &Path) -> Result<ApplyResult, String> {
+    crate::subtitle::undo_rename_from_log_path(log_path, false)
 }
 
 #[command]
-pub async fn cleanup_empty_folders(app: tauri::AppHandle, request: CleanupEmptyFoldersRequest) -> Result<CleanupEmptyFoldersResult, String> {
-    use std::path::PathBuf;
-
-    let mut removed_directories = Vec::new();
-    let mut errors = Vec::new();
-
+pub async fn cleanup_empty_folders(
+    app: tauri::AppHandle,
+    request: CleanupEmptyFoldersRequest,
+) -> Result<CleanupEmptyFoldersResult, String> {
     // Load mappings so we can resolve Plex-style paths to local filesystem paths
     let settings_result = crate::settings::get_settings(app);
     let mappings: Vec<crate::path_map::PathMapping> = match settings_result {
-        Ok(settings) => {
-            let server_id = &request.server_id;
-
-            let hostname_only = if server_id.contains("://") {
-                if let Some(host_part) = server_id.split("://").nth(1) {
-                    host_part.split(':').next().unwrap_or(server_id)
-                } else {
-                    server_id
-                }
-            } else {
-                server_id
-            };
-
-            let filtered_mappings: Vec<_> = settings
-                .get("pathMappings")
-                .and_then(|pm| pm.as_array())
-                .unwrap_or(&Vec::new())
-                .iter()
-                .filter_map(|m| {
-                    let obj = m.as_object()?;
-                    let mapping_server_id = obj.get("server_id")?.as_str()?;
-
-                    let mapping_hostname = if mapping_server_id.contains("://") {
-                        if let Some(host_part) = mapping_server_id.split("://").nth(1) {
-                            host_part.split(':').next().unwrap_or(mapping_server_id)
-                        } else {
-                            mapping_server_id
-                        }
-                    } else {
-                        mapping_server_id
-                    };
-
-                    let exact_match = mapping_server_id == server_id;
-                    let hostname_match = mapping_hostname == hostname_only;
-
-                    if !exact_match && !hostname_match {
-                        return None;
-                    }
-
-                    let plex_root = obj.get("plex_root")?.as_str()?;
-                    let local_root = obj.get("local_root")?.as_str()?;
-                    let platform = obj.get("platform").and_then(|v| v.as_str()).map(|s| s.to_string());
-
-                    Some(crate::path_map::PathMapping {
-                        server_id: mapping_server_id.to_string(),
-                        plex_root: plex_root.to_string(),
-                        local_root: local_root.to_string(),
-                        platform,
-                    })
-                })
-                .collect();
-
-            filtered_mappings
-        }
+        Ok(settings) => crate::path_map::mappings_for_server(&settings, &request.server_id),
         Err(e) => {
             let msg = format!("Failed to get settings: {}", e);
             crate::logging::log_event(
@@ -2452,259 +920,16 @@ pub async fn cleanup_empty_folders(app: tauri::AppHandle, request: CleanupEmptyF
         }
     };
 
-    // Collect candidate directories from original paths
-    let mut candidate_dirs: Vec<PathBuf> = Vec::new();
-    for original in &request.original_paths {
-        let resolved = if crate::path_map::is_already_local_path(original, &mappings, &request.server_id, None) {
-            PathBuf::from(original)
-        } else if let Some(resolved) = crate::path_map::resolve_plex_path(original, &mappings, &request.server_id, None) {
-            resolved
-        } else {
-            errors.push(format!("Failed to resolve path for empty-folder check: {}", original));
-            continue;
-        };
-
-        if let Some(parent) = resolved.parent() {
-            candidate_dirs.push(parent.to_path_buf());
-        }
-    }
-
-    // De-duplicate directories
-    candidate_dirs.sort();
-    candidate_dirs.dedup();
-
-    for dir in candidate_dirs {
-        let mut current = dir.clone();
-
-        // Walk upwards a few levels, removing empty directories under the mapped library roots
-        for _ in 0..4 {
-            if !current.exists() {
-                break;
-            }
-            if !current.is_dir() {
-                break;
-            }
-
-            // Ensure this directory is under one of the mapped local roots
-            let is_under_mapped_root = mappings.iter().any(|m| {
-                let root = PathBuf::from(&m.local_root);
-                current.starts_with(&root)
-            });
-            if !is_under_mapped_root {
-                break;
-            }
-
-            // Check if directory is empty
-            match std::fs::read_dir(&current) {
-                Ok(mut entries) => {
-                    if entries.next().is_some() {
-                        break;
-                    }
-                }
-                Err(e) => {
-                    errors.push(format!("Failed to read directory {}: {}", current.to_string_lossy(), e));
-                    break;
-                }
-            }
-
-            // Remove the empty directory
-            match std::fs::remove_dir(&current) {
-                Ok(_) => {
-                    removed_directories.push(current.to_string_lossy().to_string());
-                }
-                Err(e) => {
-                    errors.push(format!("Failed to remove directory {}: {}", current.to_string_lossy(), e));
-                    break;
-                }
-            }
-
-            // Move one level up; stop if there is no parent
-            if let Some(parent) = current.parent() {
-                current = parent.to_path_buf();
-            } else {
-                break;
-            }
-        }
-    }
-
-    Ok(CleanupEmptyFoldersResult {
-        removed_directories,
-        errors,
-    })
-}
-
-
-// Movie destination helpers for frontend preview (folder logic SPOT)
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct MovieDestinationItem {
-    pub rating_key: String,
-    pub original_path: String,
-    pub base_name: String,
-    pub title: String,
-    pub year: Option<i32>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct MovieDestinationRequest {
-    pub settings: serde_json::Value,
-    pub library_roots: Vec<String>,
-    pub items: Vec<MovieDestinationItem>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MovieDestinationResponseItem {
-    pub rating_key: String,
-    pub proposed: String,
-}
-
-fn normalize_plex_path(path: &str) -> String {
-    path.replace('\\', "/")
-}
-
-fn compute_relative_dirs(original_path: &str, library_roots: &[String]) -> Vec<String> {
-    let normalized = normalize_plex_path(original_path);
-
-    // Find the longest matching library root prefix (Plex paths)
-    let mut best_prefix_len: usize = 0;
-    let mut best_root: Option<String> = None;
-
-    for root in library_roots {
-        let root_norm = normalize_plex_path(root).trim_end_matches('/').to_string();
-        if !root_norm.is_empty()
-            && normalized.starts_with(&root_norm)
-            && root_norm.len() > best_prefix_len
-        {
-            best_prefix_len = root_norm.len();
-            best_root = Some(root_norm);
-        }
-    }
-
-    let relative = if let Some(root) = best_root {
-        let mut tail = normalized[root.len()..].to_string();
-        if tail.starts_with('/') {
-            tail.remove(0);
-        }
-        tail
-    } else {
-        normalized.trim_start_matches('/').to_string()
-    };
-
-    let parts: Vec<&str> = relative.split('/').filter(|p| !p.is_empty()).collect();
-    if parts.is_empty() {
-        return Vec::new();
-    }
-
-    parts[..parts.len() - 1]
-        .iter()
-        .map(|s| s.to_string())
-        .collect()
-}
-
-fn compute_movie_destination_for_item(
-    item: &MovieDestinationItem,
-    relative_dirs: &[String],
-    movie_settings: &serde_json::Value,
-) -> String {
-    let own_folder_per_movie = movie_settings
-        .get("ownFolderPerMovie")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true);
-
-    let mut segments: Vec<String> = Vec::new();
-
-    if relative_dirs.is_empty() {
-        if own_folder_per_movie {
-            let folder = safe_folder_name(&item.title);
-            segments.push(folder);
-        }
-    } else {
-        // Preserve existing grouping structure; do not reorganize directories here.
-        segments.extend(relative_dirs.iter().cloned());
-    }
-
-    if segments.is_empty() {
-        item.base_name.clone()
-    } else {
-        let mut path = segments.join("/");
-        path.push('/');
-        path.push_str(&item.base_name);
-        path
-    }
+    Ok(cleanup_empty_folders_with_mappings(
+        &mappings,
+        &request.server_id,
+        &request.original_paths,
+    ))
 }
 
 #[command]
 pub fn compute_movie_destinations(
     request: MovieDestinationRequest,
 ) -> Result<Vec<MovieDestinationResponseItem>, String> {
-    let movie_settings = request
-        .settings
-        .get("movies")
-        .ok_or("Missing movie settings")?;
-
-    let mut results: Vec<MovieDestinationResponseItem> = Vec::new();
-
-    for item in &request.items {
-        let relative_dirs = compute_relative_dirs(&item.original_path, &request.library_roots);
-        let proposed = compute_movie_destination_for_item(item, &relative_dirs, movie_settings);
-        results.push(MovieDestinationResponseItem {
-            rating_key: item.rating_key.clone(),
-            proposed,
-        });
-    }
-
-    Ok(results)
+    compute_movie_destinations_impl(request)
 }
-
-
-    #[test]
-    fn compute_relative_dirs_preserves_grouping_under_library_root() {
-        let library_roots = vec!["/media/Movies".to_string()];
-        let original = "/media/Movies/A-D/Nolan/Inception (2010).mkv";
-        let dirs = compute_relative_dirs(original, &library_roots);
-        assert_eq!(dirs, vec!["A-D".to_string(), "Nolan".to_string()]);
-    }
-
-    #[test]
-    fn compute_movie_destinations_respects_existing_grouping_and_own_folder() {
-        use serde_json::json;
-
-        let settings = json!({
-            "movies": {
-                "ownFolderPerMovie": true
-            }
-        });
-
-        // Movie directly under library root gets its own folder
-        let req1 = MovieDestinationRequest {
-            settings: settings.clone(),
-            library_roots: vec!["/media/Movies".to_string()],
-            items: vec![MovieDestinationItem {
-                rating_key: "rk1".to_string(),
-                original_path: "/media/Movies/Inception (2010).mkv".to_string(),
-                base_name: "Inception (2010).mkv".to_string(),
-                title: "Inception".to_string(),
-                year: Some(2010),
-            }],
-        };
-        let resp1 = compute_movie_destinations(req1).expect("destinations");
-        assert_eq!(resp1.len(), 1);
-        assert_eq!(resp1[0].proposed, "Inception/Inception (2010).mkv");
-
-        // Movie inside grouped folders keeps that grouping
-        let req2 = MovieDestinationRequest {
-            settings: settings.clone(),
-            library_roots: vec!["/media/Movies".to_string()],
-            items: vec![MovieDestinationItem {
-                rating_key: "rk2".to_string(),
-                original_path: "/media/Movies/A-D/Nolan/Inception (2010).mkv".to_string(),
-                base_name: "Inception (2010).mkv".to_string(),
-                title: "Inception".to_string(),
-                year: Some(2010),
-            }],
-        };
-        let resp2 = compute_movie_destinations(req2).expect("destinations");
-        assert_eq!(resp2.len(), 1);
-        assert_eq!(resp2[0].proposed, "A-D/Nolan/Inception (2010).mkv");
-    }
-

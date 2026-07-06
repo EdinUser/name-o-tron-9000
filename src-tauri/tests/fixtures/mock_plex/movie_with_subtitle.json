@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "name": "movie_with_subtitle",
+  "server_id": "mock-server",
+  "libraries": [
+    {
+      "key": "1",
+      "type": "movie",
+      "title": "Movies",
+      "plex_root": "/mount/server/HDD1/Movies",
+      "local_root": "Movies",
+      "items": [
+        {
+          "ratingKey": "102",
+          "type": "movie",
+          "title": "Arrival",
+          "year": 2016,
+          "plex_file": "/mount/server/HDD1/Movies/Staging/Arrival.2016.1080p.WEB-DL.mkv",
+          "local_file": "Staging/Arrival.2016.1080p.WEB-DL.mkv",
+          "subtitles": [
+            {
+              "plex_file": "/mount/server/HDD1/Movies/Staging/Arrival.2016.1080p.WEB-DL.eng.srt",
+              "local_file": "Staging/Arrival.2016.1080p.WEB-DL.eng.srt",
+              "contents": "1\n00:00:00,000 --> 00:00:01,500\nWe are ready.\n"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "directories": [],
+  "conflicts": [],
+  "assertions": {
+    "operations": [
+      {
+        "operation_id": "video_102",
+        "operation_type": "rename",
+        "original_path": "/mount/server/HDD1/Movies/Staging/Arrival.2016.1080p.WEB-DL.mkv",
+        "new_path": "Arrival (2016).mkv"
+      },
+      {
+        "operation_id": "subtitle_102_en",
+        "operation_type": "rename",
+        "original_path": "/mount/server/HDD1/Movies/Staging/Arrival.2016.1080p.WEB-DL.eng.srt",
+        "new_path": "Arrival (2016).eng.srt"
+      }
+    ],
+    "cleanup_original_paths": [
+      "/mount/server/HDD1/Movies/Staging/Arrival.2016.1080p.WEB-DL.mkv",
+      "/mount/server/HDD1/Movies/Staging/Arrival.2016.1080p.WEB-DL.eng.srt"
+    ]
+  }
+}

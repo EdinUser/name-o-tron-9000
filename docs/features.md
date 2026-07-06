@@ -6,6 +6,8 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 
 ### Server Discovery & Authentication
 - **Automatic Discovery**: Uses SSDP multicast to find Plex servers on your local network
+- **Remembered Server List**: Home keeps discovered and manually added servers until you remove them
+- **Manual Removal**: Remove stale server entries directly from Home instead of rediscovering everything every session
 - **Manual Server Addition**: Add servers manually by IP address or hostname
 - **Advanced Network Scanning**: Custom port scanning and manual host specification for complex networks
 - **PIN Authentication**: Secure Plex account authentication via browser-based PIN flow
@@ -63,7 +65,7 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 ### Template System
 - **Customizable Templates**: Per-media-type templates with placeholder support
 - **Movie Templates**: `{title}[ ({year})]{ext}` with optional collections and editions
-- **TV Templates**: `{showTitle} - S{season:02}E{episode:02} - {title}{ext}` with multi-episode support
+- **TV Templates**: `{showTitle} - S{season:02}E{episode:02} - {title}{ext}` with automatic Plex-style multi-episode and split-part handling
 - **Music Templates**: Artist/Album/Track formatting with disc subfolder support
 - **Conditional Groups**: Use `[ (optional text) ]` for content that appears only when placeholders have values
 - **Nested Optionals**: Support for complex conditional formatting with nested optional groups
@@ -72,8 +74,13 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 ### Advanced Features
 - **Edition Detection**: Automatically detect Extended, IMAX, Director's Cut, etc. from filenames
 - **Collection Handling**: Group movies by Plex collections with customizable naming
-- **Multi-Episode Normalization**: Convert `E01-E02` to `E01E02` format
+- **Multi-Episode Normalization**: Normalize compact or dashed input to Plex-style `E01-E02` output
+- **Split-Part Preservation**: Keep Plex-style single-episode part suffixes such as `pt1`, `part2`, `cd1`, and `disc1`
 - **Special Episodes**: Handle OVAs and specials in Season 00 folders
+
+### TV Preview Pagination
+- **Season Paging**: TV preview loads additional episode batches when later pages need more rows
+- **Grouped Row Counting**: Final TV page counts follow the grouped preview rows, so multi-episode files do not create phantom pages
 
 ## Subtitles & Audio
 
@@ -138,7 +145,7 @@ For detailed guidance on setting up and troubleshooting path mappings, see [Path
 
 ### Performance & Usability
 - **Debounced Search**: 500ms delay for responsive filtering
-- **Pagination**: Efficient handling of large libraries (20 items per page for TV shows, 200 for movies/music)
+- **Pagination**: Configurable per-page limits with automatic incremental loading when later pages need more rows
 - **Season Filtering**: For TV libraries, filter preview rows by season (or view all seasons) while browsing episodes
 - **Real-time Updates**: Immediate preview recalculation when settings change
 - **Progress Indicators**: Visual feedback during long operations

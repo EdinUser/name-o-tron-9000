@@ -121,6 +121,7 @@ export type TemplateSettings = {
   /**
    * Template for Episode path (relative).
    * Supported placeholders include {showTitle}, {season}, {episode}, {title}, {ext}.
+   * Multi-episode files are automatically normalized to Plex-style E01-E02 output.
    * Example: "{showTitle} - S{season:02}E{episode:02} - {title}{ext}"
    */
   episode: string;

@@ -43,8 +43,9 @@ Download the appropriate installer for your platform from the [releases page](ht
 **Solutions:**
 1. Ensure Plex Media Server is running and shows "Fully accessible" in Plex Web
 2. Check firewall settings allow the required UDP ports
-3. Try manual server addition on the Home screen where the Discover functionality is located
-4. For remote servers, use the manual server option with IP/hostname
+3. Try Home → Advanced Scan or manual server addition on the Home screen where the Discover functionality is located
+4. Remove stale remembered server entries from Home if an old address keeps reappearing
+5. For remote servers, use the manual server option with IP/hostname
 
 ### **Authentication fails with Plex**
 **Common causes:**
@@ -217,7 +218,7 @@ Yes! Each media type has customizable templates:
 **TV template example:** `{showTitle} - S{season:02}E{episode:02} - {title}{ext}`
 - `{showTitle}` - TV show name
 - `{season:02}` - Season number (zero-padded)
-- `{episode:02}` - Episode number (zero-padded)
+- `{episode:02}` - Episode number (zero-padded); multi-episode files automatically normalize to Plex-style ranges such as `S01E01-E02`
 
 **Available Placeholders:** `{title}`, `{year}`, `{ext}`, `{showTitle}`, `{season}`, `{episode}`, `{grandparentTitle}`, `{parentTitle}`, and more.
 
@@ -230,7 +231,7 @@ Yes! Each media type has customizable templates:
 
 ### **The app is slow with my large library**
 **Optimization tips:**
-1. **Pagination**: App loads 20 items per page for TV shows, 200 for movies/music - use search to filter
+1. **Pagination**: Per-page limits are configurable. TV preview automatically fetches more episode batches when later pages need more rows.
 2. **Search strategy**: Local search for immediate results, Plex API search always active for comprehensive coverage
 3. **Batch processing**: Process large libraries in smaller chunks
 4. **Network optimization**: Ensure fast connection to Plex server
