@@ -1,0 +1,198 @@
+{
+  "MediaContainer": {
+    "size": 7,
+    "totalSize": 7,
+    "offset": 0,
+    "Metadata": [
+      {
+        "ratingKey": "2001",
+        "key": "/library/metadata/2001",
+        "guid": "plex://episode/mock-2001",
+        "type": "episode",
+        "title": "Crossroads",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2023,
+        "thumb": "/library/metadata/2001/thumb",
+        "Media": [
+          {
+            "id": 6001,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8001,
+                "key": "/library/parts/8001/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2002",
+        "key": "/library/metadata/2002",
+        "guid": "plex://episode/mock-2002",
+        "type": "episode",
+        "title": "Reckoning",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 2,
+        "year": 2023,
+        "thumb": "/library/metadata/2002/thumb",
+        "Media": [
+          {
+            "id": 6002,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8002,
+                "key": "/library/parts/8002/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E02.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2003",
+        "key": "/library/metadata/2003",
+        "guid": "plex://episode/mock-2003",
+        "type": "episode",
+        "title": "The Divide",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 3,
+        "year": 2023,
+        "thumb": "/library/metadata/2003/thumb",
+        "Media": [
+          {
+            "id": 6003,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8003,
+                "key": "/library/parts/8003/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E03E04.Multi.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2004",
+        "key": "/library/metadata/2004",
+        "guid": "plex://episode/mock-2004",
+        "type": "episode",
+        "title": "No Return",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 4,
+        "year": 2023,
+        "thumb": "/library/metadata/2004/thumb",
+        "Media": [
+          {
+            "id": 6004,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8004,
+                "key": "/library/parts/8004/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E03E04.Multi.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2005",
+        "key": "/library/metadata/2005",
+        "guid": "plex://episode/mock-2005",
+        "type": "episode",
+        "title": "The Siege Part 1",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 5,
+        "year": 2023,
+        "thumb": "/library/metadata/2005/thumb",
+        "Media": [
+          {
+            "id": 6005,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8005,
+                "key": "/library/parts/8005/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E05.Part1.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2006",
+        "key": "/library/metadata/2006",
+        "guid": "plex://episode/mock-2006",
+        "type": "episode",
+        "title": "The Siege Part 2",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 6,
+        "year": 2023,
+        "thumb": "/library/metadata/2006/thumb",
+        "Media": [
+          {
+            "id": 6006,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8006,
+                "key": "/library/parts/8006/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E06.Part2.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2007",
+        "key": "/library/metadata/2007",
+        "guid": "plex://episode/mock-2007",
+        "type": "episode",
+        "title": "Genesis OVA",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Specials",
+        "parentIndex": 0,
+        "index": 1,
+        "year": 2023,
+        "thumb": "/library/metadata/2007/thumb",
+        "Media": [
+          {
+            "id": 6007,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8007,
+                "key": "/library/parts/8007/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E01.Genesis.OVA.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

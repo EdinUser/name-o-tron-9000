@@ -95,7 +95,7 @@ Name-o-Tron 9000 is designed specifically for Plex users who want to maintain pr
 
 ### First Launch Workflow
 
-1. **Server Discovery**: App automatically discovers Plex servers on your network
+1. **Server Discovery**: App automatically discovers Plex servers on your network and keeps discovered or manually added entries until you remove them
 2. **Authentication**: Login with your Plex account (PIN-based authentication)
 3. **Path Mapping**: Map Plex library paths to your local folder structure
 4. **Library Selection**: Choose Movies, TV Shows, or Music libraries
@@ -117,6 +117,8 @@ Name-o-Tron 9000 is designed specifically for Plex users who want to maintain pr
     v
 [Welcome / Server Discovery]
     - Auto-discover Plex servers on your network
+    - Remember discovered/manual servers on Home
+    - Remove stale server entries directly from Home
     - OR login with your Plex account
     |
     v

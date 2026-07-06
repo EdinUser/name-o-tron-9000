@@ -12,6 +12,12 @@ import {
     safeFolderName,
     sanitizeProposal,
 } from "./utils";
+import {
+    appendSplitPartSuffix,
+    detectMultiEpisodeRangeFromFilename,
+    detectSplitPartSuffix,
+    renderEpisodeTemplateWithPlexTokens,
+} from "./episodeTokens";
 import { extractImdbId, extractTvdbId, extractTmdbId, renderTemplate } from "../../utils/template";
 
 export async function computeMultiEpisodeProposal(
@@ -57,9 +63,8 @@ export async function computeMultiEpisodeProposal(
     const tmdbId = primaryEpisode.guid ? extractTmdbId(primaryEpisode.guid) : null;
 
     // Detect multi-episode range from filename or Plex data
-    const filename = basename(filePath);
-    const multiEpisodePattern = /S(\d{1,2})E(\d{1,2})-?E?(\d{1,2})/i;
-    const match = filename.match(multiEpisodePattern);
+    const matchedRange = detectMultiEpisodeRangeFromFilename(filePath);
+    const splitPartSuffix = detectSplitPartSuffix(filePath);
 
     const flags: string[] = ["multi-episode"];
 
@@ -67,20 +72,10 @@ export async function computeMultiEpisodeProposal(
     let endEpisode = episodes.length;
     let detectedTitle = primaryEpisode.title;
 
-    if (match) {
-        const seasonFromFile = parseInt(match[1], 10);
-        startEpisode = parseInt(match[2], 10);
-        endEpisode = parseInt(match[3], 10);
-
-        // Verify the season matches and episodes make sense
-        if (seasonFromFile === season && endEpisode > startEpisode) {
-            // Create a combined title for all episodes
-            const episodeTitles = episodes.map(e => e.title).filter(Boolean);
-            if (episodeTitles.length > 0) {
-                detectedTitle = episodeTitles.join(" / ");
-            }
-            flags.push("multi-episode-detected");
-        }
+    if (matchedRange && matchedRange.season === season) {
+        startEpisode = matchedRange.startEpisode;
+        endEpisode = matchedRange.endEpisode;
+        flags.push("multi-episode-detected");
     }
 
     // Fallback: use the episode range from Plex data
@@ -89,6 +84,13 @@ export async function computeMultiEpisodeProposal(
         if (episodeNumbers.length > 1) {
             startEpisode = episodeNumbers[0];
             endEpisode = episodeNumbers[episodeNumbers.length - 1];
+        }
+    }
+
+    if (endEpisode > startEpisode) {
+        const episodeTitles = episodes.map(e => e.title).filter(Boolean);
+        if (episodeTitles.length > 0) {
+            detectedTitle = episodeTitles.join(" / ");
         }
     }
 
@@ -229,7 +231,10 @@ export async function computeMultiEpisodeProposal(
 
     let templateResult = "";
     try {
-        templateResult = renderTemplate(dynamicTemplate, ctx);
+        templateResult = renderTemplate(
+            renderEpisodeTemplateWithPlexTokens(dynamicTemplate, { startEpisode, endEpisode }),
+            ctx,
+        );
     } catch (error) {
         console.error("Error rendering multi-episode template:", error);
         templateResult = `${showTitle} - S${String(detectedSeason || 0).padStart(2, "0")}${ctx.multiEpisodeRange} - ${detectedTitle}`;
@@ -237,6 +242,7 @@ export async function computeMultiEpisodeProposal(
 
     let proposed = templateResult;
     if (!proposed.endsWith(ext)) proposed += ext;
+    proposed = appendSplitPartSuffix(proposed, ext, splitPartSuffix);
 
     // Apply folder structure
     if (folderPrefix) {
@@ -360,11 +366,14 @@ export async function computeEpisodeProposal(
     const imdbId = e.guid ? extractImdbId(e.guid) : null;
     const thetvdbId = e.guid ? extractTvdbId(e.guid) : null;
     const tmdbId = e.guid ? extractTmdbId(e.guid) : null;
+    const detectedRange = detectMultiEpisodeRangeFromFilename(e.file);
+    const splitPartSuffix = detectSplitPartSuffix(e.file);
 
     // Apply TV detection settings
     let detectedSeason = e.season;
     let detectedIndex = e.index;
     let detectedTitle = e.title;
+    let detectedRangeEnd = e.index;
     const flags: string[] = [];
 
     // Detect OVA/Specials and suggest Season 00
@@ -383,20 +392,10 @@ export async function computeEpisodeProposal(
 
     // Detect multi-episode files and normalize
     if (settings.tv.normalizeMultiEpisode) {
-        const fileName = basename(e.file);
-        const multiEpisodePattern = /S(\d{1,2})E(\d{1,2})-E?(\d{1,2})/i;
-        const match = fileName.match(multiEpisodePattern);
-        if (match) {
-            const season = parseInt(match[1], 10);
-            const startEp = parseInt(match[2], 10);
-            const endEp = parseInt(match[3], 10);
-
-            if (season === e.season && startEp === e.index) {
-                // Normalize to SXXEXX format for consecutive episodes
-                detectedIndex = startEp;
-                detectedTitle = `${detectedTitle} (Episodes ${startEp}-${endEp})`;
-                flags.push("multi-episode-normalized");
-            }
+        if (detectedRange && detectedRange.season === e.season && detectedRange.startEpisode === e.index) {
+            detectedIndex = detectedRange.startEpisode;
+            detectedRangeEnd = detectedRange.endEpisode;
+            flags.push("multi-episode-normalized");
         }
     }
 
@@ -531,6 +530,12 @@ export async function computeEpisodeProposal(
         title: detectedTitle,
         season: typeof detectedSeason === "number" ? detectedSeason : 0,
         episode: typeof detectedIndex === "number" ? detectedIndex : 0,
+        multiEpisodeStart: typeof detectedIndex === "number" ? detectedIndex : 0,
+        multiEpisodeEnd: typeof detectedRangeEnd === "number" ? detectedRangeEnd : (typeof detectedIndex === "number" ? detectedIndex : 0),
+        multiEpisodeRange:
+            typeof detectedIndex === "number" && typeof detectedRangeEnd === "number" && detectedRangeEnd > detectedIndex
+                ? `E${String(detectedIndex).padStart(2, "0")}-E${String(detectedRangeEnd).padStart(2, "0")}`
+                : `E${String(detectedIndex || 0).padStart(2, "0")}`,
         ext,
         year: e.year ?? "",
         grandparentTitle: e.grandparentTitle ?? e.showTitle,
@@ -545,7 +550,13 @@ export async function computeEpisodeProposal(
 
     let templateResult = "";
     try {
-        templateResult = renderTemplate(dynamicTemplate, ctx);
+        templateResult = renderTemplate(
+            renderEpisodeTemplateWithPlexTokens(dynamicTemplate, {
+                startEpisode: typeof detectedIndex === "number" ? detectedIndex : 0,
+                endEpisode: typeof detectedRangeEnd === "number" ? detectedRangeEnd : (typeof detectedIndex === "number" ? detectedIndex : 0),
+            }),
+            ctx,
+        );
     } catch (error) {
         console.error("Error rendering episode template:", error);
         templateResult = `${e.showTitle} - S${String(detectedSeason || 0).padStart(2, "0")}E${String(detectedIndex || 0).padStart(2, "0")} - ${detectedTitle}`;
@@ -553,6 +564,7 @@ export async function computeEpisodeProposal(
 
     let proposed = templateResult;
     if (!proposed.endsWith(ext)) proposed += ext;
+    proposed = appendSplitPartSuffix(proposed, ext, splitPartSuffix);
 
     // TV Series folder structure MUST always be enforced
     // The template cannot override the series folder requirement

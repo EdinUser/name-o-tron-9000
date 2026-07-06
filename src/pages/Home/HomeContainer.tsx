@@ -39,21 +39,63 @@ export default function HomeContainer({onSelectServer}: Props) {
     const [advancedPort, setAdvancedPort] = useState("32400");
     const [advancedHosts, setAdvancedHosts] = useState("");
     const scanListener = useRef<null | (() => void)>(null);
+    const serversRef = useRef<PlexServer[]>([]);
+    const selectedIdxRef = useRef<number | null>(null);
 
     const selected = useMemo(() =>
             selectedIdx != null ? servers[selectedIdx] : null,
         [selectedIdx, servers]);
 
+    useEffect(() => {
+        serversRef.current = servers;
+        selectedIdxRef.current = selectedIdx;
+    }, [servers, selectedIdx]);
+
+    const dedupeServers = (list: PlexServer[]) => {
+        const seen = new Set<string>();
+        return list.filter((server) => {
+            const key = (server.address || "").trim().replace(/\/+$/, "").toLowerCase();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    };
+
+    async function persistDiscoveredServers(nextServers: PlexServer[], lastSelectedAddress?: string | null) {
+        if (nextServers.length > 0) {
+            try { sessionStorage.setItem("discoveredServers", JSON.stringify(nextServers)); } catch {}
+        } else {
+            try { sessionStorage.removeItem("discoveredServers"); } catch {}
+        }
+
+        if (typeof lastSelectedAddress !== "undefined") {
+            if (lastSelectedAddress) {
+                try { sessionStorage.setItem("selectedServerAddress", lastSelectedAddress); } catch {}
+            } else {
+                try { sessionStorage.removeItem("selectedServerAddress"); } catch {}
+            }
+        }
+
+        const discovery: { servers: PlexServer[]; lastSelectedAddress?: string | null } = {
+            servers: nextServers,
+        };
+        if (typeof lastSelectedAddress !== "undefined") {
+            discovery.lastSelectedAddress = lastSelectedAddress;
+        }
+        try { await invoke("save_settings", { settings: { discovery } }); } catch { /* ignore */ }
+    }
+
     const isLegacyMockServer = (s: PlexServer) => {
         const name = (s.name || "").toLowerCase();
-        const addr = (s.address || "").replace(/\/+$/, "").toLowerCase();
-        return name.includes("mock plex") || addr === "http://localhost:32400";
+        return name.includes("mock plex");
     };
 
     // Mapping moved to Select Library screen
 
     async function discoverServers() {
         const runId = ++discoverRun.current;
+        const currentServers = serversRef.current;
+        const currentSelectedIdx = selectedIdxRef.current;
         setError(null);
         setDiscovering(true);
         const started = Date.now();
@@ -66,28 +108,19 @@ export default function HomeContainer({onSelectServer}: Props) {
                 setError(`Discovery failed: ${e?.message ?? String(e)}`);
                 found = null;
             }
-            const merged = Array.isArray(found) ? found : [];
-
-            // Deduplicate by address
-            const seen = new Set<string>();
-            const unique = merged.filter((s) => {
-                const key = (s.address || "").toLowerCase();
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            });
+            const discovered = Array.isArray(found) ? found : [];
             // If nothing was discovered, keep existing list instead of wiping it
-            if (unique.length === 0) {
-                if (!servers.length) {
+            if (discovered.length === 0) {
+                if (!currentServers.length) {
                     setError("No Plex servers found. Ensure the server is running and reachable, then try Discover or Add Manual.");
                 }
                 return;
             }
             if (discoverRun.current !== runId) return; // cancelled or superseded
+            const unique = dedupeServers([...currentServers, ...discovered]);
             setServers(unique);
-            try { sessionStorage.setItem("discoveredServers", JSON.stringify(unique)); } catch {}
-            try { await invoke("save_settings", { settings: { discovery: { servers: unique } } }); } catch { /* ignore */ }
-            if (unique.length && selectedIdx == null) setSelectedIdx(0);
+            await persistDiscoveredServers(unique);
+            if (unique.length && currentSelectedIdx == null) setSelectedIdx(0);
         } catch (e: any) {
             if (discoverRun.current === runId) setError(e?.message ?? String(e));
         } finally {
@@ -152,17 +185,9 @@ export default function HomeContainer({onSelectServer}: Props) {
                 name: r.name || `Plex (${r.ip})`,
                 address: r.address,
             }));
-            const merged = [...servers, ...mapped];
-            const seen = new Set<string>();
-            const unique = merged.filter((s) => {
-                const key = (s.address || "").toLowerCase();
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            });
+            const unique = dedupeServers([...servers, ...mapped]);
             setServers(unique);
-            try { sessionStorage.setItem("discoveredServers", JSON.stringify(unique)); } catch {}
-            try { await invoke("save_settings", { settings: { discovery: { servers: unique } } }); } catch { /* ignore */ }
+            await persistDiscoveredServers(unique);
             if (unique.length && selectedIdx == null) setSelectedIdx(0);
         } catch (e: any) {
             setScanError(e?.message ?? String(e));
@@ -190,17 +215,9 @@ export default function HomeContainer({onSelectServer}: Props) {
                 setError("Could not reach the provided server. Check address and try again.");
                 return;
             }
-            const merged = [...servers, ...found];
-            const seen = new Set<string>();
-            const unique = merged.filter((s) => {
-                const key = (s.address || "").toLowerCase();
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            });
+            const unique = dedupeServers([...servers, ...found]);
             setServers(unique);
-            try { sessionStorage.setItem("discoveredServers", JSON.stringify(unique)); } catch {}
-            try { await invoke("save_settings", { settings: { discovery: { servers: unique } } }); } catch { /* ignore */ }
+            await persistDiscoveredServers(unique);
             if (unique.length) setSelectedIdx(unique.findIndex(s => s.address.toLowerCase().includes(input.replace(/^https?:\/\//, '').split(':')[0].toLowerCase())) || 0);
         } catch (e: any) {
             setError(e?.message ?? String(e));
@@ -454,9 +471,27 @@ export default function HomeContainer({onSelectServer}: Props) {
     async function clearServers() {
         setServers([]);
         setSelectedIdx(null);
-        try { sessionStorage.removeItem("discoveredServers"); } catch {}
-        try { sessionStorage.removeItem("selectedServerAddress"); } catch {}
-        try { await invoke("save_settings", { settings: { discovery: { servers: [], lastSelectedAddress: null } } }); } catch { /* ignore */ }
+        await persistDiscoveredServers([], null);
+    }
+
+    async function removeServer(index: number) {
+        const nextServers = servers.filter((_, i) => i !== index);
+        let nextSelectedIdx = selectedIdx;
+        if (selectedIdx != null) {
+            if (selectedIdx === index) {
+                nextSelectedIdx = nextServers.length ? Math.min(index, nextServers.length - 1) : null;
+            } else if (selectedIdx > index) {
+                nextSelectedIdx = selectedIdx - 1;
+            }
+        }
+
+        setServers(nextServers);
+        setSelectedIdx(nextSelectedIdx);
+        const nextSelectedAddress =
+            nextSelectedIdx != null && nextSelectedIdx >= 0 && nextSelectedIdx < nextServers.length
+                ? nextServers[nextSelectedIdx]?.address ?? null
+                : null;
+        await persistDiscoveredServers(nextServers, nextSelectedAddress);
     }
 
     return (
@@ -492,6 +527,7 @@ export default function HomeContainer({onSelectServer}: Props) {
             onSetManualAddr={setManualAddr}
             onToggleTheme={toggleTheme}
             onClearServers={clearServers}
+            onRemoveServer={removeServer}
         />
     );
 }

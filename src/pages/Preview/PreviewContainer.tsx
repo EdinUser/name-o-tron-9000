@@ -203,6 +203,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [seasonList, setSeasonList] = useState<Array<{index: number, title: string, leafCount: number, ratingKey: string, key: string}>>([]);
 
     const [reloadTick, setReloadTick] = useState(0);
+    const lastMovieReloadTickRef = useRef(0);
 
     // Popover state for showing Plex metadata on hover
     const [popoverData, setPopoverData] = useState<{ metadata: MovieItem | EpisodeItem | MusicItem | null; position: { x: number; y: number } }>({
@@ -322,38 +323,52 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 const rawItems: Array<MovieItem | EpisodeItem | MusicItem> = [];
 
                 if (library.type === "movie") {
-                    const fetchSize = moviesPaging.size || pageSize;
+                    const isReload = reloadTick > lastMovieReloadTickRef.current;
+                    if (isReload) {
+                        lastMovieReloadTickRef.current = reloadTick;
+                        initialMoviePrefetch.current = false;
+                        moviePrefetching.current = false;
+                        prefetchedSecondPageRef.current = false;
+                        processedCountRef.current = 0;
+                        rawItemsRef.current = [];
+                        rowsRef.current = [];
+                        setRows([]);
+                        setSelectedIds(new Set());
+                        setRemoteResults([]);
+                        setRemoteQuery("");
+                        setPage(1);
+                    }
+
+                    const fetchStart = isReload ? 0 : moviesPaging.start;
+                    const fetchSize = isReload ? pageSize : (moviesPaging.size || pageSize);
                     // Fetch movie items using the existing command
                     const data = await invoke<SectionResponse>("fetch_library_content", {
                         server: server.address,
                         libraryKey: library.key,
                         token: token ?? null,
-                        start: moviesPaging.start,
+                        start: fetchStart,
                         size: fetchSize,
                     });
                     const mc = data?.MediaContainer;
                     const md = mc?.Metadata ?? [];
                     const total = Number(mc?.totalSize ?? mc?.total ?? 0) || null;
                     const returned = Number(mc?.size ?? md.length);
-                    const offset = Number(mc?.offset ?? moviesPaging.start ?? 0);
+                    const offset = Number(mc?.offset ?? fetchStart ?? 0);
                     console.log("[Preview] Movie fetch", { pageSize, fetchSize, offset, returned, total });
                     if (md.length === 0) {
-                        setMoviesPaging(prev => ({
-                            ...prev,
-                            total: total ?? prev.total ?? null,
+                        setMoviesPaging({
+                            start: offset,
+                            size: pageSize,
+                            total,
                             exhausted: true
-                        }));
+                        });
                     } else {
-                        setMoviesPaging(prev => {
-                            const done = total ? offset + returned >= total : md.length < fetchSize;
-                            // After the first load, switch to single-page fetch size
-                            return {
-                                ...prev,
-                                start: offset + returned,
-                                size: pageSize,
-                                total: total ?? prev.total ?? null,
-                                exhausted: done
-                            };
+                        const done = total ? offset + returned >= total : md.length < fetchSize;
+                        setMoviesPaging({
+                            start: offset + returned,
+                            size: pageSize,
+                            total,
+                            exhausted: done
                         });
                     }
                     for (const item of md) {
@@ -718,12 +733,12 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     const total = Number(epsResp?.MediaContainer?.totalSize ?? epsResp?.MediaContainer?.total ?? seasonData.leafCount) || null;
                     const returned = Number(epsResp?.MediaContainer?.size ?? md.length);
 
-                    console.log("[Season Load] total:", total, "returned:", returned, "exhausted:", md.length < episodesPaging.size);
+                    console.log("[Season Load] total:", total, "returned:", returned, "exhausted:", total ? returned >= total : md.length < episodesPaging.size);
 
                     setEpisodesPaging(prev => ({
                         ...prev,
                         total,
-                        exhausted: md.length < prev.size,
+                        exhausted: total ? returned >= total : md.length < prev.size,
                         start: returned,
                         size: prev.size
                     }));
@@ -1274,11 +1289,16 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         if (library.type === "movie" && moviesPaging.total) {
             return moviesPaging.total;
         }
-        if (library.type === "show" && episodesPaging.total) {
-            return episodesPaging.total;
+        if (library.type === "show") {
+            if (episodesPaging.exhausted) {
+                return displayRows.length;
+            }
+            if (episodesPaging.total) {
+                return Math.max(episodesPaging.total, displayRows.length);
+            }
         }
         return displayRows.length;
-    }, [debouncedSearchQuery, library.type, moviesPaging.total, episodesPaging.total, displayRows.length]);
+    }, [debouncedSearchQuery, library.type, moviesPaging.total, episodesPaging.total, episodesPaging.exhausted, displayRows.length]);
     const totalPages = Math.max(1, Math.ceil(totalItemsForPaging / pageSize));
     const pageRows = useMemo(() => displayRows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize), [displayRows, page, pageSize]);
     useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
@@ -1299,11 +1319,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     }, [library.type, rows.length, pageSize, moviesPaging.exhausted, loading, pageLoading]);
 
     const pageTransitionLoading = useMemo(() => {
-        // If user is beyond page 1 and data is still being built/fetched, show placeholder
+        // Only blank later pages if we still do not have rows for that page.
         if (page <= 1) return false;
         const need = page * pageSize;
+        const hasRowsForRequestedPage = pageRows.length > 0;
+        if (hasRowsForRequestedPage) return false;
         return pageLoading || loading || previewLoading || rows.length < need;
-    }, [page, pageSize, pageLoading, loading, previewLoading, rows.length]);
+    }, [page, pageSize, pageLoading, loading, previewLoading, rows.length, pageRows.length]);
 
     // Auto-load more movies when navigating to a page that requires more items than we have loaded
     useEffect(() => {
@@ -1317,6 +1339,17 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, pageSize, rows.length, moviesPaging.exhausted, library.type, loading]);
+
+    useEffect(() => {
+        if (library.type !== "show") return;
+        if (page <= 1) return;
+        const needed = page * pageSize;
+        if (!episodesPaging.exhausted && rows.length < needed && !loading && !pageLoading && !previewLoading) {
+            setPageLoading(true);
+            loadMoreEpisodes().finally(() => setPageLoading(false));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, pageSize, rows.length, episodesPaging.exhausted, library.type, loading, pageLoading, previewLoading]);
 
     const pageAllSelected = useMemo(
         () => pageRows.length > 0 && pageRows.every(r => selectedIds.has(r.id)),
@@ -1775,6 +1808,94 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             setLoading(false);
         }
     }, [rows.length, server.address, library.key, moviesPaging.exhausted, moviesPaging.total, libraryFolder, settings, template, pageSize]);
+
+    const loadMoreEpisodes = useCallback(async () => {
+        if (library.type !== "show" || !currentShow) return;
+        if (episodesPaging.exhausted) return;
+
+        const targetSeason = selectedSeason === "all" ? null : selectedSeason;
+        if (targetSeason === null || targetSeason === undefined) return;
+
+        const seasonData = seasonList.find((season) => season.index === targetSeason);
+        if (!seasonData?.key) return;
+
+        const nextStart = episodesPaging.start;
+        const fetchSize = Math.max(pageSize, episodesPaging.size);
+        if (episodesPaging.total && nextStart >= episodesPaging.total) {
+            setEpisodesPaging((prev) => ({ ...prev, exhausted: true }));
+            return;
+        }
+
+        setLoading(true);
+        setPageLoading(true);
+        try {
+            const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
+            const epsResp = await invoke<any>("fetch_plex_metadata", {
+                server: server.address,
+                plexKey: seasonData.key,
+                token,
+                start: nextStart,
+                size: fetchSize,
+            });
+            const md = epsResp?.MediaContainer?.Metadata ?? [];
+            const total = Number(epsResp?.MediaContainer?.totalSize ?? epsResp?.MediaContainer?.total ?? seasonData.leafCount) || episodesPaging.total;
+            const returned = Number(epsResp?.MediaContainer?.size ?? md.length);
+            const offset = Number(epsResp?.MediaContainer?.offset ?? nextStart);
+
+            const moreEpisodes: EpisodeItem[] = [];
+            for (const item of md) {
+                const file = item?.Media?.[0]?.Part?.[0]?.file;
+                if (!file) continue;
+
+                const parsed = parseEpisodeInfo(String(file), String(item.title ?? "Episode"));
+                const plexSeason = Number(item.parentIndex);
+                const plexEpisode = Number(item.index);
+                moreEpisodes.push({
+                    type: "episode",
+                    ratingKey: String(item.ratingKey ?? item.key ?? file),
+                    showTitle: String(item.grandparentTitle ?? currentShow.title),
+                    title: String(item.title ?? "Episode"),
+                    season: Number.isFinite(plexSeason) ? plexSeason : parsed.season,
+                    index: Number.isFinite(plexEpisode) ? plexEpisode : parsed.index,
+                    file: String(file),
+                    plexPath: String(file),
+                    year: item.year ? Number(item.year) : undefined,
+                    grandparentTitle: String(item.grandparentTitle ?? currentShow.title),
+                    parentTitle: String(item.parentTitle ?? ""),
+                    parentIndex: Number.isFinite(plexSeason) ? plexSeason : (item.parentIndex ? Number(item.parentIndex) : parsed.season),
+                    thumb: String(item.thumb ?? ""),
+                });
+            }
+
+            setEpisodesPaging((prev) => ({
+                ...prev,
+                total,
+                exhausted: total ? offset + returned >= total : md.length < fetchSize,
+                start: offset + returned,
+                size: fetchSize,
+            }));
+
+            if (moreEpisodes.length > 0) {
+                setRawItems((prev) => [...prev, ...moreEpisodes]);
+            }
+        } catch (e) {
+            setError(`Failed to load more episodes: ${e}`);
+        } finally {
+            setPageLoading(false);
+            setLoading(false);
+        }
+    }, [
+        library.type,
+        currentShow,
+        episodesPaging.exhausted,
+        episodesPaging.start,
+        episodesPaging.size,
+        episodesPaging.total,
+        pageSize,
+        selectedSeason,
+        seasonList,
+        server.address,
+    ]);
 
     const loadMoreMusic = useCallback(async () => {
         const nextStart = rows.length;

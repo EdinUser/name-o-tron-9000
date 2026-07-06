@@ -1,0 +1,429 @@
+{
+  "MediaContainer": {
+    "size": 15,
+    "totalSize": 15,
+    "offset": 0,
+    "Metadata": [
+      {
+        "ratingKey": "2001",
+        "key": "/library/metadata/2001",
+        "guid": "plex://episode/mock-2001",
+        "type": "episode",
+        "title": "Crossroads",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2023,
+        "thumb": "/library/metadata/2001/thumb",
+        "Media": [
+          {
+            "id": 6001,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8001,
+                "key": "/library/parts/8001/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2002",
+        "key": "/library/metadata/2002",
+        "guid": "plex://episode/mock-2002",
+        "type": "episode",
+        "title": "Reckoning",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 2,
+        "year": 2023,
+        "thumb": "/library/metadata/2002/thumb",
+        "Media": [
+          {
+            "id": 6002,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8002,
+                "key": "/library/parts/8002/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E02.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2003",
+        "key": "/library/metadata/2003",
+        "guid": "plex://episode/mock-2003",
+        "type": "episode",
+        "title": "The Divide",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 3,
+        "year": 2023,
+        "thumb": "/library/metadata/2003/thumb",
+        "Media": [
+          {
+            "id": 6003,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8003,
+                "key": "/library/parts/8003/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E03E04.Multi.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2004",
+        "key": "/library/metadata/2004",
+        "guid": "plex://episode/mock-2004",
+        "type": "episode",
+        "title": "No Return",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 4,
+        "year": 2023,
+        "thumb": "/library/metadata/2004/thumb",
+        "Media": [
+          {
+            "id": 6004,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8004,
+                "key": "/library/parts/8004/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E03E04.Multi.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2005",
+        "key": "/library/metadata/2005",
+        "guid": "plex://episode/mock-2005",
+        "type": "episode",
+        "title": "The Siege Part 1",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 5,
+        "year": 2023,
+        "thumb": "/library/metadata/2005/thumb",
+        "Media": [
+          {
+            "id": 6005,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8005,
+                "key": "/library/parts/8005/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E05.Part1.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2006",
+        "key": "/library/metadata/2006",
+        "guid": "plex://episode/mock-2006",
+        "type": "episode",
+        "title": "The Siege Part 2",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 6,
+        "year": 2023,
+        "thumb": "/library/metadata/2006/thumb",
+        "Media": [
+          {
+            "id": 6006,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8006,
+                "key": "/library/parts/8006/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E06.Part2.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2007",
+        "key": "/library/metadata/2007",
+        "guid": "plex://episode/mock-2007",
+        "type": "episode",
+        "title": "Genesis OVA",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Specials",
+        "parentIndex": 0,
+        "index": 1,
+        "year": 2023,
+        "thumb": "/library/metadata/2007/thumb",
+        "Media": [
+          {
+            "id": 6007,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8007,
+                "key": "/library/parts/8007/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E01.Genesis.OVA.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2011",
+        "key": "/library/metadata/2011",
+        "guid": "plex://episode/mock-2011",
+        "type": "episode",
+        "title": "Harbor Lights",
+        "grandparentRatingKey": "201",
+        "grandparentTitle": "Northwind Homicide",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2019,
+        "thumb": "/library/metadata/2011/thumb",
+        "Media": [
+          {
+            "id": 6011,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8011,
+                "key": "/library/parts/8011/file.mkv",
+                "file": "/share/plex/Series/Northwind_Homicide/Season 01/Northwind_Homicide.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2012",
+        "key": "/library/metadata/2012",
+        "guid": "plex://episode/mock-2012",
+        "type": "episode",
+        "title": "Cold Case",
+        "grandparentRatingKey": "201",
+        "grandparentTitle": "Northwind Homicide",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 2,
+        "year": 2019,
+        "thumb": "/library/metadata/2012/thumb",
+        "Media": [
+          {
+            "id": 6012,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8012,
+                "key": "/library/parts/8012/file.mkv",
+                "file": "/share/plex/Series/Northwind_Homicide/Season 01/Northwind_Homicide.S01E02.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2013",
+        "key": "/library/metadata/2013",
+        "guid": "plex://episode/mock-2013",
+        "type": "episode",
+        "title": "Black Ice",
+        "grandparentRatingKey": "201",
+        "grandparentTitle": "Northwind Homicide",
+        "parentTitle": "Season 02",
+        "parentIndex": 2,
+        "index": 1,
+        "year": 2020,
+        "thumb": "/library/metadata/2013/thumb",
+        "Media": [
+          {
+            "id": 6013,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8013,
+                "key": "/library/parts/8013/file.mkv",
+                "file": "/share/plex/Series/Northwind_Homicide/Season 02/Northwind_Homicide.S02E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2014",
+        "key": "/library/metadata/2014",
+        "guid": "plex://episode/mock-2014",
+        "type": "episode",
+        "title": "Whiteout",
+        "grandparentRatingKey": "201",
+        "grandparentTitle": "Northwind Homicide",
+        "parentTitle": "Season 02",
+        "parentIndex": 2,
+        "index": 2,
+        "year": 2020,
+        "thumb": "/library/metadata/2014/thumb",
+        "Media": [
+          {
+            "id": 6014,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8014,
+                "key": "/library/parts/8014/file.mkv",
+                "file": "/share/plex/Series/Northwind_Homicide/Season 02/Northwind_Homicide.S02E02.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2015",
+        "key": "/library/metadata/2015",
+        "guid": "plex://episode/mock-2015",
+        "type": "episode",
+        "title": "Holiday Special",
+        "grandparentRatingKey": "201",
+        "grandparentTitle": "Northwind Homicide",
+        "parentTitle": "Specials",
+        "parentIndex": 0,
+        "index": 1,
+        "year": 2020,
+        "thumb": "/library/metadata/2015/thumb",
+        "Media": [
+          {
+            "id": 6015,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8015,
+                "key": "/library/parts/8015/file.mkv",
+                "file": "/share/plex/Series/Northwind_Homicide/Specials/Northwind_Homicide.S00E01.Holiday.Special.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2021",
+        "key": "/library/metadata/2021",
+        "guid": "plex://episode/mock-2021",
+        "type": "episode",
+        "title": "Pilot",
+        "grandparentRatingKey": "202",
+        "grandparentTitle": "Quiet Harbor",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2021,
+        "thumb": "/library/metadata/2021/thumb",
+        "Media": [
+          {
+            "id": 6021,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8021,
+                "key": "/library/parts/8021/file.mkv",
+                "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2022",
+        "key": "/library/metadata/2022",
+        "guid": "plex://episode/mock-2022",
+        "type": "episode",
+        "title": "Undertow",
+        "grandparentRatingKey": "202",
+        "grandparentTitle": "Quiet Harbor",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 2,
+        "year": 2021,
+        "thumb": "/library/metadata/2022/thumb",
+        "Media": [
+          {
+            "id": 6022,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8022,
+                "key": "/library/parts/8022/file.mkv",
+                "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E02E03.Finale.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2023",
+        "key": "/library/metadata/2023",
+        "guid": "plex://episode/mock-2023",
+        "type": "episode",
+        "title": "Beacon",
+        "grandparentRatingKey": "202",
+        "grandparentTitle": "Quiet Harbor",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 3,
+        "year": 2021,
+        "thumb": "/library/metadata/2023/thumb",
+        "Media": [
+          {
+            "id": 6023,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8023,
+                "key": "/library/parts/8023/file.mkv",
+                "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E02E03.Finale.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "MediaContainer": {
+    "size": 3,
+    "totalSize": 3,
+    "offset": 0,
+    "Directory": [
+      {
+        "key": "1",
+        "type": "movie",
+        "title": "Movies",
+        "agent": "com.plexapp.agents.themoviedb",
+        "scanner": "Plex Movie",
+        "language": "en",
+        "uuid": "mock-movies-library",
+        "Location": [
+          { "path": "/mount/server/HDD1/Movies" }
+        ]
+      },
+      {
+        "key": "2",
+        "type": "show",
+        "title": "TV Shows",
+        "agent": "tv.plex.agents.series",
+        "scanner": "Plex Series",
+        "language": "en",
+        "uuid": "mock-tv-library",
+        "Location": [
+          { "path": "/share/plex/Series" }
+        ]
+      },
+      {
+        "key": "3",
+        "type": "artist",
+        "title": "Music",
+        "agent": "com.plexapp.agents.music",
+        "scanner": "Plex Music",
+        "language": "en",
+        "uuid": "mock-music-library",
+        "Location": [
+          { "path": "/volume1/Media/Music" }
+        ]
+      }
+    ]
+  }
+}

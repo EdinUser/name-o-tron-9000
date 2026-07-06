@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "name": "movie_conflict_existing_target",
+  "server_id": "mock-server",
+  "libraries": [
+    {
+      "key": "1",
+      "type": "movie",
+      "title": "Movies",
+      "plex_root": "/mount/server/HDD1/Movies",
+      "local_root": "Movies",
+      "items": [
+        {
+          "ratingKey": "103",
+          "type": "movie",
+          "title": "Conflict Movie",
+          "year": 2020,
+          "plex_file": "/mount/server/HDD1/Movies/Conflicts/Conflict.Movie.2020.1080p.mkv",
+          "local_file": "Conflicts/Conflict.Movie.2020.1080p.mkv",
+          "subtitles": []
+        }
+      ]
+    }
+  ],
+  "directories": [],
+  "conflicts": [
+    {
+      "library_key": "1",
+      "relative_path": "Conflict Movie (2020).mkv",
+      "contents": "existing-target"
+    }
+  ],
+  "assertions": {
+    "operations": [
+      {
+        "operation_id": "video_103",
+        "operation_type": "rename",
+        "original_path": "/mount/server/HDD1/Movies/Conflicts/Conflict.Movie.2020.1080p.mkv",
+        "new_path": "Conflict Movie (2020).mkv"
+      }
+    ],
+    "cleanup_original_paths": [
+      "/mount/server/HDD1/Movies/Conflicts/Conflict.Movie.2020.1080p.mkv"
+    ]
+  }
+}

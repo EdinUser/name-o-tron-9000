@@ -6,9 +6,8 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-static IP_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").expect("valid IP regex")
-});
+static IP_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").expect("valid IP regex"));
 
 pub fn log_dir() -> PathBuf {
     dirs::data_dir()
@@ -44,10 +43,7 @@ fn sanitize_value(value: &mut Value) {
                 ) {
                     if let Value::String(s) = v {
                         let p = std::path::Path::new(s);
-                        let file_name = p
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("");
+                        let file_name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
                         *s = if file_name.is_empty() {
                             "<redacted>".to_string()
                         } else {
@@ -68,9 +64,7 @@ pub fn log_event(level: &str, component: &str, message: &str, mut context: Value
     sanitize_value(&mut context);
 
     // Mask IPs in message as well
-    let message_sanitized = IP_RE
-        .replace_all(message, "xxx.xxx.xxx.xxx")
-        .into_owned();
+    let message_sanitized = IP_RE.replace_all(message, "xxx.xxx.xxx.xxx").into_owned();
 
     let event = json!({
         "ts": Utc::now().to_rfc3339(),
@@ -104,7 +98,10 @@ mod tests {
 
     fn read_last_log_line(path: &PathBuf) -> Option<String> {
         let txt = fs::read_to_string(path).ok()?;
-        txt.lines().filter(|l| !l.trim().is_empty()).last().map(|s| s.to_string())
+        txt.lines()
+            .filter(|l| !l.trim().is_empty())
+            .last()
+            .map(|s| s.to_string())
     }
 
     fn read_last_log_line_for_component(path: &PathBuf, component: &str) -> Option<String> {
@@ -164,8 +161,17 @@ mod tests {
         assert!(!server.contains("192.168.1.50"));
 
         // Paths should be redacted to <redacted>/basename
-        assert_eq!(ctx.get("original_path").and_then(|s| s.as_str()), Some("<redacted>/ep01.mkv"));
-        assert_eq!(ctx.get("filePath").and_then(|s| s.as_str()), Some("<redacted>/Inception.mkv"));
-        assert_eq!(ctx.get("location").and_then(|s| s.as_str()), Some("<redacted>/sub.srt"));
+        assert_eq!(
+            ctx.get("original_path").and_then(|s| s.as_str()),
+            Some("<redacted>/ep01.mkv")
+        );
+        assert_eq!(
+            ctx.get("filePath").and_then(|s| s.as_str()),
+            Some("<redacted>/Inception.mkv")
+        );
+        assert_eq!(
+            ctx.get("location").and_then(|s| s.as_str()),
+            Some("<redacted>/sub.srt")
+        );
     }
 }

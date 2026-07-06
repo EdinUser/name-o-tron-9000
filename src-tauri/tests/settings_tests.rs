@@ -65,7 +65,11 @@ fn test_get_settings_nonexistent_file() {
 
     assert!(result.is_ok(), "Should succeed when file doesn't exist");
     let settings = result.unwrap();
-    assert_eq!(settings, json!({}), "Should return empty object for non-existent file");
+    assert_eq!(
+        settings,
+        json!({}),
+        "Should return empty object for non-existent file"
+    );
 }
 
 #[test]
@@ -111,7 +115,11 @@ fn test_get_settings_empty_file() {
 
     assert!(result.is_ok(), "Should succeed with empty file");
     let settings = result.unwrap();
-    assert_eq!(settings, json!({}), "Should return empty object for empty file");
+    assert_eq!(
+        settings,
+        json!({}),
+        "Should return empty object for empty file"
+    );
 }
 
 #[test]
@@ -127,7 +135,14 @@ fn test_get_settings_invalid_json() {
     // Should handle gracefully and return error message
     assert!(result.is_err(), "Should fail with invalid JSON");
     let error_msg = result.unwrap_err();
-    assert!(error_msg.contains("JSON") || error_msg.contains("parse") || error_msg.contains("invalid") || error_msg.contains("SyntaxError") || error_msg.contains("expected value") || error_msg.contains("EOF"));
+    assert!(
+        error_msg.contains("JSON")
+            || error_msg.contains("parse")
+            || error_msg.contains("invalid")
+            || error_msg.contains("SyntaxError")
+            || error_msg.contains("expected value")
+            || error_msg.contains("EOF")
+    );
 }
 
 #[test]
@@ -203,8 +218,14 @@ fn test_save_settings_deep_merge_simple() {
     assert_eq!(saved_settings["general"]["theme"], "light");
 
     // Check that encoding mode was overridden but highlightNonLatin preserved
-    assert_eq!(saved_settings["general"]["encoding"]["mode"], "transliterate");
-    assert_eq!(saved_settings["general"]["encoding"]["highlightNonLatin"], true);
+    assert_eq!(
+        saved_settings["general"]["encoding"]["mode"],
+        "transliterate"
+    );
+    assert_eq!(
+        saved_settings["general"]["encoding"]["highlightNonLatin"],
+        true
+    );
 
     // Check that movies section was preserved
     assert_eq!(saved_settings["movies"]["collections"]["enabled"], false);
@@ -291,22 +312,42 @@ fn test_save_settings_deep_merge_complex_nested() {
     let saved_settings: Value = serde_json::from_str(&saved_content).unwrap();
 
     // Test general section deep merge
-    assert_eq!(saved_settings["general"]["encoding"]["mode"], "transliterate");
-    assert_eq!(saved_settings["general"]["encoding"]["highlightNonLatin"], true);
+    assert_eq!(
+        saved_settings["general"]["encoding"]["mode"],
+        "transliterate"
+    );
+    assert_eq!(
+        saved_settings["general"]["encoding"]["highlightNonLatin"],
+        true
+    );
     assert_eq!(saved_settings["general"]["safety"]["pathLengthCheck"], true);
-    assert_eq!(saved_settings["general"]["safety"]["reservedNamesCheck"], true);
-    assert_eq!(saved_settings["general"]["safety"]["permissionsCheck"], true);
-    assert_eq!(saved_settings["general"]["safety"]["newSafetyOption"], false);
+    assert_eq!(
+        saved_settings["general"]["safety"]["reservedNamesCheck"],
+        true
+    );
+    assert_eq!(
+        saved_settings["general"]["safety"]["permissionsCheck"],
+        true
+    );
+    assert_eq!(
+        saved_settings["general"]["safety"]["newSafetyOption"],
+        false
+    );
     assert_eq!(saved_settings["general"]["newGeneralOption"], "test");
 
     // Test movies section deep merge
     assert_eq!(saved_settings["movies"]["collections"]["enabled"], true);
     assert_eq!(saved_settings["movies"]["collections"]["mode"], "if2plus");
-    assert_eq!(saved_settings["movies"]["collections"]["naming"], "original");
+    assert_eq!(
+        saved_settings["movies"]["collections"]["naming"],
+        "original"
+    );
 
     // Test movies.editions.parsers array merge
     assert_eq!(saved_settings["movies"]["editions"]["mode"], "preserve");
-    let parsers = saved_settings["movies"]["editions"]["parsers"].as_array().unwrap();
+    let parsers = saved_settings["movies"]["editions"]["parsers"]
+        .as_array()
+        .unwrap();
     assert_eq!(parsers.len(), 2);
 
     // Test that tv section was added
@@ -314,7 +355,10 @@ fn test_save_settings_deep_merge_complex_nested() {
     assert_eq!(saved_settings["tv"]["normalizeMultiEpisode"], true);
 
     // Test that templates were preserved
-    assert_eq!(saved_settings["templates"]["movie"], "{title}[ ({year})]{ext}");
+    assert_eq!(
+        saved_settings["templates"]["movie"],
+        "{title}[ ({year})]{ext}"
+    );
 }
 
 #[test]
@@ -377,10 +421,16 @@ fn test_save_settings_directory_creation() {
     let result = test_helpers::save_settings_to_path(&nested_path, new_settings);
     assert!(result.is_ok(), "Should create parent directories as needed");
 
-    assert!(nested_path.exists(), "Settings file should be created in nested directory");
+    assert!(
+        nested_path.exists(),
+        "Settings file should be created in nested directory"
+    );
 
     // Verify the parent directory was created
-    assert!(nested_path.parent().unwrap().exists(), "Parent directory should be created");
+    assert!(
+        nested_path.parent().unwrap().exists(),
+        "Parent directory should be created"
+    );
 }
 
 // Tests for the new cache functionality
@@ -391,7 +441,10 @@ fn test_generate_mappings_checksum() {
     let empty_mappings = vec![];
     let checksum1 = name_o_tron_9000_lib::settings::generate_mappings_checksum(&empty_mappings);
     let checksum2 = name_o_tron_9000_lib::settings::generate_mappings_checksum(&empty_mappings);
-    assert_eq!(checksum1, checksum2, "Empty mappings should produce consistent checksum");
+    assert_eq!(
+        checksum1, checksum2,
+        "Empty mappings should produce consistent checksum"
+    );
 
     // Test mappings with same data produce same checksum
     let mappings1 = vec![
@@ -426,20 +479,24 @@ fn test_generate_mappings_checksum() {
 
     let checksum1 = name_o_tron_9000_lib::settings::generate_mappings_checksum(&mappings1);
     let checksum2 = name_o_tron_9000_lib::settings::generate_mappings_checksum(&mappings2);
-    assert_eq!(checksum1, checksum2, "Identical mappings should produce same checksum");
+    assert_eq!(
+        checksum1, checksum2,
+        "Identical mappings should produce same checksum"
+    );
 
     // Test different mappings produce different checksums
-    let mappings3 = vec![
-        name_o_tron_9000_lib::settings::PathMappingDto {
-            server_id: "server1".to_string(),
-            plex_root: "/media/movies".to_string(),
-            local_root: "/mnt/movies".to_string(),
-            platform: Some("windows".to_string()), // Different platform
-        },
-    ];
+    let mappings3 = vec![name_o_tron_9000_lib::settings::PathMappingDto {
+        server_id: "server1".to_string(),
+        plex_root: "/media/movies".to_string(),
+        local_root: "/mnt/movies".to_string(),
+        platform: Some("windows".to_string()), // Different platform
+    }];
 
     let checksum3 = name_o_tron_9000_lib::settings::generate_mappings_checksum(&mappings3);
-    assert_ne!(checksum1, checksum3, "Different mappings should produce different checksums");
+    assert_ne!(
+        checksum1, checksum3,
+        "Different mappings should produce different checksums"
+    );
 }
 
 #[test]
@@ -497,8 +554,14 @@ fn test_show_mapping_cache_serialization() {
     assert_eq!(deserialized.last_updated, cache.last_updated);
     assert_eq!(deserialized.mappings_checksum, cache.mappings_checksum);
     assert_eq!(deserialized.shows.len(), cache.shows.len());
-    assert_eq!(deserialized.shows.get("ratingKey1").unwrap().is_mapped, true);
-    assert_eq!(deserialized.shows.get("ratingKey2").unwrap().is_mapped, false);
+    assert_eq!(
+        deserialized.shows.get("ratingKey1").unwrap().is_mapped,
+        true
+    );
+    assert_eq!(
+        deserialized.shows.get("ratingKey2").unwrap().is_mapped,
+        false
+    );
 }
 
 #[test]
@@ -559,7 +622,6 @@ fn test_show_mapping_data_serialization() {
 
 #[test]
 fn test_cache_directory_path_generation() {
-
     let temp_dir = tempdir().unwrap();
     let cache_dir = temp_dir.path().join("cache").join("show-mappings");
 
@@ -616,11 +678,16 @@ fn test_deep_merge_edge_cases() {
     let saved_settings: Value = serde_json::from_str(&saved_content).unwrap();
 
     // Boolean override should work
-    assert_eq!(saved_settings["general"]["safety"]["pathLengthCheck"], false);
+    assert_eq!(
+        saved_settings["general"]["safety"]["pathLengthCheck"],
+        false
+    );
     assert_eq!(saved_settings["general"]["safety"]["newCheck"], true);
 
     // Array should be completely replaced
-    let parsers = saved_settings["movies"]["editions"]["parsers"].as_array().unwrap();
+    let parsers = saved_settings["movies"]["editions"]["parsers"]
+        .as_array()
+        .unwrap();
     assert_eq!(parsers.len(), 1);
     assert_eq!(parsers[0]["id"], "directors-cut");
 }

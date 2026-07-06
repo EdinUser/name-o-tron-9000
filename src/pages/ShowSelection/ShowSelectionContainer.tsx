@@ -287,15 +287,12 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
   async function load(reset = false) {
     activeRequestIdRef.current += 1;
-    let shortCircuited = false;
     inFlightCountRef.current += 1;
     setLoading(true);
     setError(null);
     try {
       // Ensure serverId is valid before proceeding with cache operations
       if (!serverId || serverId === "" || serverId.includes("undefined")) {
-        // Stay in a loading state until serverId is ready; prevents initial "No shows" flicker
-        shortCircuited = true;
         return;
       }
 
@@ -545,7 +542,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
     } finally {
       debugShowSelection("[ShowSelection] Load function completed");
       inFlightCountRef.current = Math.max(0, inFlightCountRef.current - 1);
-      if (!shortCircuited && inFlightCountRef.current === 0) setLoading(false);
+      if (inFlightCountRef.current === 0) setLoading(false);
     }
   }
 

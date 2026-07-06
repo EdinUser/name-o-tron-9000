@@ -47,7 +47,11 @@ pub struct ShowMappingCache {
     pub shows: std::collections::HashMap<String, ShowMappingData>, // ratingKey -> data
 }
 
-fn cache_path(app: &tauri::AppHandle, server_id: &str, library_id: &str) -> Result<PathBuf, String> {
+fn cache_path(
+    app: &tauri::AppHandle,
+    server_id: &str,
+    library_id: &str,
+) -> Result<PathBuf, String> {
     let cache_dir = app
         .path()
         .resolve("cache/show-mappings", BaseDirectory::AppConfig)
@@ -70,14 +74,15 @@ pub struct AuthSection {
 }
 
 fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    app
-        .path()
+    app.path()
         .resolve("settings.json", BaseDirectory::AppConfig)
         .map_err(|e| e.to_string())
 }
 
 fn ensure_parent(path: &Path) -> Result<(), String> {
-    if let Some(parent) = path.parent() { fs::create_dir_all(parent).map_err(|e| e.to_string())?; }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -203,7 +208,10 @@ pub fn generate_mappings_checksum(mappings: &[PathMappingDto]) -> String {
     format!("{:x}", hasher.finish())
 }
 
-pub fn generate_mappings_checksum_with_server(server_id: &str, mappings: &[PathMappingDto]) -> String {
+pub fn generate_mappings_checksum_with_server(
+    server_id: &str,
+    mappings: &[PathMappingDto],
+) -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
@@ -220,7 +228,11 @@ pub fn generate_mappings_checksum_with_server(server_id: &str, mappings: &[PathM
 
 #[tauri::command]
 #[allow(non_snake_case)]
-pub fn load_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryId: String) -> Result<Option<ShowMappingCache>, String> {
+pub fn load_show_mapping_cache(
+    app: tauri::AppHandle,
+    serverId: String,
+    libraryId: String,
+) -> Result<Option<ShowMappingCache>, String> {
     let path = cache_path(&app, &serverId, &libraryId)?;
     if !path.exists() {
         return Ok(None);
@@ -231,12 +243,19 @@ pub fn load_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryI
         return Ok(None);
     }
 
-    serde_json::from_str::<ShowMappingCache>(&txt).map_err(|e| e.to_string()).map(Some)
+    serde_json::from_str::<ShowMappingCache>(&txt)
+        .map_err(|e| e.to_string())
+        .map(Some)
 }
 
 #[tauri::command]
 #[allow(non_snake_case)]
-pub fn save_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryId: String, cache: ShowMappingCache) -> Result<(), String> {
+pub fn save_show_mapping_cache(
+    app: tauri::AppHandle,
+    serverId: String,
+    libraryId: String,
+    cache: ShowMappingCache,
+) -> Result<(), String> {
     let path = cache_path(&app, &serverId, &libraryId)?;
     ensure_parent(&path)?;
 
@@ -246,7 +265,11 @@ pub fn save_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryI
 
 #[tauri::command]
 #[allow(non_snake_case)]
-pub fn invalidate_show_mapping_cache(app: tauri::AppHandle, serverId: String, libraryId: String) -> Result<(), String> {
+pub fn invalidate_show_mapping_cache(
+    app: tauri::AppHandle,
+    serverId: String,
+    libraryId: String,
+) -> Result<(), String> {
     let path = cache_path(&app, &serverId, &libraryId)?;
     if path.exists() {
         fs::remove_file(&path).map_err(|e| e.to_string())?;
@@ -289,7 +312,11 @@ pub fn clear_all_show_mapping_caches(app: tauri::AppHandle) -> Result<CacheClear
             total_files += 1;
 
             if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
-                let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let file_name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
                 eprintln!("🗑️  Removing cache file: {}", file_name);
                 fs::remove_file(&path).map_err(|e| e.to_string())?;
                 removed_files.push(file_name);
@@ -303,7 +330,11 @@ pub fn clear_all_show_mapping_caches(app: tauri::AppHandle) -> Result<CacheClear
     if removed_files.is_empty() {
         eprintln!("✅ No cache files found to remove");
     } else {
-        eprintln!("✅ Successfully removed {} cache files: {:?}", removed_files.len(), removed_files);
+        eprintln!(
+            "✅ Successfully removed {} cache files: {:?}",
+            removed_files.len(),
+            removed_files
+        );
     }
 
     Ok(CacheClearResult {

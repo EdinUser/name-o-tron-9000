@@ -27,6 +27,7 @@ npm install
 
 ```bash
 # Terminal 1: Mock Plex server for testing
+npm run mock:setup
 npm run mock:plex
 
 # Terminal 2: Main application
@@ -38,6 +39,8 @@ npm run tauri dev
 - `npm run build` - Build for production
 - `npm run tauri build` - Build cross-platform packages
 - `npm run mock:plex` - Start mock Plex server with test data
+- `npm run mock:setup` - Rebuild the tracked local `./test_media` tree and sample path mappings
+- `npm run mock:verify` - Verify the tracked mock server endpoints and generated media tree
 - `npm test` - Run the frontend Vitest suite once
 - `npm run test:watch` - Run Vitest in watch mode
 - `npm run test:coverage` - Run tests with coverage report
@@ -65,9 +68,12 @@ npm run tauri dev
 
 2. **Development with mock server**:
    ```bash
+   npm run mock:setup # Optional: rebuild local media/reset mock state
    npm run mock:plex  # Terminal A - starts mock Plex server
    npm run tauri dev  # Terminal B - starts the app
    ```
+
+You do not need to restart `npm run mock:plex` after `npm run mock:setup` unless you changed server code or fixture payloads.
 
 3. **Production build**:
 

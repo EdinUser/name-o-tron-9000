@@ -1,0 +1,37 @@
+{
+  "MediaContainer": {
+    "size": 1,
+    "Metadata": [
+      {
+        "ratingKey": "101",
+        "key": "/library/metadata/101",
+        "guid": "plex://movie/mock-interstellar",
+        "studio": "Warner Bros.",
+        "type": "movie",
+        "title": "Interstellar",
+        "year": 2014,
+        "summary": "A test movie fixture for basic rename coverage.",
+        "thumb": "/library/metadata/101/thumb",
+        "art": "/library/metadata/101/art",
+        "Genre": [{ "tag": "Science Fiction" }, { "tag": "Drama" }],
+        "Collection": [{ "tag": "Christopher Nolan Collection" }],
+        "Media": [
+          {
+            "id": 5001,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "dts",
+            "Part": [
+              {
+                "id": 7001,
+                "key": "/library/parts/7001/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Incoming/Interstellar.2014.1080p.BluRay.x264.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "name": "movie_basic_rename",
+  "server_id": "mock-server",
+  "libraries": [
+    {
+      "key": "1",
+      "type": "movie",
+      "title": "Movies",
+      "plex_root": "/mount/server/HDD1/Movies",
+      "local_root": "Movies",
+      "items": [
+        {
+          "ratingKey": "101",
+          "type": "movie",
+          "title": "Interstellar",
+          "year": 2014,
+          "plex_file": "/mount/server/HDD1/Movies/Incoming/Interstellar.2014.1080p.BluRay.x264.mkv",
+          "local_file": "Incoming/Interstellar.2014.1080p.BluRay.x264.mkv",
+          "subtitles": []
+        }
+      ]
+    }
+  ],
+  "directories": [
+    {
+      "library_key": "1",
+      "relative_path": "Incoming/EmptyAfterMove",
+      "state": "empty"
+    },
+    {
+      "library_key": "1",
+      "relative_path": "Incoming/KeepMe",
+      "state": "non_empty",
+      "seed_file": "note.txt",
+      "contents": "keep"
+    }
+  ],
+  "conflicts": [],
+  "assertions": {
+    "operations": [
+      {
+        "operation_id": "video_101",
+        "operation_type": "rename",
+        "original_path": "/mount/server/HDD1/Movies/Incoming/Interstellar.2014.1080p.BluRay.x264.mkv",
+        "new_path": "Interstellar (2014).mkv"
+      }
+    ],
+    "cleanup_original_paths": [
+      "/mount/server/HDD1/Movies/Incoming/Interstellar.2014.1080p.BluRay.x264.mkv",
+      "/mount/server/HDD1/Movies/Incoming/EmptyAfterMove/unused.mkv",
+      "/mount/server/HDD1/Movies/Incoming/KeepMe/unused.mkv"
+    ]
+  }
+}

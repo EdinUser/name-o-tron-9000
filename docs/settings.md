@@ -180,7 +180,8 @@ Throughout this document, settings options are marked with labels to help you un
 - **Detect OVA / Specials → Suggest Season 00** ✓
   - Organize anime and special content
 - **Normalize multi-episode files** ✓
-  - Convert `E01-02` to `E01E02` format
+  - Normalize multi-episode files to Plex style such as `S01E01-E02`
+  - Keeps split-part suffixes like `pt1` / `part2` as parts of one episode instead of turning them into ranges
 - **Warn if episode count doesn't match Plex DB** 🟡 Advanced
   - Detect potential metadata issues
   - May flag legitimate content variations
