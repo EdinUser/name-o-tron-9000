@@ -1,5 +1,6 @@
 use super::*;
 use serde_json::json;
+use std::path::Path;
 
 #[test]
 fn highlight_non_latin_respects_setting() {
@@ -767,12 +768,15 @@ fn cleanup_empty_folders_removes_empty_directories_but_keeps_non_empty_ones() {
     assert!(result
         .removed_directories
         .iter()
-        .any(|p| p.ends_with("/A/Empty")));
-    assert!(result.removed_directories.iter().any(|p| p.ends_with("/A")));
+        .any(|p| Path::new(p).ends_with(Path::new("A").join("Empty"))));
+    assert!(result
+        .removed_directories
+        .iter()
+        .any(|p| Path::new(p).ends_with(Path::new("A"))));
     assert!(!result
         .removed_directories
         .iter()
-        .any(|p| p.ends_with("/B/Keep")));
+        .any(|p| Path::new(p).ends_with(Path::new("B").join("Keep"))));
     assert!(non_empty_dir.exists(), "non-empty directory should remain");
     assert!(!empty_dir.exists(), "empty directory should be removed");
 }

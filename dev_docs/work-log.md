@@ -518,3 +518,13 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - `npm run test:types` passed.
 - Follow-ups:
   - If TV proposal generation gets more async work later, keep the page-transition gate keyed to page-row availability rather than broad global loading flags.
+
+## 2026-07-07
+
+- Summary: Fixed Windows-sensitive rename-path handling by joining relative apply targets component-wise under the mapped library root, and updated empty-folder cleanup assertions to use path-aware suffix checks instead of hardcoded `/` separators.
+- Files or areas: `src-tauri/src/path_map.rs`, `src-tauri/src/video_rename/tests.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_mapped_apply_uses_library_root_for_relative_new_paths -- --exact` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml cleanup_empty_folders_removes_empty_directories_but_keeps_non_empty_ones -- --exact` passed.
+- Follow-ups:
+  - The backend still returns native filesystem paths in cleanup/apply results; keep tests and any future UI string matching path-aware rather than slash-specific.
