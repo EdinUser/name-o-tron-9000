@@ -172,7 +172,8 @@ function getMovieFolderSegments(
     const behavior: string = settings.movies?.folderStructureBehavior || "intelligent";
     const mode: string = settings.movies?.folderStructure || "none";
     const ownFolderPerMovie: boolean = !!settings.movies?.ownFolderPerMovie;
-    const collectionsEnabled: boolean = !!settings.movies?.collections?.enabled;
+    const effectiveCollectionName = String(collectionName || m.collection || "").trim();
+    const collectionsEnabled: boolean = !!settings.movies?.collections?.enabled && effectiveCollectionName.length > 0;
 
     const shouldConsiderReorg =
         behavior === "reorganize_all" ||
@@ -180,6 +181,14 @@ function getMovieFolderSegments(
 
     const currentDirCount = currentDirs.length;
     const isFlatItem = currentDirCount === 0 || (ownFolderPerMovie && currentDirCount === 1);
+
+    if (collectionsEnabled) {
+        const segments = [formatCollectionFolderName(effectiveCollectionName, settings)];
+        if (ownFolderPerMovie) {
+            segments.push(safeFolderName(m.title));
+        }
+        return { segments, decision: "reorganized", currentRel };
+    }
 
     if (behavior === "preserve_existing" || (behavior === "intelligent" && !shouldConsiderReorg)) {
         if (currentDirs.length > 0) {
@@ -199,10 +208,6 @@ function getMovieFolderSegments(
     }
 
     const segments: string[] = [];
-
-    if (collectionsEnabled && collectionName && collectionName.trim()) {
-        segments.push(formatCollectionFolderName(collectionName, settings));
-    }
 
     if (mode === "alpha") {
         const sortingTitle = getSortingTitle(m.title, settings.movies?.alphaArticleHandling || "ignore");
@@ -243,6 +248,8 @@ export async function computeMovieProposal(
 ): Promise<PreviewRow> {
 
     const ext = extname(m.file) || ".mkv";
+
+    const effectiveCollectionName = String(collectionName || m.collection || "").trim();
 
     // Mark unused parameters as intentionally unused (backwards compatibility)
     void ownFolderPerMovie;
@@ -357,7 +364,7 @@ export async function computeMovieProposal(
         country: m.country ?? "",
         tagline: m.tagline ?? "",
         summary: m.summary ?? "",
-        collection: collectionName,
+        collection: effectiveCollectionName,
         // ID fields
         imdb: imdbId ?? "",
         thetvdb: thetvdbId ?? "",
@@ -401,7 +408,7 @@ export async function computeMovieProposal(
     const { segments: folderSegments, currentRel } = getMovieFolderSegments(
         m,
         settings,
-        collectionName,
+        effectiveCollectionName,
         libraryRoots,
         heuristics,
         templateDirs,
@@ -417,6 +424,9 @@ export async function computeMovieProposal(
     proposed = normalizeUnicode(proposed);
 
     const flags: string[] = [];
+    if (effectiveCollectionName && settings.movies?.collections?.enabled) {
+        flags.push(`collection:${effectiveCollectionName}`);
+    }
 
     // Handle special cases for extras and ISO files
     if (settings.movies.specials.moveExtras) {

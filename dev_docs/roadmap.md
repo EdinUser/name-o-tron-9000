@@ -150,6 +150,8 @@ npm run tauri dev  # Terminal 2
 - Update user-facing docs for new features
 - Add technical documentation for complex changes
 - Update `AGENTS.md` for significant architectural changes
+- Update the relevant file in `dev_docs/playbooks/` when the working method changes materially
+- Add a dated entry to `dev_docs/work-log.md` for meaningful audits, fixes, and implementation batches
 
 #### 5. Pull Request Process
 - Use conventional commit messages

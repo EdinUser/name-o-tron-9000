@@ -23,6 +23,7 @@ export type MovieItem = {
     country?: string;
     tagline?: string;
     summary?: string;
+    collection?: string;
     guid?: string;
     imdbId?: string;
     thetvdbId?: string;

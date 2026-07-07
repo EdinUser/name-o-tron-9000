@@ -9,13 +9,18 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:icons": "node scripts/generate-icons.js",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "vitest run --reporter=dot",
+    "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "test:all": "npm test && cargo test",
-    "test:ci": "tsc --noEmit",
-    "mock:plex": "node _helpers/tests/mock-plex-server.cjs"
+    "test:types": "tsc --noEmit",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:all": "npm run test:types && npm run test && npm run test:rust",
+    "mock:plex": "node tests/mock-plex/mock-plex-server.cjs",
+    "mock:setup-media": "bash tests/mock-plex/bin/setup-test-media.sh --out ./test_media",
+    "mock:write-mappings": "bash tests/mock-plex/bin/write-path-mappings.sh --media-root ./test_media --out ./tests/mock-plex/generated/mock-path-mappings.json",
+    "mock:setup": "npm run mock:setup-media && npm run mock:write-mappings",
+    "mock:verify": "bash tests/mock-plex/bin/verify-mock-plex.sh --base-url http://localhost:32400 --media-root ./test_media"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

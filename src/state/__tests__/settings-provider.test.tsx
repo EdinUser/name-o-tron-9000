@@ -2,13 +2,14 @@ import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SettingsProvider, useSettings } from '../settings';
-import { setupLocalStorageMock, resetLocalStorageMock } from './test-utils/settings-setup';
+import { setupLocalStorageMock, resetLocalStorageMock, setTauriRuntime } from './test-utils/settings-setup';
 
 setupLocalStorageMock();
 
 describe('SettingsProvider and useSettings hook', () => {
   beforeEach(() => {
     resetLocalStorageMock();
+    setTauriRuntime(false);
   });
 
   it('should throw error when used outside provider', () => {
@@ -54,6 +55,7 @@ describe('SettingsProvider and useSettings hook', () => {
   });
 
   it('should handle Tauri backend integration', async () => {
+    setTauriRuntime(true);
     const { invoke } = await import('@tauri-apps/api/core');
     (invoke as any).mockResolvedValue({
       ui: {
@@ -84,6 +86,7 @@ describe('SettingsProvider and useSettings hook', () => {
   });
 
   it('should persist settings changes to Tauri backend with updated values', async () => {
+    setTauriRuntime(true);
     const { invoke } = await import('@tauri-apps/api/core');
     (invoke as any).mockResolvedValue({ ui: {} });
 
@@ -129,6 +132,7 @@ describe('SettingsProvider and useSettings hook', () => {
   });
 
   it('should handle Tauri backend errors gracefully', async () => {
+    setTauriRuntime(true);
     const { invoke } = await import('@tauri-apps/api/core');
     (invoke as any).mockRejectedValue(new Error('Tauri error'));
 
@@ -170,5 +174,30 @@ describe('SettingsProvider and useSettings hook', () => {
 
     // Version should have incremented
     expect(result.current.settingsVersion).toBe(1);
+  });
+
+  it('should propagate pagination defaults immediately to consumers', () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <SettingsProvider>{children}</SettingsProvider>
+    );
+
+    const { result } = renderHook(() => useSettings(), { wrapper });
+
+    act(() => {
+      result.current.updateSettings({
+        ...result.current.settings,
+        general: {
+          ...result.current.settings.general,
+          pagination: {
+            ...result.current.settings.general.pagination,
+            defaultMovieLimit: 20,
+            defaultShowLimit: 30,
+          },
+        },
+      });
+    });
+
+    expect(result.current.settings.general.pagination.defaultMovieLimit).toBe(20);
+    expect(result.current.settings.general.pagination.defaultShowLimit).toBe(30);
   });
 });

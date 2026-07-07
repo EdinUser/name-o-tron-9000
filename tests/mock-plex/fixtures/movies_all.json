@@ -1,0 +1,261 @@
+{
+  "MediaContainer": {
+    "size": 8,
+    "totalSize": 8,
+    "offset": 0,
+    "Metadata": [
+      {
+        "ratingKey": "101",
+        "key": "/library/metadata/101",
+        "guid": "plex://movie/mock-interstellar",
+        "type": "movie",
+        "title": "Interstellar",
+        "year": 2014,
+        "summary": "A test movie fixture for basic rename coverage.",
+        "thumb": "/library/metadata/101/thumb",
+        "art": "/library/metadata/101/art",
+        "Genre": [{ "tag": "Science Fiction" }, { "tag": "Drama" }],
+        "Collection": [{ "tag": "Christopher Nolan Collection" }],
+        "Studio": [{ "tag": "Warner Bros." }],
+        "Media": [
+          {
+            "id": 5001,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "dts",
+            "Part": [
+              {
+                "id": 7001,
+                "key": "/library/parts/7001/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Incoming/Interstellar.2014.1080p.BluRay.x264.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "102",
+        "key": "/library/metadata/102",
+        "guid": "plex://movie/mock-arrival",
+        "type": "movie",
+        "title": "Arrival",
+        "year": 2016,
+        "summary": "A test movie fixture with a paired subtitle file.",
+        "thumb": "/library/metadata/102/thumb",
+        "art": "/library/metadata/102/art",
+        "Genre": [{ "tag": "Science Fiction" }],
+        "Collection": [{ "tag": "Arrival Collection" }],
+        "Studio": [{ "tag": "Paramount Pictures" }],
+        "Media": [
+          {
+            "id": 5002,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7002,
+                "key": "/library/parts/7002/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Staging/Arrival.2016.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "103",
+        "key": "/library/metadata/103",
+        "guid": "plex://movie/mock-conflict",
+        "type": "movie",
+        "title": "Conflict Movie",
+        "year": 2020,
+        "summary": "A fixture used to verify existing-target conflicts fail safely.",
+        "thumb": "/library/metadata/103/thumb",
+        "art": "/library/metadata/103/art",
+        "Genre": [{ "tag": "Thriller" }],
+        "Collection": [{ "tag": "Conflict Cases" }],
+        "Studio": [{ "tag": "Mock Studio" }],
+        "Media": [
+          {
+            "id": 5003,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7003,
+                "key": "/library/parts/7003/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Conflicts/Conflict.Movie.2020.1080p.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "104",
+        "key": "/library/metadata/104",
+        "guid": "plex://movie/mock-blade-runner",
+        "type": "movie",
+        "title": "Blade Runner",
+        "year": 1982,
+        "summary": "Edition fixture for Director's Cut naming and subtitle pairing.",
+        "thumb": "/library/metadata/104/thumb",
+        "art": "/library/metadata/104/art",
+        "edition": "{edition-directors-cut}",
+        "editionTitle": "Director's Cut",
+        "Genre": [{ "tag": "Science Fiction" }, { "tag": "Neo-Noir" }],
+        "Studio": [{ "tag": "Warner Bros." }],
+        "Director": [{ "tag": "Ridley Scott" }],
+        "Media": [
+          {
+            "id": 5004,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "dts",
+            "Part": [
+              {
+                "id": 7004,
+                "key": "/library/parts/7004/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Editions/Blade.Runner.1982.Directors.Cut.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "105",
+        "key": "/library/metadata/105",
+        "guid": "plex://movie/mock-kingdom-of-heaven",
+        "type": "movie",
+        "title": "Kingdom of Heaven",
+        "year": 2005,
+        "summary": "Sibling edition fixture for theatrical release handling.",
+        "thumb": "/library/metadata/105/thumb",
+        "art": "/library/metadata/105/art",
+        "edition": "{edition-theatrical}",
+        "editionTitle": "Theatrical Release",
+        "Genre": [{ "tag": "Historical Drama" }],
+        "Studio": [{ "tag": "20th Century Fox" }],
+        "Director": [{ "tag": "Ridley Scott" }],
+        "Media": [
+          {
+            "id": 5005,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "dts",
+            "Part": [
+              {
+                "id": 7005,
+                "key": "/library/parts/7005/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Editions/Kingdom.of.Heaven.2005.Theatrical.Release.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "106",
+        "key": "/library/metadata/106",
+        "guid": "plex://movie/mock-kingdom-of-heaven-dc",
+        "type": "movie",
+        "title": "Kingdom of Heaven",
+        "year": 2005,
+        "summary": "Sibling edition fixture for director's cut handling.",
+        "thumb": "/library/metadata/106/thumb",
+        "art": "/library/metadata/106/art",
+        "edition": "{edition-directors-cut}",
+        "editionTitle": "Director's Cut",
+        "Genre": [{ "tag": "Historical Drama" }],
+        "Studio": [{ "tag": "20th Century Fox" }],
+        "Director": [{ "tag": "Ridley Scott" }],
+        "Media": [
+          {
+            "id": 5006,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "dts",
+            "Part": [
+              {
+                "id": 7006,
+                "key": "/library/parts/7006/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Editions/Kingdom.of.Heaven.2005.Directors.Cut.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "107",
+        "key": "/library/metadata/107",
+        "guid": "plex://movie/mock-two-towers-theatrical",
+        "type": "movie",
+        "title": "The Lord of the Rings: The Two Towers",
+        "year": 2002,
+        "summary": "Sibling edition fixture for theatrical fantasy release handling.",
+        "thumb": "/library/metadata/107/thumb",
+        "art": "/library/metadata/107/art",
+        "edition": "{edition-theatrical}",
+        "editionTitle": "Theatrical Release",
+        "Genre": [{ "tag": "Fantasy" }, { "tag": "Adventure" }],
+        "Collection": [{ "tag": "Middle-earth Collection" }],
+        "Studio": [{ "tag": "New Line Cinema" }],
+        "Director": [{ "tag": "Peter Jackson" }],
+        "Media": [
+          {
+            "id": 5007,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "dts",
+            "Part": [
+              {
+                "id": 7007,
+                "key": "/library/parts/7007/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Editions/The.Lord.of.the.Rings.The.Two.Towers.2002.Theatrical.Release.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "108",
+        "key": "/library/metadata/108",
+        "guid": "plex://movie/mock-two-towers-extended",
+        "type": "movie",
+        "title": "The Lord of the Rings: The Two Towers",
+        "year": 2002,
+        "summary": "Sibling edition fixture for extended fantasy release handling.",
+        "thumb": "/library/metadata/108/thumb",
+        "art": "/library/metadata/108/art",
+        "edition": "{edition-extended}",
+        "editionTitle": "Extended Edition",
+        "Genre": [{ "tag": "Fantasy" }, { "tag": "Adventure" }],
+        "Collection": [{ "tag": "Middle-earth Collection" }],
+        "Studio": [{ "tag": "New Line Cinema" }],
+        "Director": [{ "tag": "Peter Jackson" }],
+        "Media": [
+          {
+            "id": 5008,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "dts",
+            "Part": [
+              {
+                "id": 7008,
+                "key": "/library/parts/7008/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Editions/The.Lord.of.the.Rings.The.Two.Towers.2002.Extended.Edition.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

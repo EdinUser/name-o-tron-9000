@@ -1,0 +1,374 @@
+{
+  "MediaContainer": {
+    "size": 10,
+    "totalSize": 10,
+    "offset": 0,
+    "Metadata": [
+      {
+        "ratingKey": "1001",
+        "key": "/library/metadata/1001",
+        "guid": "plex://movie/5d776f79bdfxxxxxxxx",
+        "title": "Inception",
+        "year": 2010,
+        "type": "movie",
+        "summary": "A thief who steals corporate secrets through the use of dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O.",
+        "tagline": "Your mind is the scene of the crime.",
+        "thumb": "/library/metadata/1001/thumb/1234567890",
+        "art": "/library/metadata/1001/art/1234567890",
+        "duration": 8880000,
+        "originallyAvailableAt": "2010-07-16",
+        "contentRating": "PG-13",
+        "rating": 8.8,
+        "audienceRating": 9.1,
+        "Genre": [
+          {"tag": "Science Fiction"},
+          {"tag": "Thriller"},
+          {"tag": "Action"}
+        ],
+        "Director": [{"tag": "Christopher Nolan"}],
+        "Writer": [{"tag": "Christopher Nolan"}],
+        "Role": [
+          {"tag": "Leonardo DiCaprio", "role": "Dom Cobb"},
+          {"tag": "Marion Cotillard", "role": "Mal"}
+        ],
+        "Collection": [{"tag": "Christopher Nolan Collection"}],
+        "Studio": [{"tag": "Warner Bros. Pictures"}],
+        "Country": [{"tag": "USA"}, {"tag": "UK"}],
+        "Media": [
+          {
+            "id": 501,
+            "duration": 8880000,
+            "bitrate": 12000,
+            "width": 1920,
+            "height": 1080,
+            "aspectRatio": 2.39,
+            "videoCodec": "h264",
+            "videoResolution": "1080p",
+            "audioCodec": "dts",
+            "audioChannels": 6,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 10001,
+                "key": "/library/parts/10001/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Inception.1080p.BluRay.x264.mkv",
+                "size": 8500000000,
+                "duration": 8880000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "1002",
+        "key": "/library/metadata/1002",
+        "guid": "plex://movie/5d776f79bdfyyyyyyyy",
+        "title": "Spirited Away - 千と千尋の神隠し",
+        "year": 2001,
+        "type": "movie",
+        "summary": "During her family's move to the suburbs, a sullen 10-year-old girl wanders into a world ruled by gods, witches, and spirits.",
+        "thumb": "/library/metadata/1002/thumb/1234567890",
+        "art": "/library/metadata/1002/art/1234567890",
+        "duration": 7500000,
+        "originallyAvailableAt": "2001-07-20",
+        "contentRating": "PG",
+        "rating": 9.3,
+        "Genre": [
+          {"tag": "Animation"},
+          {"tag": "Adventure"},
+          {"tag": "Family"}
+        ],
+        "Director": [{"tag": "Hayao Miyazaki"}],
+        "Writer": [{"tag": "Hayao Miyazaki"}],
+        "Studio": [{"tag": "Studio Ghibli"}],
+        "Country": [{"tag": "Japan"}],
+        "Role": [
+          {"tag": "Daveigh Chase", "role": "Chihiro (voice)"},
+          {"tag": "Suzanne Pleshette", "role": "Yubaba (voice)"}
+        ],
+        "Media": [
+          {
+            "id": 502,
+            "duration": 7500000,
+            "bitrate": 8000,
+            "width": 1920,
+            "height": 1080,
+            "aspectRatio": 1.85,
+            "videoCodec": "h264",
+            "videoResolution": "1080p",
+            "audioCodec": "aac",
+            "audioChannels": 2,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 10002,
+                "key": "/library/parts/10002/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Spirited.Away.2001.1080p.BluRay.x264.mkv",
+                "size": 6200000000,
+                "duration": 7500000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "1003",
+        "key": "/library/metadata/1003",
+        "guid": "plex://movie/5d776f79bdfzzzzzzzz",
+        "title": "Reserved Name Test",
+        "year": 2000,
+        "type": "movie",
+        "summary": "Test movie for reserved filename handling",
+        "thumb": "/library/metadata/1003/thumb/1234567890",
+        "Genre": [{"tag": "Test"}],
+        "Media": [
+          {
+            "id": 503,
+            "container": "mp4",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 10003,
+                "key": "/library/parts/10003/file.mp4",
+                "file": "/mount/server/HDD1/Movies/CON.mp4",
+                "size": 1000000000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "1004",
+        "key": "/library/metadata/1004",
+        "guid": "plex://movie/5d776f79bdfaaaaaaaa",
+        "title": "Invalid Chars Test",
+        "year": 2005,
+        "type": "movie",
+        "summary": "Test movie for invalid character handling",
+        "thumb": "/library/metadata/1004/thumb/1234567890",
+        "Genre": [{"tag": "Test"}],
+        "Media": [
+          {
+            "id": 504,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "ac3",
+            "Part": [
+              {
+                "id": 10004,
+                "key": "/library/parts/10004/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Bad.Movie.Name.2005.mkv",
+                "size": 2000000000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "1005",
+        "key": "/library/metadata/1005",
+        "guid": "plex://movie/5d776f79bdfbbbbbbbb",
+        "title": "Conflict Movie",
+        "year": 2020,
+        "type": "movie",
+        "summary": "Test movie for conflict resolution",
+        "thumb": "/library/metadata/1005/thumb/1234567890",
+        "Genre": [{"tag": "Test"}],
+        "Media": [
+          {
+            "id": 505,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 10005,
+                "key": "/library/parts/10005/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Conflict.Movie.2020.mkv",
+                "size": 3000000000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "1006",
+        "key": "/library/metadata/1006",
+        "guid": "plex://movie/5d776f79bdfcccccccc",
+        "title": "Near-Limit Name",
+        "year": 2022,
+        "type": "movie",
+        "summary": "Test movie for path length limits",
+        "thumb": "/library/metadata/1006/thumb/1234567890",
+        "Genre": [{"tag": "Test"}],
+        "Media": [
+          {
+            "id": 506,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 10006,
+                "key": "/library/parts/10006/file.mkv",
+                "file": "/mount/server/HDD1/Movies/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.mkv",
+                "size": 4000000000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "1007",
+        "key": "/library/metadata/1007",
+        "guid": "plex://movie/5d776f79bdfdddddddd",
+        "title": "Matrix ISO",
+        "year": 1999,
+        "type": "movie",
+        "summary": "Test movie for ISO format handling",
+        "thumb": "/library/metadata/1007/thumb/1234567890",
+        "Genre": [{"tag": "Test"}],
+        "Media": [
+          {
+            "id": 507,
+            "container": "iso",
+            "videoCodec": "mpeg2",
+            "audioCodec": "ac3",
+            "Part": [
+              {
+                "id": 10007,
+                "key": "/library/parts/10007/file.iso",
+                "file": "/mount/server/HDD1/Movies/The.Matrix.1999/Matrix.iso",
+                "size": 5000000000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "1008",
+        "key": "/library/metadata/1008",
+        "guid": "plex://movie/5d776f79bdfeeeeeeee",
+        "title": "Avatar MakingOf",
+        "year": 2009,
+        "type": "movie",
+        "summary": "Behind the scenes documentary",
+        "thumb": "/library/metadata/1008/thumb/1234567890",
+        "Genre": [{"tag": "Documentary"}],
+        "Media": [
+          {
+            "id": 508,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 10008,
+                "key": "/library/parts/10008/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Avatar.2009/Extras/Avatar-MakingOf.mkv",
+                "size": 1500000000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "1009",
+        "key": "/library/metadata/1009",
+        "guid": "plex://movie/5d776f79bdfffffffff",
+        "title": "Amélie",
+        "year": 2001,
+        "type": "movie",
+        "summary": "Amélie is an innocent and naive girl in Paris with her own sense of justice.",
+        "thumb": "/library/metadata/1009/thumb/1234567890",
+        "art": "/library/metadata/1009/art/1234567890",
+        "contentRating": "R",
+        "rating": 8.3,
+        "Genre": [
+          {"tag": "Comedy"},
+          {"tag": "Romance"}
+        ],
+        "Director": [{"tag": "Jean-Pierre Jeunet"}],
+        "Writer": [{"tag": "Jean-Pierre Jeunet"}, {"tag": "Guillaume Laurant"}],
+        "Role": [{"tag": "Audrey Tautou", "role": "Amélie Poulain"}],
+        "Studio": [{"tag": "Canal+"}],
+        "Country": [{"tag": "France"}, {"tag": "Germany"}],
+        "Media": [
+          {
+            "id": 509,
+            "duration": 7320000,
+            "bitrate": 6000,
+            "width": 1920,
+            "height": 1080,
+            "aspectRatio": 1.85,
+            "videoCodec": "h264",
+            "videoResolution": "1080p",
+            "audioCodec": "dts",
+            "audioChannels": 6,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 10009,
+                "key": "/library/parts/10009/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Amelie.2001.1080p.BluRay.x264.mkv",
+                "size": 5800000000,
+                "duration": 7320000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "1010",
+        "key": "/library/metadata/1010",
+        "guid": "plex://movie/5d776f79bdfgggggggg",
+        "title": "Spider-Man 🕷️",
+        "year": 2002,
+        "type": "movie",
+        "summary": "When bitten by a genetically modified spider, a nerdy, shy, and awkward high school student gains spider-like abilities.",
+        "thumb": "/library/metadata/1010/thumb/1234567890",
+        "art": "/library/metadata/1010/art/1234567890",
+        "contentRating": "PG-13",
+        "rating": 7.4,
+        "Genre": [
+          {"tag": "Action"},
+          {"tag": "Adventure"},
+          {"tag": "Sci-Fi"}
+        ],
+        "Director": [{"tag": "Sam Raimi"}],
+        "Writer": [{"tag": "David Koepp"}],
+        "Role": [
+          {"tag": "Tobey Maguire", "role": "Peter Parker / Spider-Man"},
+          {"tag": "Kirsten Dunst", "role": "Mary Jane Watson"}
+        ],
+        "Studio": [{"tag": "Columbia Pictures"}],
+        "Country": [{"tag": "USA"}],
+        "Media": [
+          {
+            "id": 510,
+            "duration": 7260000,
+            "bitrate": 8000,
+            "width": 1920,
+            "height": 1080,
+            "aspectRatio": 2.39,
+            "videoCodec": "h264",
+            "videoResolution": "1080p",
+            "audioCodec": "dts",
+            "audioChannels": 6,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 10010,
+                "key": "/library/parts/10010/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Spider.Man.2002.1080p.BluRay.x264.mkv",
+                "size": 7200000000,
+                "duration": 7260000
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

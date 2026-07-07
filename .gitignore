@@ -31,5 +31,24 @@ dist-ssr
 src-tauri/target/
 src-tauri/.cargo/
 
-# tests
-_helpers
+# Local-only helper resources
+_helpers/
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+
+# Test and docs build outputs
+coverage/
+htmlcov/
+site/
+release.json
+/test_media/
+/tests/mock-plex/generated/
+
+# Python tooling
+__pycache__/
+.pytest_cache/
+.venv/
+venv/

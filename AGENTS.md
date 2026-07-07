@@ -1,15 +1,83 @@
 # AGENTS.md — Name‑o‑Tron 9000
 
+# Agent Operating Rules (Codex CLI)
+
+## 0) Tool-first, no guessing
+- If an MCP server can answer a question (docs, DB schema, internal conventions), use it before guessing.
+- Prefer primary sources:
+  1) Local repo docs (README, /docs, ADRs, comments near code)
+  2) MCP docs servers (see list below)
+  3) Only then: model reasoning / assumptions (clearly labeled)
+
+## 1) MCP servers and when to use them
+### Documentation
+- openaiDeveloperDocs (OpenAI API + Codex behaviors): use for anything OpenAI/Codex/MCP spec-related.
+- context7 (general library/framework docs + examples): use for third-party docs across languages.
+
+### Project knowledge (if configured)
+- localDocs (our repo docs server): use for architecture, conventions, invariants, migrations, “how we do X here”.
+
+### Data/Systems (if configured)
+- mariadb/postgres/redis/etc: use to inspect schema, run safe read-only queries, validate assumptions.
+
+## 2) Failure policy (prevents tool flapping)
+- If an MCP server errors twice in a row, stop retrying.
+- Continue with alternatives (local docs, other MCPs) and record: “Tool X failed with error Y.”
+
+## 3) Change protocol
+For any code change:
+1) Identify impacted modules/templates/assets (list files you will touch).
+2) Make the smallest viable change consistent with repo conventions.
+3) Run the repo’s verification commands (see §4).
+4) Summarize:
+   - What changed (bullets)
+   - Why (1–2 lines)
+   - Commands run + key output
+   - Any follow-ups / risks
+
+## 4) Verification (stack-agnostic)
+Always discover and use the project’s existing scripts first:
+- Check README/CONTRIBUTING/package.json/composer.json/Makefile for official commands.
+- If unknown, run:
+  - `ls` + inspect package/composer scripts
+  - Use the safest checks first (lint/static analysis), then tests, then build.
+
+Typical command sets:
+### PHP projects
+- `composer validate`
+- `composer install` (if needed)
+- `composer test` / `vendor/bin/phpunit`
+- `vendor/bin/phpstan` / `vendor/bin/psalm` (if present)
+- `vendor/bin/php-cs-fixer fix --dry-run` (if present)
+
+### Frontend (jQuery/Bootstrap or modern bundlers)
+- `npm ci` (or `pnpm i` / `yarn`)
+- `npm run lint` (eslint/stylelint)
+- `npm test`
+- `npm run build`
+
+### Templates / Twig
+- If you have a template linter/compile step, run it.
+- Otherwise: ensure changes are minimal, preserve structure, and avoid breaking blocks/includes.
+
+## 5) Safety / scope controls
+- Do not refactor across files unless requested or clearly necessary.
+- Preserve public APIs unless instructed.
+- When uncertain about conventions, query localDocs or search /docs before editing.
+
 This file guides AI/code agents working in this repository. It summarizes the app’s goals, architecture, conventions, and how to safely extend the project.
 
 Relevant specs are in:
-- `docs/name-o-tron-9000-first-commits.md:1`
-- `docs/name-o-tron-9000-safety.md:1`
-- `docs/plex-renamer-overview.md:1`
-- `docs/plex-renamer-settings.md:1`
-- `docs/plex-renamer-developer-guide.md:1`
-- `docs/plex-path-mapping.md:1`
-- `docs/name-templating.md:1`
+- `README.md:1`
+- `docs/index.md:1`
+- `docs/features.md:1`
+- `docs/settings.md:1`
+- `docs/faq.md:1`
+- `dev_docs/appendix.md:1`
+- `dev_docs/appendix_architecture.md:1`
+- `dev_docs/appendix_api.md:1`
+- `dev_docs/playbooks/README.md:1`
+- `dev_docs/work-log.md:1`
 
 ## Current Implementation Status
 
@@ -53,7 +121,7 @@ Key goals:
     - Template components are pure presentational components (no hooks, no side effects)
   - **Components**: Custom SVG icons, PathMappingModal, LibraryMappingPanel, TemplateHelpModal, EditionParsersModal, PlexPopoverCard (metadata hover card), Select (shared styled dropdown)
   - **State Management**: Settings persistence (localStorage + Tauri backend)
-  - **Utils**: Template rendering engine with placeholder support (see `docs/name-templating.md`); edition detection heuristics and ID extraction helpers; show mapping cache utilities (see `src/utils/cache.ts`)
+  - **Utils**: Template rendering engine with placeholder support (see `src/utils/template.ts`); edition detection heuristics and ID extraction helpers; show mapping cache utilities (see `src/utils/cache.ts`)
   - **Search Behavior (Movies/TV in Preview)**
     - Debounced input (500ms) filters the already loaded rows immediately
     - If the debounced query yields zero local matches and initial load is idle, the app invokes a backend search using Plex `/hubs/search`
@@ -94,7 +162,7 @@ IPC contract (current commands):
 - `retry_skipped()` → new preview for skipped items
 
 ## Safety & Recovery (must‑haves)
-Follow `docs/name-o-tron-9000-safety.md:1`.
+Follow `docs/features.md:21` and `dev_docs/playbooks/rename-safety-playbook.md:1`.
 - Preview table shows statuses:
   - 🟩 Green = compliant; no change
   - 🟨 Yellow = warning (non‑Latin, guessed edition, missing metadata, long path warn)
@@ -132,7 +200,7 @@ Rollback log shape (example):
 ```
 
 ## Settings Model (tabs)
-Mirror `docs/plex-renamer-settings.md:1`:
+Mirror `docs/settings.md:1` and `src/state/settings.tsx:1`:
 - General: preview, logging, rollback, encoding (Unicode vs transliteration), conflicts, safety checks
 - Movies: collections, folder structure, editions, versions, IDs, extras handling
 - TV: season folders, specials/OVAs, multi‑episode normalization, count checks
@@ -171,15 +239,18 @@ Commands:
 - **Build**: `npm install && cargo build`
 - **Install Tailwind**: `npm i -D @tailwindcss/postcss` (required for styling)
 
-**Testing**: Mock Plex server available at `http://localhost:32400` with comprehensive test fixtures in `tests/` directory.
-  - Start with `npm run mock:plex`. Fixtures include libraries and section JSONs.
+**Testing**: Mock Plex server available at `http://localhost:32400`.
+  - Start with `npm run mock:plex`.
+  - Mock server entry point is `tests/mock-plex/mock-plex-server.cjs`.
 
 Agent practices:
 - Read and respect this file and `docs/` specs before changes
+- Read the relevant contributor playbook in `dev_docs/playbooks/` before substantial changes
+- Add or update an entry in `dev_docs/work-log.md` for meaningful work so there is a trace of what changed and why
 - Use small, focused patches tied to the docs
 - Preserve public API expectations of Tauri commands
 - If adding features, update related docs in `docs/` accordingly
-  - Discovery specifics are documented in `docs/plex-discovery.md`.
+  - Discovery, preview behavior, and rollback UX are documented in `README.md` and `docs/features.md`.
   - UX conventions: window title reflects the current screen; the Discover action appears only on Home and the discovered servers are cached for the session.
 
 ### UI Conventions (important)
@@ -255,7 +326,7 @@ Planning & messaging (for agent UIs):
 
 ## MVP Checklist - Implementation Status
 
-**From `docs/name-o-tron-9000-first-commits.md:1`:**
+Historical MVP planning docs are no longer in `docs/`. Use `dev_docs/roadmap.md:1` for forward-looking work and treat the checklist below as current-state notes.
 
 ### ✅ COMPLETED
 - **Plex discovery/auth + list libraries** - Fully implemented with SSDP multicast and PIN authentication

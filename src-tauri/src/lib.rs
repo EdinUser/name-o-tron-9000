@@ -1,33 +1,34 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-use serde::Serialize;
-use tauri::Emitter;
 use plex_api::list_libraries;
+use serde::Serialize;
+use tauri::{Emitter, Manager};
 mod plex_auth;
-use plex_auth::{plex_login, plex_login_status, plex_logout};
-use base64::{Engine as _, engine::general_purpose};
-use std::fs;
+use base64::{engine::general_purpose, Engine as _};
 use dirs;
-pub mod path_map;
-pub mod settings;
-pub mod plex_api;
-pub mod secure;
-pub mod subtitle;
-pub mod video_rename;
+use plex_auth::{plex_login, plex_login_status, plex_logout};
+use std::fs;
 pub mod diagnostics;
 pub mod logging;
+pub mod path_map;
+pub mod plex_api;
+pub mod rename_types;
+pub mod secure;
+pub mod settings;
+pub mod subtitle;
+pub mod video_rename;
 
 // Re-export functions used by frontend
+pub use path_map::test_mapping;
 pub use plex_api::fetch_library_content;
-pub use plex_api::fetch_tv_shows;
-pub use plex_api::fetch_show_seasons;
-pub use plex_api::fetch_show_episodes;
 pub use plex_api::fetch_plex_metadata;
-pub use plex_api::search_content;
-pub use plex_api::sanitize_filename_cmd;
-pub use plex_api::refresh_metadata_item;
+pub use plex_api::fetch_show_episodes;
+pub use plex_api::fetch_show_seasons;
+pub use plex_api::fetch_tv_shows;
 pub use plex_api::refresh_library_section;
 pub use plex_api::refresh_library_section_with_path;
-pub use path_map::test_mapping;
+pub use plex_api::refresh_metadata_item;
+pub use plex_api::sanitize_filename_cmd;
+pub use plex_api::search_content;
 // video_rename module is already declared above
 
 #[derive(Serialize)]
@@ -113,11 +114,16 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
                     for line in text.lines() {
                         let lower = line.to_ascii_lowercase();
                         if lower.starts_with("location:") {
-                            location = Some(line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string());
+                            location =
+                                Some(line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string());
                         } else if lower.starts_with("x-plex-machine-identifier:") {
-                            machine_id = Some(line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string());
-                        } else if lower.starts_with("x-plex-name:") || lower.starts_with("friendlyname:") {
-                            name = Some(line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string());
+                            machine_id =
+                                Some(line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string());
+                        } else if lower.starts_with("x-plex-name:")
+                            || lower.starts_with("friendlyname:")
+                        {
+                            name =
+                                Some(line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string());
                         }
                     }
 
@@ -175,7 +181,9 @@ fn plex_discover(hints: Option<Vec<String>>) -> Vec<PlexServerDto> {
     if let Some(list) = hints {
         for h in list {
             let host = h.trim();
-            if host.is_empty() { continue; }
+            if host.is_empty() {
+                continue;
+            }
             // Allow full URLs or bare hosts
             let normalized = if host.starts_with("http://") || host.starts_with("https://") {
                 host.to_string()
@@ -247,7 +255,9 @@ fn collect_gateway_hints(max: usize) -> Vec<String> {
                     if seen.insert(ip_str.clone()) {
                         out.push(ip_str);
                     }
-                    if out.len() >= max { return out; }
+                    if out.len() >= max {
+                        return out;
+                    }
                 }
 
                 // Fill remainder by sweeping the /24 to catch non-gateway hosts (e.g., 192.168.x.132)
@@ -257,7 +267,9 @@ fn collect_gateway_hints(max: usize) -> Vec<String> {
                     if seen.insert(ip_str.clone()) {
                         out.push(ip_str);
                     }
-                    if out.len() >= max { return out; }
+                    if out.len() >= max {
+                        return out;
+                    }
                 }
             }
         }
@@ -268,13 +280,18 @@ fn collect_gateway_hints(max: usize) -> Vec<String> {
         if seen.insert(s.clone()) {
             out.push(s);
         }
-        if out.len() >= max { break; }
+        if out.len() >= max {
+            break;
+        }
     }
     out.truncate(max);
     out
 }
 
-fn probe_identity(address: &str, timeout: std::time::Duration) -> (bool, Option<String>, Option<String>) {
+fn probe_identity(
+    address: &str,
+    timeout: std::time::Duration,
+) -> (bool, Option<String>, Option<String>) {
     // returns (is_plex, name, details)
     let client = match reqwest::blocking::Client::builder()
         .timeout(timeout)
@@ -335,7 +352,8 @@ fn probe_host(ip: String, port: u16, timeout_ms: u64, include_https: bool) -> Sc
 
                 if include_https && !is_plex {
                     let address_https = format!("https://{}", addrs);
-                    let (plex_https, found_name_https, err_https) = probe_identity(&address_https, timeout);
+                    let (plex_https, found_name_https, err_https) =
+                        probe_identity(&address_https, timeout);
                     if plex_https {
                         is_plex = true;
                         name = found_name_https.or(name);
@@ -382,21 +400,18 @@ fn perform_scan(
         let work_rx_clone = Arc::clone(&shared_rx);
         let tx_clone = tx.clone();
         let include_https = include_https;
-        handles.push(std::thread::spawn(move || {
-            loop {
-                let ip_string = {
-                    let guard = work_rx_clone.lock().unwrap();
-                    match guard.recv() {
-                        Ok(v) => v,
-                        Err(_) => break,
-                    }
-                };
-                let res = probe_host(ip_string, port, timeout_ms, include_https);
-                let _ = tx_clone.send(res);
-            }
+        handles.push(std::thread::spawn(move || loop {
+            let ip_string = {
+                let guard = work_rx_clone.lock().unwrap();
+                match guard.recv() {
+                    Ok(v) => v,
+                    Err(_) => break,
+                }
+            };
+            let res = probe_host(ip_string, port, timeout_ms, include_https);
+            let _ = tx_clone.send(res);
         }));
     }
-
 
     for ip in candidates {
         let _ = work_tx.send(ip);
@@ -408,7 +423,10 @@ fn perform_scan(
     // Collect exactly the number of sent tasks to avoid hanging on channel close nuances.
     for res in rx {
         if let Some((app, run_id)) = emitter.as_ref() {
-            let progress = ScanProgress { run_id: run_id.clone(), result: res.clone() };
+            let progress = ScanProgress {
+                run_id: run_id.clone(),
+                result: res.clone(),
+            };
             let _ = app.emit("scan_progress", progress);
         }
         results.push(res);
@@ -439,7 +457,10 @@ async fn plex_scan_subnet(
     let allow_https = include_https.unwrap_or(true);
     let port = port.unwrap_or(32400);
     let mut candidates = if let Some(list) = hosts {
-        list.into_iter().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+        list.into_iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
     } else {
         collect_gateway_hints(cap)
     };
@@ -464,7 +485,11 @@ async fn write_text_file(path: String, contents: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn fetch_plex_image(server_url: String, image_path: String, token: Option<String>) -> Result<String, String> {
+async fn fetch_plex_image(
+    server_url: String,
+    image_path: String,
+    token: Option<String>,
+) -> Result<String, String> {
     // Derive a stable cache filename:
     // Prefer: <host>_rk_<ratingKey>.jpg when image_path looks like /library/metadata/<rk>/thumb/...
     // Fallback (legacy): <server_url>_<image_path>.jpg with characters replaced.
@@ -477,7 +502,9 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
             .unwrap_or("")
             .to_string();
         // strip port for brevity
-        if let Some((h, _)) = s.split_once(':') { s = h.to_string(); }
+        if let Some((h, _)) = s.split_once(':') {
+            s = h.to_string();
+        }
         s.replace(|c: char| !c.is_ascii_alphanumeric(), "_")
     };
 
@@ -502,8 +529,7 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
         image_path.replace(['/', '.'], "_")
     );
 
-    let cache_dir = dirs::cache_dir()
-        .map(|dir| dir.join("name-o-tron-9000").join("thumbnails"));
+    let cache_dir = dirs::cache_dir().map(|dir| dir.join("name-o-tron-9000").join("thumbnails"));
 
     // Check for an already cached file using either the new stable name or the legacy name
     if let Some(ref cache_dir) = cache_dir {
@@ -513,7 +539,10 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
         // Prefer the stable file
         if stable_file.exists() {
             if let Ok(cached_data) = fs::read(&stable_file) {
-                return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&cached_data)));
+                return Ok(format!(
+                    "data:image/jpeg;base64,{}",
+                    general_purpose::STANDARD.encode(&cached_data)
+                ));
             }
         }
         // Fallback to legacy file (and migrate to stable name for future hits)
@@ -524,7 +553,10 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
                     let _ = std::fs::create_dir_all(cache_dir);
                     let _ = fs::write(&stable_file, &cached_data);
                 }
-                return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&cached_data)));
+                return Ok(format!(
+                    "data:image/jpeg;base64,{}",
+                    general_purpose::STANDARD.encode(&cached_data)
+                ));
             }
         }
     }
@@ -549,14 +581,32 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
 
         for base in bases.clone() {
             // Direct URL access (token will be appended later)
-            attempts.push(format!("{}/{}", base.trim_end_matches('/'), image_path.trim_start_matches('/')));
+            attempts.push(format!(
+                "{}/{}",
+                base.trim_end_matches('/'),
+                image_path.trim_start_matches('/')
+            ));
 
             // Transcoder URL - include token inside nested url param per OpenAPI docs
-            if let Some(rating_key) = image_path.strip_prefix("/library/metadata/").and_then(|s| s.split('/').next()) {
+            if let Some(rating_key) = image_path
+                .strip_prefix("/library/metadata/")
+                .and_then(|s| s.split('/').next())
+            {
                 // Build nested URL with token (e.g., /library/metadata/1234/thumb/0?X-Plex-Token=...)
-                let nested = if let Some(ref token) = token { format!("/library/metadata/{}/thumb/0?X-Plex-Token={}", rating_key, token) } else { format!("/library/metadata/{}/thumb/0", rating_key) };
+                let nested = if let Some(ref token) = token {
+                    format!(
+                        "/library/metadata/{}/thumb/0?X-Plex-Token={}",
+                        rating_key, token
+                    )
+                } else {
+                    format!("/library/metadata/{}/thumb/0", rating_key)
+                };
                 let nested_enc = urlencoding::encode(&nested);
-                attempts.push(format!("{}/photo/:/transcode?width=300&height=450&url={}", base.trim_end_matches('/'), nested_enc));
+                attempts.push(format!(
+                    "{}/photo/:/transcode?width=300&height=450&url={}",
+                    base.trim_end_matches('/'),
+                    nested_enc
+                ));
             }
         }
     } else {
@@ -568,7 +618,11 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
             bases.push(server_url.replacen("https://", "http://", 1));
         }
         for base in bases {
-            attempts.push(format!("{}/{}", base.trim_end_matches('/'), image_path.trim_start_matches('/')));
+            attempts.push(format!(
+                "{}/{}",
+                base.trim_end_matches('/'),
+                image_path.trim_start_matches('/')
+            ));
         }
     }
 
@@ -588,7 +642,6 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
         } else {
             base_url.clone()
         };
-
 
         let mut request = client.get(&url_with_token);
 
@@ -610,7 +663,10 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
         match request.send().await {
             Ok(response) => {
                 if response.status().is_success() {
-                    let image_data = response.bytes().await.map_err(|e| format!("Failed to read image data: {}", e))?;
+                    let image_data = response
+                        .bytes()
+                        .await
+                        .map_err(|e| format!("Failed to read image data: {}", e))?;
 
                     // Cache the image for future use (ensure directory exists). Use stable filename.
                     if let Some(ref cache_dir) = cache_dir {
@@ -619,9 +675,15 @@ async fn fetch_plex_image(server_url: String, image_path: String, token: Option<
                         let _ = fs::write(&cache_file, &image_data);
                     }
 
-                    return Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&image_data)));
+                    return Ok(format!(
+                        "data:image/jpeg;base64,{}",
+                        general_purpose::STANDARD.encode(&image_data)
+                    ));
                 } else {
-                    last_error = Some(format!("Image request failed with status: {}", response.status()));
+                    last_error = Some(format!(
+                        "Image request failed with status: {}",
+                        response.status()
+                    ));
                 }
             }
             Err(e) => {
@@ -641,7 +703,10 @@ async fn plex_refresh_metadata_item(
     token: Option<String>,
 ) -> Result<String, String> {
     refresh_metadata_item(server.clone(), item_ids.clone(), token).await?;
-    Ok(format!("Successfully refreshed metadata for item {}", item_ids))
+    Ok(format!(
+        "Successfully refreshed metadata for item {}",
+        item_ids
+    ))
 }
 
 #[tauri::command]
@@ -651,7 +716,10 @@ async fn plex_refresh_library_section(
     token: Option<String>,
 ) -> Result<String, String> {
     refresh_library_section(server, section_id, token).await?;
-    Ok(format!("Successfully refreshed library section {}", section_id))
+    Ok(format!(
+        "Successfully refreshed library section {}",
+        section_id
+    ))
 }
 
 #[tauri::command]
@@ -662,7 +730,10 @@ async fn plex_refresh_library_section_with_path(
     token: Option<String>,
 ) -> Result<String, String> {
     refresh_library_section_with_path(server, section_id, path.clone(), token).await?;
-    Ok(format!("Successfully refreshed library section {} path: {}", section_id, path))
+    Ok(format!(
+        "Successfully refreshed library section {} path: {}",
+        section_id, path
+    ))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -670,6 +741,19 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let icon_path = app
+                .path()
+                .resolve("icons/icon.png", tauri::path::BaseDirectory::Resource)?;
+
+            if let Some(window) = app.get_webview_window("main") {
+                if let Ok(icon) = tauri::image::Image::from_path(icon_path) {
+                    let _ = window.set_icon(icon);
+                }
+            }
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             plex_discover,
             plex_login,

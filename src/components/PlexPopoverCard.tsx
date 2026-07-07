@@ -64,29 +64,35 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
             return { x: position.x, y: position.y, transform: 'translate(-50%, 0%)' };
         }
 
+        const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
+        const cardWidth = metadata.type === "movie" ? 384 : 320;
         const cardHeight = metadata.type === "movie" ? 280 : metadata.type === "episode" ? 240 : 280; // Approximate card heights
         const margin = 20; // Margin from viewport edges
+        const pointerGap = 18;
+        const minX = (cardWidth / 2) + margin;
+        const maxX = viewportWidth - (cardWidth / 2) - margin;
+        const clampedX = Math.min(Math.max(position.x, minX), Math.max(minX, maxX));
 
         // Check if there's enough space below
-        const spaceBelow = viewportHeight - position.y - margin;
+        const spaceBelow = viewportHeight - position.y - margin - pointerGap;
 
         if (spaceBelow >= cardHeight) {
             // Position below mouse pointer
             return {
-                x: position.x,
-                y: position.y,
+                x: clampedX,
+                y: position.y + pointerGap,
                 transform: 'translate(-50%, 0%)'
             };
         } else {
             // Position above mouse pointer
             return {
-                x: position.x,
-                y: position.y,
+                x: clampedX,
+                y: position.y - pointerGap,
                 transform: 'translate(-50%, -100%)'
             };
         }
-    }, [isVisible, metadata?.type]); // Only recalculate when visibility or metadata type changes, not position
+    }, [isVisible, metadata?.type, position.x, position.y]);
 
     // Fetch poster image using backend command when component mounts or metadata changes
     useEffect(() => {
@@ -164,7 +170,7 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
     if (metadata.type === "movie") {
         return (
             <div
-                className="fixed z-50 w-96 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
+                className="pointer-events-none fixed z-50 w-96 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
                 style={{
                     left: smartPosition.x,
                     top: smartPosition.y,
@@ -266,7 +272,7 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
     if (metadata.type === "episode") {
         return (
             <div
-                className="fixed z-50 w-80 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
+                className="pointer-events-none fixed z-50 w-80 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
                 style={{
                     left: smartPosition.x,
                     top: smartPosition.y,
@@ -339,7 +345,7 @@ export default function PlexPopoverCard({ metadata, isVisible, position, plexSer
     if (metadata.type === "music") {
         return (
             <div
-                className="fixed z-50 w-80 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
+                className="pointer-events-none fixed z-50 w-80 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl"
                 style={{
                     left: smartPosition.x,
                     top: smartPosition.y,

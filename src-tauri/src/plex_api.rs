@@ -14,14 +14,7 @@ pub struct PlexLibraryDto {
     pub roots: Vec<String>,
 }
 
-
-
-
-
-fn with_plex_headers(
-    builder: reqwest::RequestBuilder,
-    client_id: &str,
-) -> reqwest::RequestBuilder {
+fn with_plex_headers(builder: reqwest::RequestBuilder, client_id: &str) -> reqwest::RequestBuilder {
     builder
         .header("X-Plex-Client-Identifier", client_id)
         .header("X-Plex-Product", "Name-o-tron 9000")
@@ -34,7 +27,6 @@ fn with_plex_headers(
         .header("Accept", "application/json")
 }
 
-
 fn current_client_id() -> String {
     if let Some(s) = crate::plex_auth::LOGIN.lock().unwrap().as_ref() {
         return s.client_id.clone();
@@ -43,12 +35,36 @@ fn current_client_id() -> String {
     FALLBACK.clone()
 }
 
+fn build_base_variants(server: &str) -> Vec<String> {
+    let base = server.trim_end_matches('/');
+    let mut bases: Vec<String> = vec![
+        if base.starts_with("http://") || base.starts_with("https://") {
+            base.to_string()
+        } else {
+            format!("http://{}", base)
+        },
+    ];
+    if base.starts_with("http://") {
+        bases.push(base.replacen("http://", "https://", 1));
+    } else if base.starts_with("https://") {
+        bases.push(base.replacen("https://", "http://", 1));
+    } else {
+        bases.push(format!("https://{}", base));
+    }
+    bases.sort();
+    bases.dedup();
+    bases
+}
+
 async fn fetch_server_access_token(
     account_token: &str,
     client_id: &str,
     server_base: &str,
 ) -> Option<String> {
-    let client = reqwest::Client::builder().timeout(Duration::from_secs(15)).build().ok()?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .ok()?;
     let url = "https://plex.tv/api/v2/resources?includeHttps=1&includeRelay=1";
     let resp = with_plex_headers(client.get(url), client_id)
         .header("X-Plex-Token", account_token)
@@ -56,19 +72,36 @@ async fn fetch_server_access_token(
         .send()
         .await
         .ok()?;
-    if !resp.status().is_success() { return None; }
+    if !resp.status().is_success() {
+        return None;
+    }
     let text = resp.text().await.ok()?;
     let v: serde_json::Value = serde_json::from_str(&text).ok()?;
     let arr = v.as_array()?;
     let target = server_base.trim_end_matches('/').to_ascii_lowercase();
     for dev in arr {
-        if dev.get("product").and_then(|x| x.as_str()).unwrap_or("") != "Plex Media Server" { continue; }
+        if dev.get("product").and_then(|x| x.as_str()).unwrap_or("") != "Plex Media Server" {
+            continue;
+        }
         let access = dev.get("accessToken").and_then(|x| x.as_str());
-        let conns = dev.get("connections").and_then(|x| x.as_array()).cloned().unwrap_or_default();
+        let conns = dev
+            .get("connections")
+            .and_then(|x| x.as_array())
+            .cloned()
+            .unwrap_or_default();
         for c in conns {
-            let uri = c.get("uri").and_then(|x| x.as_str()).unwrap_or("").to_ascii_lowercase();
-            if !uri.is_empty() && (target == uri.trim_end_matches('/') || uri.trim_end_matches('/').ends_with(&target)) {
-                if let Some(tok) = access { return Some(tok.to_string()); }
+            let uri = c
+                .get("uri")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if !uri.is_empty()
+                && (target == uri.trim_end_matches('/')
+                    || uri.trim_end_matches('/').ends_with(&target))
+            {
+                if let Some(tok) = access {
+                    return Some(tok.to_string());
+                }
             }
         }
     }
@@ -106,41 +139,42 @@ pub async fn fetch_library_content(
         })?;
 
     // Normalize bases and try both http/https like list_libraries
-    let base_in = server.trim_end_matches('/');
-    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
-        base_in.to_string()
-    } else {
-        format!("http://{}", base_in)
-    }];
-    if base_in.starts_with("http://") {
-        bases.push(base_in.replacen("http://", "https://", 1));
-    } else if base_in.starts_with("https://") {
-        bases.push(base_in.replacen("https://", "http://", 1));
-    } else {
-        bases.push(format!("https://{}", base_in));
-    }
-    bases.sort();
-    bases.dedup();
+    let bases = build_base_variants(&server);
 
     // Simplified URL construction - try most common patterns first
     let mut urls: Vec<String> = Vec::new();
-    let paging = format!("X-Plex-Container-Start={}&X-Plex-Container-Size={}", start, size);
+    let paging = format!(
+        "X-Plex-Container-Start={}&X-Plex-Container-Size={}",
+        start, size
+    );
 
     for b in &bases {
         // Try most common patterns first (allLeaves with token in header)
         if let Some(t) = token.as_ref() {
             let tok = urlencoding::encode(t);
-            urls.push(format!("{}/library/sections/{}/allLeaves?{}&X-Plex-Token={}", b, library_key, paging, tok));
+            urls.push(format!(
+                "{}/library/sections/{}/allLeaves?{}&X-Plex-Token={}",
+                b, library_key, paging, tok
+            ));
         } else {
-            urls.push(format!("{}/library/sections/{}/allLeaves?{}", b, library_key, paging));
+            urls.push(format!(
+                "{}/library/sections/{}/allLeaves?{}",
+                b, library_key, paging
+            ));
         }
 
         // Fallback to 'all' if 'allLeaves' fails
         if let Some(t) = token.as_ref() {
             let tok = urlencoding::encode(t);
-            urls.push(format!("{}/library/sections/{}/all?{}&X-Plex-Token={}", b, library_key, paging, tok));
+            urls.push(format!(
+                "{}/library/sections/{}/all?{}&X-Plex-Token={}",
+                b, library_key, paging, tok
+            ));
         } else {
-            urls.push(format!("{}/library/sections/{}/all?{}", b, library_key, paging));
+            urls.push(format!(
+                "{}/library/sections/{}/all?{}",
+                b, library_key, paging
+            ));
         }
     }
 
@@ -172,9 +206,13 @@ pub async fn fetch_library_content(
             }
             Err(e) => {
                 let mut kind = "send error".to_string();
-                if e.is_timeout() { kind = "timeout".into(); }
-                else if e.is_connect() { kind = "connect".into(); }
-                else if e.is_request() { kind = "request".into(); }
+                if e.is_timeout() {
+                    kind = "timeout".into();
+                } else if e.is_connect() {
+                    kind = "connect".into();
+                } else if e.is_request() {
+                    kind = "request".into();
+                }
                 last_reqwest_err = Some(format!("{} @ {}", kind, url));
             }
         }
@@ -206,19 +244,26 @@ pub async fn fetch_library_content(
                     .set("X-Plex-Platform", platform)
                     .set("X-Plex-Device", platform)
                     .set("X-Plex-Device-Name", &whoami::devicename());
-                if let Some(t) = token.as_ref() { r = r.set("X-Plex-Token", t); }
+                if let Some(t) = token.as_ref() {
+                    r = r.set("X-Plex-Token", t);
+                }
                 match r.call() {
                     Ok(resp) => {
                         let status = resp.status();
                         if (200..=299).contains(&status) {
-                            let ct = resp.header("content-type").unwrap_or("").to_ascii_lowercase();
+                            let ct = resp
+                                .header("content-type")
+                                .unwrap_or("")
+                                .to_ascii_lowercase();
                             if ct.contains("application/json") {
                                 let v: serde_json::Value = resp
                                     .into_json()
                                     .map_err(|e| format!("read json error: {e}"))?;
                                 return Ok(v);
                             } else {
-                                let body = resp.into_string().map_err(|e| format!("read body error: {e}"))?;
+                                let body = resp
+                                    .into_string()
+                                    .map_err(|e| format!("read body error: {e}"))?;
                                 return Ok(serde_json::Value::String(body));
                             }
                         } else {
@@ -337,8 +382,11 @@ fn xml_collections_to_json(xml: &str) -> Option<serde_json::Value> {
                         let k = a.key.as_ref();
                         let v = a.unescape_value().unwrap_or_default();
                         if let Some(curr) = current.as_mut() {
-                            if k == b"ratingKey" { curr.rating_key = Some(v.to_string()); }
-                            else if k == b"title" { curr.title = Some(v.to_string()); }
+                            if k == b"ratingKey" {
+                                curr.rating_key = Some(v.to_string());
+                            } else if k == b"title" {
+                                curr.title = Some(v.to_string());
+                            }
                         }
                     }
                 }
@@ -359,12 +407,19 @@ fn xml_collections_to_json(xml: &str) -> Option<serde_json::Value> {
         buf.clear();
     }
 
-    let meta: Vec<Value> = collections.into_iter().map(|c| {
-        let mut obj = json!({});
-        if let Some(rk) = c.rating_key { obj["ratingKey"] = json!(rk); }
-        if let Some(title) = c.title { obj["title"] = json!(title); }
-        obj
-    }).collect();
+    let meta: Vec<Value> = collections
+        .into_iter()
+        .map(|c| {
+            let mut obj = json!({});
+            if let Some(rk) = c.rating_key {
+                obj["ratingKey"] = json!(rk);
+            }
+            if let Some(title) = c.title {
+                obj["title"] = json!(title);
+            }
+            obj
+        })
+        .collect();
 
     Some(json!({
         "MediaContainer": { "Metadata": meta }
@@ -398,7 +453,9 @@ fn xml_collection_items_to_json(xml: &str) -> Option<serde_json::Value> {
                         let k = a.key.as_ref();
                         let v = a.unescape_value().unwrap_or_default();
                         if let Some(curr) = current.as_mut() {
-                            if k == b"ratingKey" { curr.rating_key = Some(v.to_string()); }
+                            if k == b"ratingKey" {
+                                curr.rating_key = Some(v.to_string());
+                            }
                         }
                     }
                 }
@@ -419,11 +476,16 @@ fn xml_collection_items_to_json(xml: &str) -> Option<serde_json::Value> {
         buf.clear();
     }
 
-    let meta: Vec<Value> = items.into_iter().map(|item| {
-        let mut obj = json!({});
-        if let Some(rk) = item.rating_key { obj["ratingKey"] = json!(rk); }
-        obj
-    }).collect();
+    let meta: Vec<Value> = items
+        .into_iter()
+        .map(|item| {
+            let mut obj = json!({});
+            if let Some(rk) = item.rating_key {
+                obj["ratingKey"] = json!(rk);
+            }
+            obj
+        })
+        .collect();
 
     Some(json!({
         "MediaContainer": { "Metadata": meta }
@@ -481,24 +543,49 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
                     for a in e.attributes().flatten() {
                         let k = a.key.as_ref();
                         let v = a.unescape_value().unwrap_or_default();
-                        if k == b"ratingKey" { it.rating_key = Some(v.to_string()); }
-                        else if k == b"title" { it.title = Some(v.to_string()); }
-                        else if k == b"year" { if let Ok(n) = v.parse::<i64>() { it.year = Some(n); } }
-                        else if k == b"index" { if let Ok(n) = v.parse::<i64>() { it.index = Some(n); } }
-                        else if k == b"edition" { it.edition = Some(v.to_string()); }
-                        else if k == b"editionTitle" { it.edition_title = Some(v.to_string()); }
-                        else if k == b"genre" { it.genre = Some(v.to_string()); }
-                        else if k == b"contentRating" { it.content_rating = Some(v.to_string()); }
-                        else if k == b"studio" { it.studio = Some(v.to_string()); }
-                        else if k == b"director" { it.director = Some(v.to_string()); }
-                        else if k == b"writer" { it.writer = Some(v.to_string()); }
-                        else if k == b"country" { it.country = Some(v.to_string()); }
-                        else if k == b"tagline" { it.tagline = Some(v.to_string()); }
-                        else if k == b"summary" { it.summary = Some(v.to_string()); }
-                        else if k == b"grandparentTitle" { it.grandparent_title = Some(v.to_string()); }
-                        else if k == b"parentTitle" { it.parent_title = Some(v.to_string()); }
-                        else if k == b"parentIndex" { if let Ok(n) = v.parse::<i64>() { it.parent_index = Some(n); } }
-                        else if k == b"guid" { it.guid = Some(v.to_string()); }
+                        if k == b"ratingKey" {
+                            it.rating_key = Some(v.to_string());
+                        } else if k == b"title" {
+                            it.title = Some(v.to_string());
+                        } else if k == b"year" {
+                            if let Ok(n) = v.parse::<i64>() {
+                                it.year = Some(n);
+                            }
+                        } else if k == b"index" {
+                            if let Ok(n) = v.parse::<i64>() {
+                                it.index = Some(n);
+                            }
+                        } else if k == b"edition" {
+                            it.edition = Some(v.to_string());
+                        } else if k == b"editionTitle" {
+                            it.edition_title = Some(v.to_string());
+                        } else if k == b"genre" {
+                            it.genre = Some(v.to_string());
+                        } else if k == b"contentRating" {
+                            it.content_rating = Some(v.to_string());
+                        } else if k == b"studio" {
+                            it.studio = Some(v.to_string());
+                        } else if k == b"director" {
+                            it.director = Some(v.to_string());
+                        } else if k == b"writer" {
+                            it.writer = Some(v.to_string());
+                        } else if k == b"country" {
+                            it.country = Some(v.to_string());
+                        } else if k == b"tagline" {
+                            it.tagline = Some(v.to_string());
+                        } else if k == b"summary" {
+                            it.summary = Some(v.to_string());
+                        } else if k == b"grandparentTitle" {
+                            it.grandparent_title = Some(v.to_string());
+                        } else if k == b"parentTitle" {
+                            it.parent_title = Some(v.to_string());
+                        } else if k == b"parentIndex" {
+                            if let Ok(n) = v.parse::<i64>() {
+                                it.parent_index = Some(n);
+                            }
+                        } else if k == b"guid" {
+                            it.guid = Some(v.to_string());
+                        }
                     }
                     current = Some(it);
                 } else if in_video && name.as_ref() == b"Part" {
@@ -522,24 +609,49 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
                     for a in e.attributes().flatten() {
                         let k = a.key.as_ref();
                         let v = a.unescape_value().unwrap_or_default();
-                        if k == b"ratingKey" { it.rating_key = Some(v.to_string()); }
-                        else if k == b"title" { it.title = Some(v.to_string()); }
-                        else if k == b"year" { if let Ok(n) = v.parse::<i64>() { it.year = Some(n); } }
-                        else if k == b"index" { if let Ok(n) = v.parse::<i64>() { it.index = Some(n); } }
-                        else if k == b"edition" { it.edition = Some(v.to_string()); }
-                        else if k == b"editionTitle" { it.edition_title = Some(v.to_string()); }
-                        else if k == b"genre" { it.genre = Some(v.to_string()); }
-                        else if k == b"contentRating" { it.content_rating = Some(v.to_string()); }
-                        else if k == b"studio" { it.studio = Some(v.to_string()); }
-                        else if k == b"director" { it.director = Some(v.to_string()); }
-                        else if k == b"writer" { it.writer = Some(v.to_string()); }
-                        else if k == b"country" { it.country = Some(v.to_string()); }
-                        else if k == b"tagline" { it.tagline = Some(v.to_string()); }
-                        else if k == b"summary" { it.summary = Some(v.to_string()); }
-                        else if k == b"grandparentTitle" { it.grandparent_title = Some(v.to_string()); }
-                        else if k == b"parentTitle" { it.parent_title = Some(v.to_string()); }
-                        else if k == b"parentIndex" { if let Ok(n) = v.parse::<i64>() { it.parent_index = Some(n); } }
-                        else if k == b"guid" { it.guid = Some(v.to_string()); }
+                        if k == b"ratingKey" {
+                            it.rating_key = Some(v.to_string());
+                        } else if k == b"title" {
+                            it.title = Some(v.to_string());
+                        } else if k == b"year" {
+                            if let Ok(n) = v.parse::<i64>() {
+                                it.year = Some(n);
+                            }
+                        } else if k == b"index" {
+                            if let Ok(n) = v.parse::<i64>() {
+                                it.index = Some(n);
+                            }
+                        } else if k == b"edition" {
+                            it.edition = Some(v.to_string());
+                        } else if k == b"editionTitle" {
+                            it.edition_title = Some(v.to_string());
+                        } else if k == b"genre" {
+                            it.genre = Some(v.to_string());
+                        } else if k == b"contentRating" {
+                            it.content_rating = Some(v.to_string());
+                        } else if k == b"studio" {
+                            it.studio = Some(v.to_string());
+                        } else if k == b"director" {
+                            it.director = Some(v.to_string());
+                        } else if k == b"writer" {
+                            it.writer = Some(v.to_string());
+                        } else if k == b"country" {
+                            it.country = Some(v.to_string());
+                        } else if k == b"tagline" {
+                            it.tagline = Some(v.to_string());
+                        } else if k == b"summary" {
+                            it.summary = Some(v.to_string());
+                        } else if k == b"grandparentTitle" {
+                            it.grandparent_title = Some(v.to_string());
+                        } else if k == b"parentTitle" {
+                            it.parent_title = Some(v.to_string());
+                        } else if k == b"parentIndex" {
+                            if let Ok(n) = v.parse::<i64>() {
+                                it.parent_index = Some(n);
+                            }
+                        } else if k == b"guid" {
+                            it.guid = Some(v.to_string());
+                        }
                     }
                     items.push(it);
                 } else if name.as_ref() == b"Part" {
@@ -556,7 +668,9 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
             Ok(Event::End(e)) => {
                 if e.name().as_ref() == b"Video" {
                     in_video = false;
-                    if let Some(it) = current.take() { items.push(it); }
+                    if let Some(it) = current.take() {
+                        items.push(it);
+                    }
                 }
             }
             Ok(Event::Eof) => break,
@@ -569,29 +683,71 @@ fn xml_media_to_json(xml: &str) -> Option<serde_json::Value> {
     let mut meta: Vec<Value> = Vec::new();
     for it in items {
         // Build Media/Part array resembling Plex JSON
-        let parts: Vec<Value> = it.media_files.into_iter().map(|f| json!({"file": f})).collect();
-        let media = if parts.is_empty() { Vec::new() } else { vec![json!({"Part": parts})] };
+        let parts: Vec<Value> = it
+            .media_files
+            .into_iter()
+            .map(|f| json!({"file": f}))
+            .collect();
+        let media = if parts.is_empty() {
+            Vec::new()
+        } else {
+            vec![json!({"Part": parts})]
+        };
         let mut obj = json!({
             "title": it.title.unwrap_or_default(),
             "Media": media,
         });
-        if let Some(rk) = it.rating_key { obj["ratingKey"] = json!(rk); }
-        if let Some(y) = it.year { obj["year"] = json!(y); }
-        if let Some(idx) = it.index { obj["index"] = json!(idx); }
-        if let Some(edition) = it.edition { obj["edition"] = json!(edition); }
-        if let Some(edition_title) = it.edition_title { obj["editionTitle"] = json!(edition_title); }
-        if let Some(genre) = it.genre { obj["genre"] = json!(genre); }
-        if let Some(content_rating) = it.content_rating { obj["contentRating"] = json!(content_rating); }
-        if let Some(studio) = it.studio { obj["studio"] = json!(studio); }
-        if let Some(director) = it.director { obj["director"] = json!(director); }
-        if let Some(writer) = it.writer { obj["writer"] = json!(writer); }
-        if let Some(country) = it.country { obj["country"] = json!(country); }
-        if let Some(tagline) = it.tagline { obj["tagline"] = json!(tagline); }
-        if let Some(summary) = it.summary { obj["summary"] = json!(summary); }
-        if let Some(grandparent_title) = it.grandparent_title { obj["grandparentTitle"] = json!(grandparent_title); }
-        if let Some(parent_title) = it.parent_title { obj["parentTitle"] = json!(parent_title); }
-        if let Some(parent_index) = it.parent_index { obj["parentIndex"] = json!(parent_index); }
-        if let Some(guid) = &it.guid { obj["guid"] = json!(guid); }
+        if let Some(rk) = it.rating_key {
+            obj["ratingKey"] = json!(rk);
+        }
+        if let Some(y) = it.year {
+            obj["year"] = json!(y);
+        }
+        if let Some(idx) = it.index {
+            obj["index"] = json!(idx);
+        }
+        if let Some(edition) = it.edition {
+            obj["edition"] = json!(edition);
+        }
+        if let Some(edition_title) = it.edition_title {
+            obj["editionTitle"] = json!(edition_title);
+        }
+        if let Some(genre) = it.genre {
+            obj["genre"] = json!(genre);
+        }
+        if let Some(content_rating) = it.content_rating {
+            obj["contentRating"] = json!(content_rating);
+        }
+        if let Some(studio) = it.studio {
+            obj["studio"] = json!(studio);
+        }
+        if let Some(director) = it.director {
+            obj["director"] = json!(director);
+        }
+        if let Some(writer) = it.writer {
+            obj["writer"] = json!(writer);
+        }
+        if let Some(country) = it.country {
+            obj["country"] = json!(country);
+        }
+        if let Some(tagline) = it.tagline {
+            obj["tagline"] = json!(tagline);
+        }
+        if let Some(summary) = it.summary {
+            obj["summary"] = json!(summary);
+        }
+        if let Some(grandparent_title) = it.grandparent_title {
+            obj["grandparentTitle"] = json!(grandparent_title);
+        }
+        if let Some(parent_title) = it.parent_title {
+            obj["parentTitle"] = json!(parent_title);
+        }
+        if let Some(parent_index) = it.parent_index {
+            obj["parentIndex"] = json!(parent_index);
+        }
+        if let Some(guid) = &it.guid {
+            obj["guid"] = json!(guid);
+        }
         meta.push(obj);
     }
 
@@ -610,8 +766,30 @@ fn xml_directory_to_json(xml: &str) -> Option<serde_json::Value> {
     reader.trim_text(true);
     let mut buf = Vec::new();
     let mut dirs: Vec<Value> = Vec::new();
+    let mut total_size: Option<i64> = None;
+    let mut size: Option<i64> = None;
+    let mut offset: Option<i64> = None;
     loop {
         match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) if e.name().as_ref() == b"MediaContainer" => {
+                for a in e.attributes().flatten() {
+                    let k = a.key.as_ref();
+                    let v = a.unescape_value().unwrap_or_default();
+                    if k == b"totalSize" || k == b"total" {
+                        if let Ok(n) = v.parse::<i64>() {
+                            total_size = Some(n);
+                        }
+                    } else if k == b"size" {
+                        if let Ok(n) = v.parse::<i64>() {
+                            size = Some(n);
+                        }
+                    } else if k == b"offset" {
+                        if let Ok(n) = v.parse::<i64>() {
+                            offset = Some(n);
+                        }
+                    }
+                }
+            }
             Ok(Event::Start(e)) if e.name().as_ref() == b"Directory" => {
                 let mut rating_key: Option<String> = None;
                 let mut key: Option<String> = None;
@@ -619,16 +797,24 @@ fn xml_directory_to_json(xml: &str) -> Option<serde_json::Value> {
                 for a in e.attributes().flatten() {
                     let k = a.key.as_ref();
                     let v = a.unescape_value().unwrap_or_default();
-                    if k == b"ratingKey" { rating_key = Some(v.to_string()); }
-                    else if k == b"key" { key = Some(v.to_string()); }
-                    else if k == b"title" { title = Some(v.to_string()); }
+                    if k == b"ratingKey" {
+                        rating_key = Some(v.to_string());
+                    } else if k == b"key" {
+                        key = Some(v.to_string());
+                    } else if k == b"title" {
+                        title = Some(v.to_string());
+                    }
                 }
                 if title.is_some() || rating_key.is_some() || key.is_some() {
                     let mut obj = json!({
                         "title": title.unwrap_or_default(),
                     });
-                    if let Some(r) = rating_key { obj["ratingKey"] = json!(r); }
-                    if let Some(k) = key { obj["key"] = json!(k); }
+                    if let Some(r) = rating_key {
+                        obj["ratingKey"] = json!(r);
+                    }
+                    if let Some(k) = key {
+                        obj["key"] = json!(k);
+                    }
                     dirs.push(obj);
                 }
             }
@@ -639,16 +825,24 @@ fn xml_directory_to_json(xml: &str) -> Option<serde_json::Value> {
                 for a in e.attributes().flatten() {
                     let k = a.key.as_ref();
                     let v = a.unescape_value().unwrap_or_default();
-                    if k == b"ratingKey" { rating_key = Some(v.to_string()); }
-                    else if k == b"key" { key = Some(v.to_string()); }
-                    else if k == b"title" { title = Some(v.to_string()); }
+                    if k == b"ratingKey" {
+                        rating_key = Some(v.to_string());
+                    } else if k == b"key" {
+                        key = Some(v.to_string());
+                    } else if k == b"title" {
+                        title = Some(v.to_string());
+                    }
                 }
                 if title.is_some() || rating_key.is_some() || key.is_some() {
                     let mut obj = json!({
                         "title": title.unwrap_or_default(),
                     });
-                    if let Some(r) = rating_key { obj["ratingKey"] = json!(r); }
-                    if let Some(k) = key { obj["key"] = json!(k); }
+                    if let Some(r) = rating_key {
+                        obj["ratingKey"] = json!(r);
+                    }
+                    if let Some(k) = key {
+                        obj["key"] = json!(k);
+                    }
                     dirs.push(obj);
                 }
             }
@@ -658,7 +852,17 @@ fn xml_directory_to_json(xml: &str) -> Option<serde_json::Value> {
         }
         buf.clear();
     }
-    Some(json!({"MediaContainer": {"Directory": dirs}}))
+    let mut media_container = json!({"Directory": dirs});
+    if let Some(total) = total_size {
+        media_container["totalSize"] = json!(total);
+    }
+    if let Some(len) = size {
+        media_container["size"] = json!(len);
+    }
+    if let Some(off) = offset {
+        media_container["offset"] = json!(off);
+    }
+    Some(json!({"MediaContainer": media_container}))
 }
 
 // -- Additional helpers for TV-specific flows --
@@ -684,11 +888,11 @@ async fn http_get_with_variants(
             .header("Accept", "application/json, application/xml;q=0.9")
             .header("Accept-Encoding", "identity")
             .header("Connection", "close");
-        if let Some(t) = token { req = req.header("X-Plex-Token", t); }
+        if let Some(t) = token {
+            req = req.header("X-Plex-Token", t);
+        }
         match req.send().await {
-            Ok(r) => {
-                return Ok(r)
-            },
+            Ok(r) => return Ok(r),
             Err(e) => {
                 last_err = Some(format!("{e}"));
             }
@@ -712,21 +916,12 @@ pub async fn fetch_tv_shows(
     let start = start.unwrap_or(0);
     let size = size.unwrap_or(200);
 
-    let base_in = server.trim_end_matches('/');
-    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
-        base_in.to_string()
-    } else { format!("http://{}", base_in) }];
-    if base_in.starts_with("http://") {
-        bases.push(base_in.replacen("http://", "https://", 1));
-    } else if base_in.starts_with("https://") {
-        bases.push(base_in.replacen("https://", "http://", 1));
-    } else {
-        bases.push(format!("https://{}", base_in));
-    }
-    bases.sort();
-    bases.dedup();
+    let bases = build_base_variants(&server);
 
-    let paging = format!("X-Plex-Container-Start={}&X-Plex-Container-Size={}", start, size);
+    let paging = format!(
+        "X-Plex-Container-Start={}&X-Plex-Container-Size={}",
+        start, size
+    );
     let mut urls: Vec<String> = Vec::new();
     for b in &bases {
         let details = "&includeDetails=1";
@@ -734,19 +929,43 @@ pub async fn fetch_tv_shows(
             let qenc = urlencoding::encode(q.trim());
             if let Some(t) = token.as_ref() {
                 let tok = urlencoding::encode(t);
-                urls.push(format!("{}/library/sections/{}/search?type=2&query={}&{}{}&X-Plex-Token={}", b, library_key, qenc, paging, details, tok));
-                urls.push(format!("{}/library/sections/{}/search?type=2&query={}{}&X-Plex-Token={}", b, library_key, qenc, details, tok));
+                urls.push(format!(
+                    "{}/library/sections/{}/search?type=2&query={}&{}{}&X-Plex-Token={}",
+                    b, library_key, qenc, paging, details, tok
+                ));
+                urls.push(format!(
+                    "{}/library/sections/{}/search?type=2&query={}{}&X-Plex-Token={}",
+                    b, library_key, qenc, details, tok
+                ));
             }
-            urls.push(format!("{}/library/sections/{}/search?type=2&query={}&{}{}", b, library_key, qenc, paging, details));
-            urls.push(format!("{}/library/sections/{}/search?type=2&query={}{}", b, library_key, qenc, details));
+            urls.push(format!(
+                "{}/library/sections/{}/search?type=2&query={}&{}{}",
+                b, library_key, qenc, paging, details
+            ));
+            urls.push(format!(
+                "{}/library/sections/{}/search?type=2&query={}{}",
+                b, library_key, qenc, details
+            ));
         } else {
             if let Some(t) = token.as_ref() {
                 let tok = urlencoding::encode(t);
-                urls.push(format!("{}/library/sections/{}/all?{}&type=2{}&X-Plex-Token={}", b, library_key, paging, details, tok));
-                urls.push(format!("{}/library/sections/{}/all?type=2{}&X-Plex-Token={}", b, library_key, details, tok));
+                urls.push(format!(
+                    "{}/library/sections/{}/all?{}&type=2{}&X-Plex-Token={}",
+                    b, library_key, paging, details, tok
+                ));
+                urls.push(format!(
+                    "{}/library/sections/{}/all?type=2{}&X-Plex-Token={}",
+                    b, library_key, details, tok
+                ));
             }
-            urls.push(format!("{}/library/sections/{}/all?{}&type=2{}", b, library_key, paging, details));
-            urls.push(format!("{}/library/sections/{}/all?type=2{}", b, library_key, details));
+            urls.push(format!(
+                "{}/library/sections/{}/all?{}&type=2{}",
+                b, library_key, paging, details
+            ));
+            urls.push(format!(
+                "{}/library/sections/{}/all?type=2{}",
+                b, library_key, details
+            ));
         }
     }
 
@@ -773,14 +992,30 @@ pub async fn fetch_tv_shows(
                         dirs.push(it.clone());
                     }
                 }
-                let out = serde_json::json!({"MediaContainer": {"Directory": dirs}});
+                let mut out_mc = serde_json::json!({"Directory": dirs});
+                if let Some(total_size) = mc
+                    .get("totalSize")
+                    .cloned()
+                    .or_else(|| mc.get("total").cloned())
+                {
+                    out_mc["totalSize"] = total_size;
+                }
+                if let Some(size) = mc.get("size").cloned() {
+                    out_mc["size"] = size;
+                }
+                if let Some(offset) = mc.get("offset").cloned() {
+                    out_mc["offset"] = offset;
+                }
+                let out = serde_json::json!({"MediaContainer": out_mc});
                 return Ok(out);
             }
             return Ok(v);
         }
     }
     if trimmed.starts_with('<') {
-        if let Some(v) = xml_directory_to_json(&text) { return Ok(v); }
+        if let Some(v) = xml_directory_to_json(&text) {
+            return Ok(v);
+        }
     }
     // minimal pass-through if we cannot parse
     Ok(serde_json::json!({"_raw": text}))
@@ -796,19 +1031,7 @@ pub async fn search_content(
 ) -> Result<serde_json::Value, String> {
     let limit = limit.unwrap_or(3); // Default limit per hub type
 
-    let base_in = server.trim_end_matches('/');
-    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
-        base_in.to_string()
-    } else { format!("http://{}", base_in) }];
-    if base_in.starts_with("http://") {
-        bases.push(base_in.replacen("http://", "https://", 1));
-    } else if base_in.starts_with("https://") {
-        bases.push(base_in.replacen("https://", "http://", 1));
-    } else {
-        bases.push(format!("https://{}", base_in));
-    }
-    bases.sort();
-    bases.dedup();
+    let bases = build_base_variants(&server);
 
     let mut urls: Vec<String> = Vec::new();
     for b in &bases {
@@ -838,28 +1061,322 @@ pub async fn search_content(
     }
     let trimmed = text.trim();
     if trimmed.starts_with('{') || trimmed.starts_with('[') {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) { return Ok(v); }
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) {
+            return Ok(v);
+        }
     }
     if trimmed.starts_with('<') {
-        if let Some(v) = xml_search_to_json(&text) { return Ok(v); }
+        if let Some(v) = xml_search_to_json(&text) {
+            return Ok(v);
+        }
     }
     // Debug: return raw response for investigation
     Ok(serde_json::json!({"_raw": text}))
 }
 
 fn xml_search_to_json(xml_text: &str) -> Option<serde_json::Value> {
-    // Parse XML response from /hubs/search and convert to JSON structure
-    // For now, return a basic structure - in a real implementation, this would need proper XML parsing
-    if xml_text.contains("MediaContainer") {
-        // Return a basic structure that matches what we expect
-        Some(serde_json::json!({
-            "MediaContainer": {
-                "Hub": []
-            }
-        }))
-    } else {
-        None
+    use quick_xml::events::Event;
+    use quick_xml::Reader;
+    use serde_json::{json, Value};
+
+    #[derive(Default, Debug)]
+    struct SearchItem {
+        title: Option<String>,
+        rating_key: Option<String>,
+        key: Option<String>,
+        year: Option<i64>,
+        index: Option<i64>,
+        parent_index: Option<i64>,
+        parent_title: Option<String>,
+        grandparent_title: Option<String>,
+        thumb: Option<String>,
+        content_rating: Option<String>,
+        studio: Option<String>,
+        director: Option<String>,
+        writer: Option<String>,
+        country: Option<String>,
+        tagline: Option<String>,
+        summary: Option<String>,
+        edition: Option<String>,
+        edition_title: Option<String>,
+        guid: Option<String>,
+        files: Vec<String>,
+        genres: Vec<String>,
+        collections: Vec<String>,
     }
+
+    #[derive(Default, Debug)]
+    struct Hub {
+        section_id: Option<String>,
+        metadata: Vec<Value>,
+    }
+
+    let mut reader = Reader::from_str(xml_text);
+    reader.trim_text(true);
+    let mut buf = Vec::new();
+    let mut hubs: Vec<Hub> = Vec::new();
+    let mut current_hub: Option<Hub> = None;
+    let mut current_item: Option<SearchItem> = None;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) => {
+                let name = e.name();
+                if name.as_ref() == b"Hub" {
+                    let mut hub = Hub::default();
+                    for a in e.attributes().flatten() {
+                        let key = a.key.as_ref();
+                        let value = a.unescape_value().unwrap_or_default();
+                        if key == b"sectionId" || key == b"librarySectionID" {
+                            hub.section_id = Some(value.to_string());
+                        }
+                    }
+                    current_hub = Some(hub);
+                } else if name.as_ref() == b"Video" {
+                    let mut item = SearchItem::default();
+                    for a in e.attributes().flatten() {
+                        let key = a.key.as_ref();
+                        let value = a.unescape_value().unwrap_or_default();
+                        if key == b"title" {
+                            item.title = Some(value.to_string());
+                        } else if key == b"ratingKey" {
+                            item.rating_key = Some(value.to_string());
+                        } else if key == b"key" {
+                            item.key = Some(value.to_string());
+                        } else if key == b"year" {
+                            if let Ok(n) = value.parse::<i64>() {
+                                item.year = Some(n);
+                            }
+                        } else if key == b"index" {
+                            if let Ok(n) = value.parse::<i64>() {
+                                item.index = Some(n);
+                            }
+                        } else if key == b"parentIndex" {
+                            if let Ok(n) = value.parse::<i64>() {
+                                item.parent_index = Some(n);
+                            }
+                        } else if key == b"parentTitle" {
+                            item.parent_title = Some(value.to_string());
+                        } else if key == b"grandparentTitle" {
+                            item.grandparent_title = Some(value.to_string());
+                        } else if key == b"thumb" {
+                            item.thumb = Some(value.to_string());
+                        } else if key == b"contentRating" {
+                            item.content_rating = Some(value.to_string());
+                        } else if key == b"studio" {
+                            item.studio = Some(value.to_string());
+                        } else if key == b"director" {
+                            item.director = Some(value.to_string());
+                        } else if key == b"writer" {
+                            item.writer = Some(value.to_string());
+                        } else if key == b"country" {
+                            item.country = Some(value.to_string());
+                        } else if key == b"tagline" {
+                            item.tagline = Some(value.to_string());
+                        } else if key == b"summary" {
+                            item.summary = Some(value.to_string());
+                        } else if key == b"edition" {
+                            item.edition = Some(value.to_string());
+                        } else if key == b"editionTitle" {
+                            item.edition_title = Some(value.to_string());
+                        } else if key == b"guid" {
+                            item.guid = Some(value.to_string());
+                        }
+                    }
+                    current_item = Some(item);
+                }
+            }
+            Ok(Event::Empty(e)) => {
+                let name = e.name();
+                if name.as_ref() == b"Part" {
+                    if let Some(item) = current_item.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"file" {
+                                item.files
+                                    .push(a.unescape_value().unwrap_or_default().to_string());
+                            }
+                        }
+                    }
+                } else if name.as_ref() == b"Genre" {
+                    if let Some(item) = current_item.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"tag" {
+                                item.genres
+                                    .push(a.unescape_value().unwrap_or_default().to_string());
+                            }
+                        }
+                    }
+                } else if name.as_ref() == b"Collection" {
+                    if let Some(item) = current_item.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"tag" {
+                                item.collections
+                                    .push(a.unescape_value().unwrap_or_default().to_string());
+                            }
+                        }
+                    }
+                } else if name.as_ref() == b"Director" {
+                    if let Some(item) = current_item.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"tag" {
+                                item.director =
+                                    Some(a.unescape_value().unwrap_or_default().to_string());
+                            }
+                        }
+                    }
+                } else if name.as_ref() == b"Writer" {
+                    if let Some(item) = current_item.as_mut() {
+                        for a in e.attributes().flatten() {
+                            if a.key.as_ref() == b"tag" {
+                                item.writer =
+                                    Some(a.unescape_value().unwrap_or_default().to_string());
+                            }
+                        }
+                    }
+                } else if name.as_ref() == b"Video" {
+                    let mut item = SearchItem::default();
+                    for a in e.attributes().flatten() {
+                        let key = a.key.as_ref();
+                        let value = a.unescape_value().unwrap_or_default();
+                        if key == b"title" {
+                            item.title = Some(value.to_string());
+                        } else if key == b"ratingKey" {
+                            item.rating_key = Some(value.to_string());
+                        } else if key == b"key" {
+                            item.key = Some(value.to_string());
+                        } else if key == b"thumb" {
+                            item.thumb = Some(value.to_string());
+                        }
+                    }
+                    if let Some(hub) = current_hub.as_mut() {
+                        let mut obj = json!({
+                            "title": item.title.unwrap_or_default(),
+                        });
+                        if let Some(rk) = item.rating_key {
+                            obj["ratingKey"] = json!(rk);
+                        }
+                        if let Some(key) = item.key {
+                            obj["key"] = json!(key);
+                        }
+                        if let Some(thumb) = item.thumb {
+                            obj["thumb"] = json!(thumb);
+                        }
+                        hub.metadata.push(obj);
+                    }
+                }
+            }
+            Ok(Event::End(e)) => {
+                if e.name().as_ref() == b"Video" {
+                    if let Some(item) = current_item.take() {
+                        if let Some(hub) = current_hub.as_mut() {
+                            let parts: Vec<Value> =
+                                item.files.into_iter().map(|f| json!({"file": f})).collect();
+                            let media = if parts.is_empty() {
+                                Vec::new()
+                            } else {
+                                vec![json!({"Part": parts})]
+                            };
+                            let mut obj = json!({
+                                "title": item.title.unwrap_or_default(),
+                                "Media": media,
+                            });
+                            if let Some(rk) = item.rating_key {
+                                obj["ratingKey"] = json!(rk);
+                            }
+                            if let Some(key) = item.key {
+                                obj["key"] = json!(key);
+                            }
+                            if let Some(year) = item.year {
+                                obj["year"] = json!(year);
+                            }
+                            if let Some(index) = item.index {
+                                obj["index"] = json!(index);
+                            }
+                            if let Some(parent_index) = item.parent_index {
+                                obj["parentIndex"] = json!(parent_index);
+                            }
+                            if let Some(parent_title) = item.parent_title {
+                                obj["parentTitle"] = json!(parent_title);
+                            }
+                            if let Some(grandparent_title) = item.grandparent_title {
+                                obj["grandparentTitle"] = json!(grandparent_title);
+                            }
+                            if let Some(thumb) = item.thumb {
+                                obj["thumb"] = json!(thumb);
+                            }
+                            if let Some(content_rating) = item.content_rating {
+                                obj["contentRating"] = json!(content_rating);
+                            }
+                            if let Some(studio) = item.studio {
+                                obj["studio"] = json!(studio);
+                            }
+                            if let Some(director) = item.director {
+                                obj["director"] = json!(director);
+                            }
+                            if let Some(writer) = item.writer {
+                                obj["writer"] = json!(writer);
+                            }
+                            if let Some(country) = item.country {
+                                obj["country"] = json!(country);
+                            }
+                            if let Some(tagline) = item.tagline {
+                                obj["tagline"] = json!(tagline);
+                            }
+                            if let Some(summary) = item.summary {
+                                obj["summary"] = json!(summary);
+                            }
+                            if let Some(edition) = item.edition {
+                                obj["edition"] = json!(edition);
+                            }
+                            if let Some(edition_title) = item.edition_title {
+                                obj["editionTitle"] = json!(edition_title);
+                            }
+                            if let Some(guid) = item.guid {
+                                obj["guid"] = json!(guid);
+                            }
+                            if !item.genres.is_empty() {
+                                obj["Genre"] = json!(item
+                                    .genres
+                                    .into_iter()
+                                    .map(|tag| json!({"tag": tag}))
+                                    .collect::<Vec<Value>>());
+                            }
+                            if !item.collections.is_empty() {
+                                obj["Collection"] = json!(item
+                                    .collections
+                                    .into_iter()
+                                    .map(|tag| json!({"tag": tag}))
+                                    .collect::<Vec<Value>>());
+                            }
+                            hub.metadata.push(obj);
+                        }
+                    }
+                } else if e.name().as_ref() == b"Hub" {
+                    if let Some(hub) = current_hub.take() {
+                        hubs.push(hub);
+                    }
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => return None,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Some(json!({
+        "MediaContainer": {
+            "Hub": hubs.into_iter().map(|hub| {
+                let mut obj = json!({
+                    "Metadata": hub.metadata,
+                });
+                if let Some(section_id) = hub.section_id {
+                    obj["sectionId"] = json!(section_id);
+                }
+                obj
+            }).collect::<Vec<Value>>()
+        }
+    }))
 }
 
 #[tauri::command]
@@ -870,14 +1387,16 @@ pub async fn fetch_collections(
 ) -> Result<serde_json::Value, String> {
     let start = 0;
     let size = 1000; // Fetch all collections
-    let paging = format!("?X-Plex-Container-Start={}&X-Plex-Container-Size={}", start, size);
-
-    let base_urls = [
-        format!("http://{}/library/sections/{}/collection", server, library_key),
-        format!("https://{}/library/sections/{}/collection", server, library_key),
-    ];
+    let paging = format!(
+        "?X-Plex-Container-Start={}&X-Plex-Container-Size={}",
+        start, size
+    );
 
     let client_id = current_client_id();
+    let base_urls: Vec<String> = build_base_variants(&server)
+        .into_iter()
+        .map(|base| format!("{}/library/sections/{}/collection", base, library_key))
+        .collect();
 
     for url in &base_urls {
         let url_with_paging = format!("{}{}", url, paging);
@@ -893,7 +1412,10 @@ pub async fn fetch_collections(
             Ok(resp) => {
                 let status = resp.status();
                 if status.is_success() {
-                    let text = resp.text().await.map_err(|e| format!("read response error: {e}"))?;
+                    let text = resp
+                        .text()
+                        .await
+                        .map_err(|e| format!("read response error: {e}"))?;
                     let trimmed = text.trim();
 
                     if trimmed.starts_with('{') || trimmed.starts_with('[') {
@@ -925,12 +1447,16 @@ pub async fn fetch_collection_items(
     collection_rating_key: String,
     token: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let base_urls = [
-        format!("http://{}/library/collections/{}/items", server, collection_rating_key),
-        format!("https://{}/library/collections/{}/items", server, collection_rating_key),
-    ];
-
     let client_id = current_client_id();
+    let base_urls: Vec<String> = build_base_variants(&server)
+        .into_iter()
+        .map(|base| {
+            format!(
+                "{}/library/collections/{}/items",
+                base, collection_rating_key
+            )
+        })
+        .collect();
 
     for url in &base_urls {
         let mut req = with_plex_headers(reqwest::Client::new().get(url), &client_id)
@@ -945,7 +1471,10 @@ pub async fn fetch_collection_items(
             Ok(resp) => {
                 let status = resp.status();
                 if status.is_success() {
-                    let text = resp.text().await.map_err(|e| format!("read response error: {e}"))?;
+                    let text = resp
+                        .text()
+                        .await
+                        .map_err(|e| format!("read response error: {e}"))?;
                     let trimmed = text.trim();
 
                     if trimmed.starts_with('{') || trimmed.starts_with('[') {
@@ -977,27 +1506,21 @@ pub async fn fetch_show_seasons(
     show_rating_key: String,
     token: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let base_in = server.trim_end_matches('/');
-    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
-        base_in.to_string()
-    } else { format!("http://{}", base_in) }];
-    if base_in.starts_with("http://") {
-        bases.push(base_in.replacen("http://", "https://", 1));
-    } else if base_in.starts_with("https://") {
-        bases.push(base_in.replacen("https://", "http://", 1));
-    } else {
-        bases.push(format!("https://{}", base_in));
-    }
-    bases.sort();
-    bases.dedup();
+    let bases = build_base_variants(&server);
 
     let mut urls: Vec<String> = Vec::new();
     for b in &bases {
         if let Some(t) = token.as_ref() {
             let tok = urlencoding::encode(t);
-            urls.push(format!("{}/library/metadata/{}/children?X-Plex-Token={}", b, show_rating_key, tok));
+            urls.push(format!(
+                "{}/library/metadata/{}/children?X-Plex-Token={}",
+                b, show_rating_key, tok
+            ));
         }
-        urls.push(format!("{}/library/metadata/{}/children", b, show_rating_key));
+        urls.push(format!(
+            "{}/library/metadata/{}/children",
+            b, show_rating_key
+        ));
     }
 
     let client_id = current_client_id();
@@ -1025,7 +1548,9 @@ pub async fn fetch_show_seasons(
         }
     }
     if trimmed.starts_with('<') {
-        if let Some(v) = xml_directory_to_json(&text) { return Ok(v); }
+        if let Some(v) = xml_directory_to_json(&text) {
+            return Ok(v);
+        }
     }
     Ok(serde_json::json!({"_raw": text}))
 }
@@ -1040,36 +1565,51 @@ pub async fn fetch_show_episodes(
 ) -> Result<serde_json::Value, String> {
     let start = start.unwrap_or(0);
     let size = size.unwrap_or(200);
-    let base_in = server.trim_end_matches('/');
-    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
-        base_in.to_string()
-    } else { format!("http://{}", base_in) }];
-    if base_in.starts_with("http://") {
-        bases.push(base_in.replacen("http://", "https://", 1));
-    } else if base_in.starts_with("https://") {
-        bases.push(base_in.replacen("https://", "http://", 1));
-    } else {
-        bases.push(format!("https://{}", base_in));
-    }
-    bases.sort();
-    bases.dedup();
+    let bases = build_base_variants(&server);
 
-    let paging = format!("X-Plex-Container-Start={}&X-Plex-Container-Size={}", start, size);
+    let paging = format!(
+        "X-Plex-Container-Start={}&X-Plex-Container-Size={}",
+        start, size
+    );
     let mut urls: Vec<String> = Vec::new();
     for b in &bases {
         if let Some(t) = token.as_ref() {
             let tok = urlencoding::encode(t);
             // For shows, /allLeaves returns episodes, /children returns seasons
             // Prioritize /allLeaves to get episodes for mapping detection
-            urls.push(format!("{}/library/metadata/{}/allLeaves?{}&X-Plex-Token={}", b, show_rating_key, paging, tok));
-            urls.push(format!("{}/library/metadata/{}/children?{}&X-Plex-Token={}", b, show_rating_key, paging, tok));
-            urls.push(format!("{}/library/metadata/{}/allLeaves?X-Plex-Token={}", b, show_rating_key, tok));
-            urls.push(format!("{}/library/metadata/{}/children?X-Plex-Token={}", b, show_rating_key, tok));
+            urls.push(format!(
+                "{}/library/metadata/{}/allLeaves?{}&X-Plex-Token={}",
+                b, show_rating_key, paging, tok
+            ));
+            urls.push(format!(
+                "{}/library/metadata/{}/children?{}&X-Plex-Token={}",
+                b, show_rating_key, paging, tok
+            ));
+            urls.push(format!(
+                "{}/library/metadata/{}/allLeaves?X-Plex-Token={}",
+                b, show_rating_key, tok
+            ));
+            urls.push(format!(
+                "{}/library/metadata/{}/children?X-Plex-Token={}",
+                b, show_rating_key, tok
+            ));
         }
-        urls.push(format!("{}/library/metadata/{}/allLeaves?{}", b, show_rating_key, paging));
-        urls.push(format!("{}/library/metadata/{}/children?{}", b, show_rating_key, paging));
-        urls.push(format!("{}/library/metadata/{}/allLeaves", b, show_rating_key));
-        urls.push(format!("{}/library/metadata/{}/children", b, show_rating_key));
+        urls.push(format!(
+            "{}/library/metadata/{}/allLeaves?{}",
+            b, show_rating_key, paging
+        ));
+        urls.push(format!(
+            "{}/library/metadata/{}/children?{}",
+            b, show_rating_key, paging
+        ));
+        urls.push(format!(
+            "{}/library/metadata/{}/allLeaves",
+            b, show_rating_key
+        ));
+        urls.push(format!(
+            "{}/library/metadata/{}/children",
+            b, show_rating_key
+        ));
     }
 
     let client_id = current_client_id();
@@ -1081,10 +1621,14 @@ pub async fn fetch_show_episodes(
     }
     let trimmed = text.trim();
     if trimmed.starts_with('{') || trimmed.starts_with('[') {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) { return Ok(v); }
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) {
+            return Ok(v);
+        }
     }
     if trimmed.starts_with('<') {
-        if let Some(v) = xml_media_to_json(&text) { return Ok(v); }
+        if let Some(v) = xml_media_to_json(&text) {
+            return Ok(v);
+        }
     }
     Ok(serde_json::json!({"_raw": text}))
 }
@@ -1099,21 +1643,12 @@ pub async fn fetch_plex_metadata(
 ) -> Result<serde_json::Value, String> {
     let start = start.unwrap_or(0);
     let size = size.unwrap_or(200);
-    let base_in = server.trim_end_matches('/');
-    let mut bases: Vec<String> = vec![if base_in.starts_with("http://") || base_in.starts_with("https://") {
-        base_in.to_string()
-    } else { format!("http://{}", base_in) }];
-    if base_in.starts_with("http://") {
-        bases.push(base_in.replacen("http://", "https://", 1));
-    } else if base_in.starts_with("https://") {
-        bases.push(base_in.replacen("https://", "http://", 1));
-    } else {
-        bases.push(format!("https://{}", base_in));
-    }
-    bases.sort();
-    bases.dedup();
+    let bases = build_base_variants(&server);
 
-    let paging = format!("X-Plex-Container-Start={}&X-Plex-Container-Size={}", start, size);
+    let paging = format!(
+        "X-Plex-Container-Start={}&X-Plex-Container-Size={}",
+        start, size
+    );
     let mut urls: Vec<String> = Vec::new();
     for b in &bases {
         if let Some(t) = token.as_ref() {
@@ -1134,16 +1669,23 @@ pub async fn fetch_plex_metadata(
     }
     let trimmed = text.trim();
     if trimmed.starts_with('{') || trimmed.starts_with('[') {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) { return Ok(v); }
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) {
+            return Ok(v);
+        }
     }
     if trimmed.starts_with('<') {
-        if let Some(v) = xml_media_to_json(&text) { return Ok(v); }
+        if let Some(v) = xml_media_to_json(&text) {
+            return Ok(v);
+        }
     }
     Ok(serde_json::json!({"_raw": text}))
 }
 
 #[tauri::command]
-pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec<PlexLibraryDto>, String> {
+pub async fn list_libraries(
+    server: String,
+    token: Option<String>,
+) -> Result<Vec<PlexLibraryDto>, String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(20))
         .http1_only()
@@ -1162,22 +1704,21 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
             msg
         })?;
 
-    let base = server.trim_end_matches('/');
-    // Build HTTP and HTTPS candidates (Self-signed certs accepted).
-    let mut bases: Vec<String> = vec![base.to_string()];
-    if base.starts_with("http://") {
-        bases.push(base.replacen("http://", "https://", 1));
-    } else if base.starts_with("https://") {
-        bases.push(base.replacen("https://", "http://", 1));
-    }
-    bases.sort();
-    bases.dedup();
+    let bases = build_base_variants(&server);
 
     let mut urls: Vec<String> = Vec::new();
     for b in &bases {
         if let Some(t) = token.as_ref() {
-            urls.push(format!("{}/library/sections?X-Plex-Token={}", b, urlencoding::encode(t)));
-            urls.push(format!("{}/library/sections/?X-Plex-Token={}", b, urlencoding::encode(t)));
+            urls.push(format!(
+                "{}/library/sections?X-Plex-Token={}",
+                b,
+                urlencoding::encode(t)
+            ));
+            urls.push(format!(
+                "{}/library/sections/?X-Plex-Token={}",
+                b,
+                urlencoding::encode(t)
+            ));
         } else {
             urls.push(format!("{}/library/sections", b));
             urls.push(format!("{}/library/sections/", b));
@@ -1197,7 +1738,10 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
             .header("Accept-Encoding", "identity")
             .header("Connection", "close");
         match req.send().await {
-            Ok(r) => { resp_opt = Some(r); break; }
+            Ok(r) => {
+                resp_opt = Some(r);
+                break;
+            }
             Err(e) => {
                 let msg = format!("{e:?} @ {}", url);
                 crate::logging::log_event(
@@ -1214,7 +1758,9 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
     let response = match resp_opt {
         Some(resp) => resp,
         None => {
-            if let Ok(out) = fetch_sections_with_ureq(&bases[0], &urls, token.as_deref(), &client_id) {
+            if let Ok(out) =
+                fetch_sections_with_ureq(&bases[0], &urls, token.as_deref(), &client_id)
+            {
                 return Ok(out);
             }
             let msg = format!(
@@ -1246,14 +1792,23 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
         }
     };
 
-
     if status.as_u16() == 401 {
         if let Some(acc_tok) = token.as_deref() {
-            if let Some(server_tok) = fetch_server_access_token(acc_tok, &client_id, &bases[0]).await {
+            if let Some(server_tok) =
+                fetch_server_access_token(acc_tok, &client_id, &bases[0]).await
+            {
                 let mut retry_urls: Vec<String> = Vec::new();
                 for b in &bases {
-                    retry_urls.push(format!("{}/library/sections?X-Plex-Token={}", b, urlencoding::encode(&server_tok)));
-                    retry_urls.push(format!("{}/library/sections/?X-Plex-Token={}", b, urlencoding::encode(&server_tok)));
+                    retry_urls.push(format!(
+                        "{}/library/sections?X-Plex-Token={}",
+                        b,
+                        urlencoding::encode(&server_tok)
+                    ));
+                    retry_urls.push(format!(
+                        "{}/library/sections/?X-Plex-Token={}",
+                        b,
+                        urlencoding::encode(&server_tok)
+                    ));
                 }
                 for u in retry_urls.iter() {
                     let req = with_plex_headers(client.get(u), &client_id)
@@ -1266,14 +1821,13 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                             if r.status().is_success() {
                                 let body = r.text().await.unwrap_or_default();
                                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-                                    let dirs = json.get("MediaContainer").and_then(|m| m.get("Directory")).and_then(|x| x.as_array()).cloned().unwrap_or_default();
-                                    let mut out = Vec::new();
-                                    for d in dirs {
-                                        let key = d.get("key").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                                        let typ = d.get("type").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                                        let title = d.get("title").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                                        if !key.is_empty() && !title.is_empty() { out.push(PlexLibraryDto { key, r#type: typ, title, roots: vec![] }); }
-                                    }
+                                    let out = parse_libraries_from_json_value(&json)
+                                        .into_iter()
+                                        .map(|library| PlexLibraryDto {
+                                            roots: vec![],
+                                            ..library
+                                        })
+                                        .collect();
                                     return Ok(out);
                                 }
                             } else {
@@ -1300,29 +1854,19 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
 
     // Try to parse as JSON first
     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text) {
-        if let Some(media_container) = json.get("MediaContainer") {
-            if let Some(dirs_val) = media_container.get("Directory") {
-                let dirs_slice: Vec<&serde_json::Value> = match dirs_val {
-                    serde_json::Value::Array(a) => a.iter().collect(),
-                    _ => vec![dirs_val],
-                };
-                let mut dirs: Vec<PlexLibraryDto> = Vec::new();
-                for d in dirs_slice {
-                    let key = d.get("key").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                    let typ = d.get("type").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                    let title = d.get("title").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                    if key.is_empty() || title.is_empty() { continue; }
-                    let mut roots: Vec<String> = parse_roots_from_directory_json(d);
-                    if roots.is_empty() {
-                        // Fallback to per-section request if locations not present in this payload
-                        if let Ok(r) = fetch_section_roots(&bases, &key, token.as_deref(), &client_id).await { roots = r; }
+        let mut dirs = parse_libraries_from_json_value(&json);
+        if !dirs.is_empty() {
+            for dir in &mut dirs {
+                if dir.roots.is_empty() {
+                    // Fallback to per-section request if locations not present in this payload
+                    if let Ok(roots) =
+                        fetch_section_roots(&bases, &dir.key, token.as_deref(), &client_id).await
+                    {
+                        dir.roots = roots;
                     }
-                    dirs.push(PlexLibraryDto { key, r#type: typ, title, roots });
                 }
-                return Ok(dirs);
-            } else {
             }
-        } else {
+            return Ok(dirs);
         }
     } else {
     }
@@ -1342,13 +1886,20 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) if e.name().as_ref() == b"Directory" => {
                 in_dir = true;
-                cur_key.clear(); cur_type.clear(); cur_title.clear(); cur_roots.clear();
+                cur_key.clear();
+                cur_type.clear();
+                cur_title.clear();
+                cur_roots.clear();
                 for a in e.attributes().flatten() {
                     let k = a.key.as_ref();
                     let v = a.unescape_value().unwrap_or_default();
-                    if k == b"key" { cur_key = v.to_string(); }
-                    else if k == b"type" { cur_type = v.to_string(); }
-                    else if k == b"title" { cur_title = v.to_string(); }
+                    if k == b"key" {
+                        cur_key = v.to_string();
+                    } else if k == b"type" {
+                        cur_type = v.to_string();
+                    } else if k == b"title" {
+                        cur_title = v.to_string();
+                    }
                 }
             }
             Ok(Event::Empty(e)) if e.name().as_ref() == b"Directory" => {
@@ -1359,19 +1910,30 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                 for a in e.attributes().flatten() {
                     let k = a.key.as_ref();
                     let v = a.unescape_value().unwrap_or_default();
-                    if k == b"key" { key = v.to_string(); }
-                    else if k == b"type" { typ = v.to_string(); }
-                    else if k == b"title" { title = v.to_string(); }
+                    if k == b"key" {
+                        key = v.to_string();
+                    } else if k == b"type" {
+                        typ = v.to_string();
+                    } else if k == b"title" {
+                        title = v.to_string();
+                    }
                 }
                 if !key.is_empty() && !title.is_empty() {
-                    out.push(PlexLibraryDto { key, r#type: typ, title, roots: Vec::new() });
+                    out.push(PlexLibraryDto {
+                        key,
+                        r#type: typ,
+                        title,
+                        roots: Vec::new(),
+                    });
                 }
             }
             Ok(Event::Start(e)) if e.name().as_ref() == b"Location" && in_dir => {
                 for a in e.attributes().flatten() {
                     if a.key.as_ref() == b"path" {
                         let v = a.unescape_value().unwrap_or_default();
-                        if !v.is_empty() { cur_roots.push(v.to_string()); }
+                        if !v.is_empty() {
+                            cur_roots.push(v.to_string());
+                        }
                     }
                 }
             }
@@ -1379,14 +1941,21 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
                 for a in e.attributes().flatten() {
                     if a.key.as_ref() == b"path" {
                         let v = a.unescape_value().unwrap_or_default();
-                        if !v.is_empty() { cur_roots.push(v.to_string()); }
+                        if !v.is_empty() {
+                            cur_roots.push(v.to_string());
+                        }
                     }
                 }
             }
             Ok(Event::Eof) => break,
             Ok(Event::End(e)) if e.name().as_ref() == b"Directory" => {
                 if !cur_key.is_empty() && !cur_title.is_empty() {
-                    out.push(PlexLibraryDto { key: cur_key.clone(), r#type: cur_type.clone(), title: cur_title.clone(), roots: cur_roots.clone() });
+                    out.push(PlexLibraryDto {
+                        key: cur_key.clone(),
+                        r#type: cur_type.clone(),
+                        title: cur_title.clone(),
+                        roots: cur_roots.clone(),
+                    });
                 }
                 in_dir = false;
                 cur_roots.clear();
@@ -1409,7 +1978,10 @@ pub async fn list_libraries(server: String, token: Option<String>) -> Result<Vec
     }
 
     // If we get here, neither JSON nor XML parsing worked
-    let error = format!("Failed to parse libraries from response. Response: {}", response_text);
+    let error = format!(
+        "Failed to parse libraries from response. Response: {}",
+        response_text
+    );
     Err(error)
 }
 
@@ -1440,11 +2012,16 @@ fn fetch_sections_with_ureq(
             .set("X-Plex-Platform", platform)
             .set("X-Plex-Device", platform)
             .set("X-Plex-Device-Name", &whoami::devicename());
-        if let Some(t) = token { req = req.set("X-Plex-Token", t); }
+        if let Some(t) = token {
+            req = req.set("X-Plex-Token", t);
+        }
 
         match req.call() {
             Ok(resp) => {
-                let ct = resp.header("content-type").unwrap_or("").to_ascii_lowercase();
+                let ct = resp
+                    .header("content-type")
+                    .unwrap_or("")
+                    .to_ascii_lowercase();
                 if ct.contains("application/json") {
                     let v: serde_json::Value = resp
                         .into_json()
@@ -1457,16 +2034,35 @@ fn fetch_sections_with_ureq(
                         .unwrap_or_default();
                     let mut out = Vec::new();
                     for d in dirs {
-                        let key = d.get("key").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                        let typ = d.get("type").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                        let title = d.get("title").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                        let key = d
+                            .get("key")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let typ = d
+                            .get("type")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let title = d
+                            .get("title")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("")
+                            .to_string();
                         if !key.is_empty() && !title.is_empty() {
-                            out.push(PlexLibraryDto { key, r#type: typ, title, roots: Vec::new() });
+                            out.push(PlexLibraryDto {
+                                key,
+                                r#type: typ,
+                                title,
+                                roots: Vec::new(),
+                            });
                         }
                     }
                     return Ok(out);
                 } else {
-                    let body = resp.into_string().map_err(|e| format!("libraries read error: {e}"))?;
+                    let body = resp
+                        .into_string()
+                        .map_err(|e| format!("libraries read error: {e}"))?;
                     let mut reader = Reader::from_str(&body);
                     reader.trim_text(true);
                     let mut buf = Vec::new();
@@ -1480,12 +2076,21 @@ fn fetch_sections_with_ureq(
                                 for a in e.attributes().flatten() {
                                     let k = a.key.as_ref();
                                     let v = a.unescape_value().unwrap_or_default();
-                                    if k == b"key" { key = v.to_string(); }
-                                    else if k == b"type" { typ = v.to_string(); }
-                                    else if k == b"title" { title = v.to_string(); }
+                                    if k == b"key" {
+                                        key = v.to_string();
+                                    } else if k == b"type" {
+                                        typ = v.to_string();
+                                    } else if k == b"title" {
+                                        title = v.to_string();
+                                    }
                                 }
                                 if !key.is_empty() && !title.is_empty() {
-                                    out.push(PlexLibraryDto { key, r#type: typ, title, roots: Vec::new() });
+                                    out.push(PlexLibraryDto {
+                                        key,
+                                        r#type: typ,
+                                        title,
+                                        roots: Vec::new(),
+                                    });
                                 }
                             }
                             Ok(Event::Eof) => break,
@@ -1497,10 +2102,16 @@ fn fetch_sections_with_ureq(
                     return Ok(out);
                 }
             }
-            Err(e) => { last_err = Some(e.to_string()); }
+            Err(e) => {
+                last_err = Some(e.to_string());
+            }
         }
     }
-    Err(format!("ureq libraries request error: {} — server {}", last_err.unwrap_or_else(|| "unknown".into()), base))
+    Err(format!(
+        "ureq libraries request error: {} — server {}",
+        last_err.unwrap_or_else(|| "unknown".into()),
+        base
+    ))
 }
 
 // Fetch roots for a single section key by querying /library/sections/{key}
@@ -1522,8 +2133,18 @@ async fn fetch_section_roots(
     let mut urls: Vec<String> = Vec::new();
     for b in bases {
         if let Some(t) = token {
-            urls.push(format!("{}/library/sections/{}?X-Plex-Token={}", b, key, urlencoding::encode(t)));
-            urls.push(format!("{}/library/sections/{}/?X-Plex-Token={}", b, key, urlencoding::encode(t)));
+            urls.push(format!(
+                "{}/library/sections/{}?X-Plex-Token={}",
+                b,
+                key,
+                urlencoding::encode(t)
+            ));
+            urls.push(format!(
+                "{}/library/sections/{}/?X-Plex-Token={}",
+                b,
+                key,
+                urlencoding::encode(t)
+            ));
         } else {
             urls.push(format!("{}/library/sections/{}", b, key));
             urls.push(format!("{}/library/sections/{}/", b, key));
@@ -1536,22 +2157,33 @@ async fn fetch_section_roots(
             .header("Accept", "application/json, application/xml;q=0.9")
             .header("Accept-Encoding", "identity")
             .header("Connection", "close");
-        if let Some(t) = token { req = req.header("X-Plex-Token", t); }
+        if let Some(t) = token {
+            req = req.header("X-Plex-Token", t);
+        }
         match req.send().await {
             Ok(resp) => {
                 let status = resp.status();
                 let body = resp.text().await.unwrap_or_default();
-                if !status.is_success() { last_err = Some(format!("HTTP {} @ {}", status, url)); continue; }
+                if !status.is_success() {
+                    last_err = Some(format!("HTTP {} @ {}", status, url));
+                    continue;
+                }
                 // JSON first
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-                    if let Some(roots) = parse_roots_from_json(&json) { return Ok(roots); }
+                    if let Some(roots) = parse_roots_from_json(&json) {
+                        return Ok(roots);
+                    }
                 }
                 // XML fallback
-                if let Some(roots) = parse_roots_from_xml(&body) { return Ok(roots); }
+                if let Some(roots) = parse_roots_from_xml(&body) {
+                    return Ok(roots);
+                }
                 // As a fallback, return empty to avoid hard-fail
                 return Ok(Vec::new());
             }
-            Err(e) => { last_err = Some(format!("{e:?} @ {}", url)); }
+            Err(e) => {
+                last_err = Some(format!("{e:?} @ {}", url));
+            }
         }
     }
     Err(last_err.unwrap_or_else(|| "unknown error fetching section roots".into()))
@@ -1571,13 +2203,17 @@ fn parse_roots_from_json(v: &serde_json::Value) -> Option<Vec<String>> {
             Some(serde_json::Value::Array(locs)) => {
                 for loc in locs {
                     if let Some(path) = loc.get("path").and_then(|x| x.as_str()) {
-                        if !path.is_empty() { out.push(path.to_string()); }
+                        if !path.is_empty() {
+                            out.push(path.to_string());
+                        }
                     }
                 }
             }
             Some(obj @ serde_json::Value::Object(_)) => {
                 if let Some(path) = obj.get("path").and_then(|x| x.as_str()) {
-                    if !path.is_empty() { out.push(path.to_string()); }
+                    if !path.is_empty() {
+                        out.push(path.to_string());
+                    }
                 }
             }
             _ => {}
@@ -1592,18 +2228,66 @@ fn parse_roots_from_directory_json(d: &serde_json::Value) -> Vec<String> {
         Some(serde_json::Value::Array(locs)) => {
             for loc in locs {
                 if let Some(path) = loc.get("path").and_then(|x| x.as_str()) {
-                    if !path.is_empty() { out.push(path.to_string()); }
+                    if !path.is_empty() {
+                        out.push(path.to_string());
+                    }
                 }
             }
         }
         Some(obj @ serde_json::Value::Object(_)) => {
             if let Some(path) = obj.get("path").and_then(|x| x.as_str()) {
-                if !path.is_empty() { out.push(path.to_string()); }
+                if !path.is_empty() {
+                    out.push(path.to_string());
+                }
             }
         }
         _ => {}
     }
     out
+}
+
+fn parse_libraries_from_json_value(json: &serde_json::Value) -> Vec<PlexLibraryDto> {
+    let Some(media_container) = json.get("MediaContainer") else {
+        return Vec::new();
+    };
+    let Some(dirs_val) = media_container.get("Directory") else {
+        return Vec::new();
+    };
+
+    let dirs_slice: Vec<&serde_json::Value> = match dirs_val {
+        serde_json::Value::Array(a) => a.iter().collect(),
+        _ => vec![dirs_val],
+    };
+
+    let mut dirs: Vec<PlexLibraryDto> = Vec::new();
+    for d in dirs_slice {
+        let key = d
+            .get("key")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string();
+        let typ = d
+            .get("type")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string();
+        let title = d
+            .get("title")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string();
+        if key.is_empty() || title.is_empty() {
+            continue;
+        }
+        dirs.push(PlexLibraryDto {
+            key,
+            r#type: typ,
+            title,
+            roots: parse_roots_from_directory_json(d),
+        });
+    }
+
+    dirs
 }
 
 fn parse_roots_from_xml(xml: &str) -> Option<Vec<String>> {
@@ -1615,12 +2299,15 @@ fn parse_roots_from_xml(xml: &str) -> Option<Vec<String>> {
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => {
-                if e.name().as_ref() == b"Directory" { in_directory = true; }
-                else if in_directory && e.name().as_ref() == b"Location" {
+                if e.name().as_ref() == b"Directory" {
+                    in_directory = true;
+                } else if in_directory && e.name().as_ref() == b"Location" {
                     for a in e.attributes().flatten() {
                         if a.key.as_ref() == b"path" {
                             let v = a.unescape_value().unwrap_or_default();
-                            if !v.is_empty() { out.push(v.to_string()); }
+                            if !v.is_empty() {
+                                out.push(v.to_string());
+                            }
                         }
                     }
                 }
@@ -1630,13 +2317,17 @@ fn parse_roots_from_xml(xml: &str) -> Option<Vec<String>> {
                     for a in e.attributes().flatten() {
                         if a.key.as_ref() == b"path" {
                             let v = a.unescape_value().unwrap_or_default();
-                            if !v.is_empty() { out.push(v.to_string()); }
+                            if !v.is_empty() {
+                                out.push(v.to_string());
+                            }
                         }
                     }
                 }
             }
             Ok(Event::End(e)) => {
-                if e.name().as_ref() == b"Directory" { in_directory = false; }
+                if e.name().as_ref() == b"Directory" {
+                    in_directory = false;
+                }
             }
             Ok(Event::Eof) => break,
             Err(_) => break,
@@ -1718,22 +2409,27 @@ pub fn sanitize_filename(filename: &str, settings: &CharacterReplacement) -> Str
     }
 
     // 6. Strip control characters (0x00–0x1F, 0x7F)
-    result = result.chars()
+    result = result
+        .chars()
         .filter(|&c| !c.is_ascii_control() || c == '\n' || c == '\r' || c == '\t')
         .collect();
 
     // 7. Strip trailing dots and spaces
-    result = result.trim_end_matches(|c: char| c == '.' || c == ' ').to_string();
+    result = result
+        .trim_end_matches(|c: char| c == '.' || c == ' ')
+        .to_string();
 
     // 8. Handle reserved names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
     let base = result.replace('.', "");
     let reserved_names = [
-        "CON", "PRN", "AUX", "NUL",
-        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+        "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
     ];
 
-    if reserved_names.iter().any(|&name| base.to_uppercase() == name) {
+    if reserved_names
+        .iter()
+        .any(|&name| base.to_uppercase() == name)
+    {
         result.push_str("_file");
     }
 
@@ -1760,7 +2456,10 @@ pub async fn refresh_metadata_item(
     item_ids: String,
     token: Option<String>,
 ) -> Result<(), String> {
-    println!("[Plex API] Refreshing metadata item: server={}, item_ids={}", server, item_ids);
+    println!(
+        "[Plex API] Refreshing metadata item: server={}, item_ids={}",
+        server, item_ids
+    );
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
@@ -1771,19 +2470,17 @@ pub async fn refresh_metadata_item(
         .build()
         .map_err(|e| format!("HTTP client error: {e}"))?;
 
-    let base = server.trim_end_matches('/');
-    let mut bases: Vec<String> = vec![base.to_string()];
-    if base.starts_with("http://") {
-        bases.push(base.replacen("http://", "https://", 1));
-    } else if base.starts_with("https://") {
-        bases.push(base.replacen("https://", "http://", 1));
-    }
+    let bases = build_base_variants(&server);
 
     let client_id = current_client_id();
     let mut last_err: Option<String> = None;
 
     for base_url in bases.iter() {
-        let mut url = format!("{}/library/metadata/{}/refresh", base_url, urlencoding::encode(&item_ids));
+        let mut url = format!(
+            "{}/library/metadata/{}/refresh",
+            base_url,
+            urlencoding::encode(&item_ids)
+        );
         // Add markUpdated=1 to ensure Plex recognizes the file changes
         url.push_str("?markUpdated=1");
 
@@ -1802,10 +2499,16 @@ pub async fn refresh_metadata_item(
             Ok(resp) => {
                 let status = resp.status();
                 let text = resp.text().await.unwrap_or_default();
-                println!("[Plex API] Refresh response: status={}, body={}", status, text);
+                println!(
+                    "[Plex API] Refresh response: status={}, body={}",
+                    status, text
+                );
 
                 if status.is_success() {
-                    println!("[Plex API] Successfully refreshed metadata item {}", item_ids);
+                    println!(
+                        "[Plex API] Successfully refreshed metadata item {}",
+                        item_ids
+                    );
                     return Ok(());
                 } else {
                     last_err = Some(format!("HTTP {}: {}", status, text));
@@ -1829,7 +2532,10 @@ pub async fn refresh_library_section(
     section_id: i32,
     token: Option<String>,
 ) -> Result<(), String> {
-    println!("[Plex API] Refreshing library section: server={}, section_id={}", server, section_id);
+    println!(
+        "[Plex API] Refreshing library section: server={}, section_id={}",
+        server, section_id
+    );
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(60)) // Longer timeout for section refresh
@@ -1840,13 +2546,7 @@ pub async fn refresh_library_section(
         .build()
         .map_err(|e| format!("HTTP client error: {e}"))?;
 
-    let base = server.trim_end_matches('/');
-    let mut bases: Vec<String> = vec![base.to_string()];
-    if base.starts_with("http://") {
-        bases.push(base.replacen("http://", "https://", 1));
-    } else if base.starts_with("https://") {
-        bases.push(base.replacen("https://", "http://", 1));
-    }
+    let bases = build_base_variants(&server);
 
     let client_id = current_client_id();
     let mut last_err: Option<String> = None;
@@ -1868,10 +2568,16 @@ pub async fn refresh_library_section(
             Ok(resp) => {
                 let status = resp.status();
                 let text = resp.text().await.unwrap_or_default();
-                println!("[Plex API] Section refresh response: status={}, body={}", status, text);
+                println!(
+                    "[Plex API] Section refresh response: status={}, body={}",
+                    status, text
+                );
 
                 if status.is_success() {
-                    println!("[Plex API] Successfully refreshed library section {}", section_id);
+                    println!(
+                        "[Plex API] Successfully refreshed library section {}",
+                        section_id
+                    );
                     return Ok(());
                 } else {
                     last_err = Some(format!("HTTP {}: {}", status, text));
@@ -1896,7 +2602,10 @@ pub async fn refresh_library_section_with_path(
     path: String,
     token: Option<String>,
 ) -> Result<(), String> {
-    println!("[Plex API] Refreshing library section path: server={}, section_id={}, path={}", server, section_id, path);
+    println!(
+        "[Plex API] Refreshing library section path: server={}, section_id={}, path={}",
+        server, section_id, path
+    );
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(60)) // Longer timeout for path refresh
@@ -1907,20 +2616,17 @@ pub async fn refresh_library_section_with_path(
         .build()
         .map_err(|e| format!("HTTP client error: {e}"))?;
 
-    let base = server.trim_end_matches('/');
-    let mut bases: Vec<String> = vec![base.to_string()];
-    if base.starts_with("http://") {
-        bases.push(base.replacen("http://", "https://", 1));
-    } else if base.starts_with("https://") {
-        bases.push(base.replacen("https://", "http://", 1));
-    }
+    let bases = build_base_variants(&server);
 
     let client_id = current_client_id();
     let mut last_err: Option<String> = None;
 
     for base_url in bases.iter() {
         let url = format!("{}/library/sections/{}/refresh", base_url, section_id);
-        println!("[Plex API] Making path refresh request to: {} with path: {}", url, path);
+        println!(
+            "[Plex API] Making path refresh request to: {} with path: {}",
+            url, path
+        );
 
         let mut req = with_plex_headers(client.post(&url), &client_id);
         // Add both force=1 and path parameters
@@ -1933,10 +2639,16 @@ pub async fn refresh_library_section_with_path(
             Ok(resp) => {
                 let status = resp.status();
                 let text = resp.text().await.unwrap_or_default();
-                println!("[Plex API] Path refresh response: status={}, body={}", status, text);
+                println!(
+                    "[Plex API] Path refresh response: status={}, body={}",
+                    status, text
+                );
 
                 if status.is_success() {
-                    println!("[Plex API] Successfully refreshed library section {} path: {}", section_id, path);
+                    println!(
+                        "[Plex API] Successfully refreshed library section {} path: {}",
+                        section_id, path
+                    );
                     return Ok(());
                 } else {
                     last_err = Some(format!("HTTP {}: {}", status, text));
@@ -1949,7 +2661,47 @@ pub async fn refresh_library_section_with_path(
         }
     }
 
-    let error_msg = last_err.unwrap_or_else(|| "Failed to refresh library section path".to_string());
+    let error_msg =
+        last_err.unwrap_or_else(|| "Failed to refresh library section path".to_string());
     println!("[Plex API] Path refresh failed: {}", error_msg);
     Err(error_msg)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_base_variants, parse_libraries_from_json_value};
+
+    #[test]
+    fn build_base_variants_keeps_full_urls_intact() {
+        let variants = build_base_variants("http://localhost:32400");
+        assert_eq!(variants.len(), 2);
+        assert!(variants.contains(&"http://localhost:32400".to_string()));
+        assert!(variants.contains(&"https://localhost:32400".to_string()));
+    }
+
+    #[test]
+    fn build_base_variants_adds_schemes_for_bare_hosts() {
+        let variants = build_base_variants("localhost:32400");
+        assert_eq!(variants.len(), 2);
+        assert!(variants.contains(&"http://localhost:32400".to_string()));
+        assert!(variants.contains(&"https://localhost:32400".to_string()));
+    }
+
+    #[test]
+    fn parse_libraries_from_mock_fixture_preserves_roots() {
+        let json: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/mock-plex/fixtures/libraries.json"
+        ))
+        .expect("mock libraries fixture should be valid JSON");
+
+        let libraries = parse_libraries_from_json_value(&json);
+
+        assert_eq!(libraries.len(), 3);
+        assert_eq!(libraries[0].key, "1");
+        assert_eq!(libraries[0].r#type, "movie");
+        assert_eq!(libraries[0].title, "Movies");
+        assert_eq!(libraries[0].roots, vec!["/mount/server/HDD1/Movies"]);
+        assert_eq!(libraries[1].roots, vec!["/share/plex/Series"]);
+        assert_eq!(libraries[2].roots, vec!["/volume1/Media/Music"]);
+    }
 }

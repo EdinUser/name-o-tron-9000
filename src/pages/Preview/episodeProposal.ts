@@ -12,6 +12,12 @@ import {
     safeFolderName,
     sanitizeProposal,
 } from "./utils";
+import {
+    appendSplitPartSuffix,
+    detectMultiEpisodeRangeFromFilename,
+    detectSplitPartSuffix,
+    renderEpisodeTemplateWithPlexTokens,
+} from "./episodeTokens";
 import { extractImdbId, extractTvdbId, extractTmdbId, renderTemplate } from "../../utils/template";
 
 export async function computeMultiEpisodeProposal(
@@ -57,9 +63,8 @@ export async function computeMultiEpisodeProposal(
     const tmdbId = primaryEpisode.guid ? extractTmdbId(primaryEpisode.guid) : null;
 
     // Detect multi-episode range from filename or Plex data
-    const filename = basename(filePath);
-    const multiEpisodePattern = /S(\d{1,2})E(\d{1,2})-?E?(\d{1,2})/i;
-    const match = filename.match(multiEpisodePattern);
+    const matchedRange = detectMultiEpisodeRangeFromFilename(filePath);
+    const splitPartSuffix = detectSplitPartSuffix(filePath);
 
     const flags: string[] = ["multi-episode"];
 
@@ -67,20 +72,10 @@ export async function computeMultiEpisodeProposal(
     let endEpisode = episodes.length;
     let detectedTitle = primaryEpisode.title;
 
-    if (match) {
-        const seasonFromFile = parseInt(match[1], 10);
-        startEpisode = parseInt(match[2], 10);
-        endEpisode = parseInt(match[3], 10);
-
-        // Verify the season matches and episodes make sense
-        if (seasonFromFile === season && endEpisode > startEpisode) {
-            // Create a combined title for all episodes
-            const episodeTitles = episodes.map(e => e.title).filter(Boolean);
-            if (episodeTitles.length > 0) {
-                detectedTitle = episodeTitles.join(" / ");
-            }
-            flags.push("multi-episode-detected");
-        }
+    if (matchedRange && matchedRange.season === season) {
+        startEpisode = matchedRange.startEpisode;
+        endEpisode = matchedRange.endEpisode;
+        flags.push("multi-episode-detected");
     }
 
     // Fallback: use the episode range from Plex data
@@ -89,6 +84,13 @@ export async function computeMultiEpisodeProposal(
         if (episodeNumbers.length > 1) {
             startEpisode = episodeNumbers[0];
             endEpisode = episodeNumbers[episodeNumbers.length - 1];
+        }
+    }
+
+    if (endEpisode > startEpisode) {
+        const episodeTitles = episodes.map(e => e.title).filter(Boolean);
+        if (episodeTitles.length > 0) {
+            detectedTitle = episodeTitles.join(" / ");
         }
     }
 
@@ -147,6 +149,7 @@ export async function computeMultiEpisodeProposal(
     }
 
     // Apply folder structure settings
+    let showFolderName = "";
     let folderPrefix = "";
 
     // For "Keep unchanged" ID setting, preserve existing show folder structure
@@ -184,6 +187,8 @@ export async function computeMultiEpisodeProposal(
             // Preserve ID tags
             showFolder = showFolder.replace(/\((imdb-tt\d+|tvdb-\d+|tmdb-\d+)\)/g, '{$1}');
 
+            showFolderName = showFolder;
+
             if (useSeasonFolders) {
                 const seasonLabel = typeof detectedSeason === "number" ? `Season ${String(detectedSeason).padStart(2, "0")}` : "Season 00";
                 folderPrefix = `${showFolder}/${seasonLabel}/`;
@@ -193,11 +198,12 @@ export async function computeMultiEpisodeProposal(
         }
     } else {
         // For other ID settings, create standard folder structure
+        showFolderName = safeFolderName(showTitle);
         if (useSeasonFolders) {
             const seasonLabel = typeof detectedSeason === "number" ? `Season ${String(detectedSeason).padStart(2, "0")}` : "Season 00";
-            folderPrefix = `${safeFolderName(showTitle)}/${seasonLabel}/`;
+            folderPrefix = `${showFolderName}/${seasonLabel}/`;
         } else {
-            folderPrefix = `${safeFolderName(showTitle)}/`;
+            folderPrefix = `${showFolderName}/`;
         }
     }
 
@@ -225,7 +231,10 @@ export async function computeMultiEpisodeProposal(
 
     let templateResult = "";
     try {
-        templateResult = renderTemplate(dynamicTemplate, ctx);
+        templateResult = renderTemplate(
+            renderEpisodeTemplateWithPlexTokens(dynamicTemplate, { startEpisode, endEpisode }),
+            ctx,
+        );
     } catch (error) {
         console.error("Error rendering multi-episode template:", error);
         templateResult = `${showTitle} - S${String(detectedSeason || 0).padStart(2, "0")}${ctx.multiEpisodeRange} - ${detectedTitle}`;
@@ -233,6 +242,7 @@ export async function computeMultiEpisodeProposal(
 
     let proposed = templateResult;
     if (!proposed.endsWith(ext)) proposed += ext;
+    proposed = appendSplitPartSuffix(proposed, ext, splitPartSuffix);
 
     // Apply folder structure
     if (folderPrefix) {
@@ -243,6 +253,7 @@ export async function computeMultiEpisodeProposal(
     // Handle specials
     if (settings.tv.specials.moveExtras) {
         const filename = basename(filePath).toLowerCase();
+        const looksLikeNumberedEpisode = /\bs\d{1,2}e\d{1,2}\b/i.test(filename);
         const extrasPatterns = [
             /\bextra\b/, /\bextras\b/, /\bdeleted\b/, /\bscene\b/, /\bbehind.the.scenes\b/,
             /\binterview\b/, /\btrailer\b/, /\bfeaturette\b/, /\bbloopers?\b/,
@@ -251,9 +262,14 @@ export async function computeMultiEpisodeProposal(
 
         const isExtras = extrasPatterns.some(pattern => pattern.test(filename));
         if (isExtras) {
-            const fileName = basename(proposed);
-            proposed = `Extras/${fileName}`;
-            flags.push("moved-to-extras");
+            // Avoid false positives for normal numbered episodes like "S01E05 ... (Deleted Scene).mkv"
+            // Only move to Extras when this is Season 00 (specials) or the filename doesn't look like a standard episode.
+            if (detectedSeason === 0 || !looksLikeNumberedEpisode) {
+                const fileName = basename(proposed);
+                const extrasFolder = showFolderName ? `${showFolderName}/Extras/` : "Extras/";
+                proposed = `${extrasFolder}${fileName}`;
+                flags.push("moved-to-extras");
+            }
         }
     }
 
@@ -350,11 +366,14 @@ export async function computeEpisodeProposal(
     const imdbId = e.guid ? extractImdbId(e.guid) : null;
     const thetvdbId = e.guid ? extractTvdbId(e.guid) : null;
     const tmdbId = e.guid ? extractTmdbId(e.guid) : null;
+    const detectedRange = detectMultiEpisodeRangeFromFilename(e.file);
+    const splitPartSuffix = detectSplitPartSuffix(e.file);
 
     // Apply TV detection settings
     let detectedSeason = e.season;
     let detectedIndex = e.index;
     let detectedTitle = e.title;
+    let detectedRangeEnd = e.index;
     const flags: string[] = [];
 
     // Detect OVA/Specials and suggest Season 00
@@ -373,20 +392,10 @@ export async function computeEpisodeProposal(
 
     // Detect multi-episode files and normalize
     if (settings.tv.normalizeMultiEpisode) {
-        const fileName = basename(e.file);
-        const multiEpisodePattern = /S(\d{1,2})E(\d{1,2})-E?(\d{1,2})/i;
-        const match = fileName.match(multiEpisodePattern);
-        if (match) {
-            const season = parseInt(match[1], 10);
-            const startEp = parseInt(match[2], 10);
-            const endEp = parseInt(match[3], 10);
-
-            if (season === e.season && startEp === e.index) {
-                // Normalize to SXXEXX format for consecutive episodes
-                detectedIndex = startEp;
-                detectedTitle = `${detectedTitle} (Episodes ${startEp}-${endEp})`;
-                flags.push("multi-episode-normalized");
-            }
+        if (detectedRange && detectedRange.season === e.season && detectedRange.startEpisode === e.index) {
+            detectedIndex = detectedRange.startEpisode;
+            detectedRangeEnd = detectedRange.endEpisode;
+            flags.push("multi-episode-normalized");
         }
     }
 
@@ -452,6 +461,7 @@ export async function computeEpisodeProposal(
     }
 
     // Apply folder structure settings BEFORE template rendering
+    let showFolderName = "";
     let folderPrefix = "";
 
     // For "Keep unchanged" ID setting, preserve existing show folder structure
@@ -491,6 +501,8 @@ export async function computeEpisodeProposal(
             // Preserve ID tags if present in parentheses in the picked folder
             showFolder = showFolder.replace(/\((imdb-tt\d+|tvdb-\d+|tmdb-\d+)\)/g, '{$1}');
 
+            showFolderName = showFolder;
+
             if (useSeasonFolders) {
                 // Create Series/Season XX/ structure
                 const seasonLabel = typeof detectedSeason === "number" ? `Season ${String(detectedSeason).padStart(2, "0")}` : "Season 00";
@@ -502,13 +514,14 @@ export async function computeEpisodeProposal(
         }
     } else {
         // For other ID settings, ALWAYS create Series folder
+        showFolderName = safeFolderName(e.showTitle);
         if (useSeasonFolders) {
             // Create Series/Season XX/ structure
             const seasonLabel = typeof detectedSeason === "number" ? `Season ${String(detectedSeason).padStart(2, "0")}` : "Season 00";
-            folderPrefix = `${safeFolderName(e.showTitle)}/${seasonLabel}/`;
+            folderPrefix = `${showFolderName}/${seasonLabel}/`;
         } else {
             // Create Series/Episode structure (no season folders)
-            folderPrefix = `${safeFolderName(e.showTitle)}/`;
+            folderPrefix = `${showFolderName}/`;
         }
     }
 
@@ -517,6 +530,12 @@ export async function computeEpisodeProposal(
         title: detectedTitle,
         season: typeof detectedSeason === "number" ? detectedSeason : 0,
         episode: typeof detectedIndex === "number" ? detectedIndex : 0,
+        multiEpisodeStart: typeof detectedIndex === "number" ? detectedIndex : 0,
+        multiEpisodeEnd: typeof detectedRangeEnd === "number" ? detectedRangeEnd : (typeof detectedIndex === "number" ? detectedIndex : 0),
+        multiEpisodeRange:
+            typeof detectedIndex === "number" && typeof detectedRangeEnd === "number" && detectedRangeEnd > detectedIndex
+                ? `E${String(detectedIndex).padStart(2, "0")}-E${String(detectedRangeEnd).padStart(2, "0")}`
+                : `E${String(detectedIndex || 0).padStart(2, "0")}`,
         ext,
         year: e.year ?? "",
         grandparentTitle: e.grandparentTitle ?? e.showTitle,
@@ -531,7 +550,13 @@ export async function computeEpisodeProposal(
 
     let templateResult = "";
     try {
-        templateResult = renderTemplate(dynamicTemplate, ctx);
+        templateResult = renderTemplate(
+            renderEpisodeTemplateWithPlexTokens(dynamicTemplate, {
+                startEpisode: typeof detectedIndex === "number" ? detectedIndex : 0,
+                endEpisode: typeof detectedRangeEnd === "number" ? detectedRangeEnd : (typeof detectedIndex === "number" ? detectedIndex : 0),
+            }),
+            ctx,
+        );
     } catch (error) {
         console.error("Error rendering episode template:", error);
         templateResult = `${e.showTitle} - S${String(detectedSeason || 0).padStart(2, "0")}E${String(detectedIndex || 0).padStart(2, "0")} - ${detectedTitle}`;
@@ -539,6 +564,7 @@ export async function computeEpisodeProposal(
 
     let proposed = templateResult;
     if (!proposed.endsWith(ext)) proposed += ext;
+    proposed = appendSplitPartSuffix(proposed, ext, splitPartSuffix);
 
     // TV Series folder structure MUST always be enforced
     // The template cannot override the series folder requirement
@@ -551,6 +577,7 @@ export async function computeEpisodeProposal(
     if (settings.tv.specials.moveExtras) {
         // Check if this looks like an extras file (common patterns)
         const filename = basename(e.file).toLowerCase();
+        const looksLikeNumberedEpisode = /\bs\d{1,2}e\d{1,2}\b/i.test(filename);
         const extrasPatterns = [
             /\bextra\b/, /\bextras\b/, /\bdeleted\b/, /\bscene\b/, /\bbehind.the.scenes\b/,
             /\binterview\b/, /\btrailer\b/, /\bfeaturette\b/, /\bbloopers?\b/,
@@ -559,10 +586,15 @@ export async function computeEpisodeProposal(
 
         const isExtras = extrasPatterns.some(pattern => pattern.test(filename));
         if (isExtras) {
-            // Move to Extras folder
-            const fileName = basename(proposed);
-            proposed = `Extras/${fileName}`;
-            flags.push("moved-to-extras");
+            // Avoid false positives for normal numbered episodes like "S01E05 ... (Deleted Scene).mkv"
+            // Only move to Extras when this is Season 00 (specials) or the filename doesn't look like a standard episode.
+            if (detectedSeason === 0 || !looksLikeNumberedEpisode) {
+                // Move to Extras folder under the show folder (not at library root)
+                const fileName = basename(proposed);
+                const extrasFolder = showFolderName ? `${showFolderName}/Extras/` : "Extras/";
+                proposed = `${extrasFolder}${fileName}`;
+                flags.push("moved-to-extras");
+            }
         }
     }
 

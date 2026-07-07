@@ -9,7 +9,8 @@ This guide provides practical advice for getting the most out of Name-o-Tron 900
 [tips_server_selector.png]
 
 - **Multiple Servers**: The app can manage multiple Plex servers simultaneously. Use the server selector in the top navigation to switch between them.
-- **Remote Access**: For Plex servers behind NAT/firewalls, use manual server addition on the Home screen where the Discover functionality is located.
+- **Remembered Servers**: Discovered and manually added servers stay on the Home screen until you remove them, so remote or mock servers do not need to be re-added every launch.
+- **Remote Access**: For Plex servers behind NAT/firewalls, use Home → Advanced Scan or manual server addition on the Home screen where the Discover functionality is located.
 
 [tips_manual_server.png]
 - **Token Persistence**: Choose "Secure (System Keyring)" for production use - it stores tokens encrypted in your OS credential store.
@@ -92,7 +93,8 @@ This guide provides practical advice for getting the most out of Name-o-Tron 900
 [tips_anime_specials.png]
 
 - **Season Folders**: Always enable for proper Plex TV organization.
-- **Multi-Episode Files**: Use "Normalize multi-episode files" to convert `S01E01E02` to `S01E01-E02`.
+- **Multi-Episode Files**: Use "Normalize multi-episode files" to convert compact names like `S01E01E02` to Plex-style `S01E01-E02`.
+- **Split Parts**: Files such as `S01E17 - pt1` / `part2` are treated as one episode split across files, not as multi-episode ranges.
 
 [tips_multi_episode.png]
 - **Special Episodes**: Enable "Detect OVA/Specials → Season 00" for anime and bonus content.
@@ -112,7 +114,7 @@ This guide provides practical advice for getting the most out of Name-o-Tron 900
 
 [tips_pagination.png]
 
-- **Pagination**: The app loads 20 items per page for TV shows, 200 for movies/music - use search to find specific content.
+- **Pagination**: Per-page limits are configurable. When a TV season page needs more rows, the app fetches the next episode batch automatically.
 - **Search Behavior**: Debounced search (500ms) filters locally first, then queries Plex if no matches.
 - **Preview Recalculation**: Settings changes immediately recalculate the preview - use this for experimentation.
 
@@ -198,7 +200,7 @@ This section covers advanced workflows for specific media types and complex setu
 
 1. **Enable Special Detection**: Settings > TV Shows > "Detect OVA/Specials → Season 00"
 2. **Season Folder Organization**: Keep "Organize into season folders" enabled
-3. **Multi-Episode Handling**: Enable "Normalize multi-episode files" for `S01E01E02` format
+3. **Multi-Episode Handling**: Enable "Normalize multi-episode files" so compact or dashed inputs normalize to `S01E01-E02`
 4. **Template Customization**: Use `{showTitle} - S{season:02}E{episode:02} - {title}{ext}`
 
 **Expected Results:**

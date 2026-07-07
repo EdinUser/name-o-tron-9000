@@ -1,0 +1,133 @@
+{
+  "MediaContainer": {
+    "size": 1,
+    "Hub": [
+      {
+        "type": "episode",
+        "title": "TV Shows",
+        "Metadata": [
+          {
+            "ratingKey": "2001",
+            "key": "/library/metadata/2001",
+            "type": "episode",
+            "title": "Crossroads",
+            "grandparentTitle": "Abyssal Gate",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 1,
+            "thumb": "/library/metadata/2001/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E01.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2003",
+            "key": "/library/metadata/2003",
+            "type": "episode",
+            "title": "The Divide",
+            "grandparentTitle": "Abyssal Gate",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 3,
+            "thumb": "/library/metadata/2003/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E03E04.Multi.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2005",
+            "key": "/library/metadata/2005",
+            "type": "episode",
+            "title": "The Siege Part 1",
+            "grandparentTitle": "Abyssal Gate",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 5,
+            "thumb": "/library/metadata/2005/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E05.Part1.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2007",
+            "key": "/library/metadata/2007",
+            "type": "episode",
+            "title": "Genesis OVA",
+            "grandparentTitle": "Abyssal Gate",
+            "parentTitle": "Specials",
+            "parentIndex": 0,
+            "index": 1,
+            "thumb": "/library/metadata/2007/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E01.Genesis.OVA.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2013",
+            "key": "/library/metadata/2013",
+            "type": "episode",
+            "title": "Black Ice",
+            "grandparentTitle": "Northwind Homicide",
+            "parentTitle": "Season 02",
+            "parentIndex": 2,
+            "index": 1,
+            "thumb": "/library/metadata/2013/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Northwind_Homicide/Season 02/Northwind_Homicide.S02E01.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2022",
+            "key": "/library/metadata/2022",
+            "type": "episode",
+            "title": "Undertow",
+            "grandparentTitle": "Quiet Harbor",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 2,
+            "thumb": "/library/metadata/2022/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E02E03.Finale.mkv"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

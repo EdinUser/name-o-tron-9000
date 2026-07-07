@@ -1,0 +1,14 @@
+{
+  "MediaContainer": {
+    "size": 1,
+    "Metadata": [
+      {
+        "ratingKey": "101",
+        "key": "/library/metadata/101",
+        "type": "movie",
+        "title": "Interstellar",
+        "year": 2014
+      }
+    ]
+  }
+}

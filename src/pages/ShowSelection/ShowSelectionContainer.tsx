@@ -17,6 +17,12 @@ import {
   type PathMapping
 } from "../../utils/cache";
 
+function debugShowSelection(...args: unknown[]) {
+  if (typeof window !== "undefined" && (window as any).__NAMEOTRON_DEBUG_SHOW_SELECTION__) {
+    console.debug(...args);
+  }
+}
+
 /**
  * Fetch and cache poster image using the same approach as PlexPopoverCard
  */
@@ -69,6 +75,21 @@ type TvShow = {
   yearsRunning?: string;
 };
 
+function extractTotalCount(mediaContainer: any): number | null {
+  const rawTotal =
+    mediaContainer?.totalSize ??
+    mediaContainer?.total ??
+    mediaContainer?.librarySectionSize ??
+    mediaContainer?.grandTotalSize ??
+    null;
+
+  const parsed = Number(rawTotal ?? 0);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return null;
+}
+
 export default function ShowSelectionContainer({ server, library, onBack, onSelectShow, initialPage }: Props) {
 
   const { resolvedTheme, toggleTheme } = useTheme();
@@ -81,11 +102,11 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   const [shows, setShows] = useState<TvShow[]>([]);
   const [mappings, setMappings] = useState<PathMapping[]>([]);
   const [serverId, setServerId] = useState<string>("");
-  const paging = useRef({ start: 0, size: settings.general.pagination.defaultShowLimit, exhausted: false });
+  const itemsPerPage = Math.max(1, settings.general.pagination.defaultShowLimit || 20);
+  const paging = useRef({ start: 0, size: itemsPerPage, exhausted: false });
+  const [totalItems, setTotalItems] = useState<number | null>(null);
   const [queryState, setQueryState] = useState("");
   const [currentPage, setCurrentPage] = useState(initialPage || 1);
-  const itemsPerPage = 20;
-
 
   // Track active request id to avoid race-condition UI flicker
   // Bump this on every load() call to ignore stale responses
@@ -112,14 +133,18 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   }, [shows, query]);
 
   const totalPages = useMemo(() => {
-    const len = filteredShows.length;
+    const len = totalItems ?? filteredShows.length;
     return Math.max(1, Math.ceil(len / itemsPerPage));
-  }, [filteredShows.length]);
+  }, [filteredShows.length, itemsPerPage, totalItems]);
 
   const pagedShows = useMemo(() => {
     const startIdx = (currentPage - 1) * itemsPerPage;
     return filteredShows.slice(startIdx, startIdx + itemsPerPage);
-  }, [filteredShows, currentPage]);
+  }, [filteredShows, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    paging.current = { start: 0, size: itemsPerPage, exhausted: false };
+  }, [itemsPerPage]);
 
   const debounce = useRef<number | null>(null);
 
@@ -220,12 +245,12 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
         const settings = await invoke<{ pathMappings?: PathMapping[] }>("get_settings");
         const mappings = settings.pathMappings || [];
-        console.log(`[ShowSelection] Loaded ${mappings.length} path mappings:`, mappings);
+        debugShowSelection(`[ShowSelection] Loaded ${mappings.length} path mappings:`, mappings);
         setMappings(mappings);
 
         // Use proper server ID generation
         const cleanServerId = generateServerId(server);
-        console.log(`[ShowSelection] Generated server ID: ${cleanServerId}`);
+        debugShowSelection(`[ShowSelection] Generated server ID: ${cleanServerId}`);
         setServerId(cleanServerId);
       } catch (error) {
         // Set error state regardless of mount state - errors should always be visible
@@ -262,15 +287,12 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
   async function load(reset = false) {
     activeRequestIdRef.current += 1;
-    let shortCircuited = false;
     inFlightCountRef.current += 1;
     setLoading(true);
     setError(null);
     try {
       // Ensure serverId is valid before proceeding with cache operations
       if (!serverId || serverId === "" || serverId.includes("undefined")) {
-        // Stay in a loading state until serverId is ready; prevents initial "No shows" flicker
-        shortCircuited = true;
         return;
       }
 
@@ -278,7 +300,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       try { token = localStorage.getItem("plexToken"); } catch {}
 
       if (reset) {
-        paging.current = { start: 0, size: settings.general.pagination.defaultShowLimit, exhausted: false };
+        paging.current = { start: 0, size: itemsPerPage, exhausted: false };
       }
 
       // Fetch current shows from Plex
@@ -292,19 +314,47 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       });
 
       const fetchedShows = resp?.MediaContainer?.Directory ?? [];
+      const fetchedTotal = extractTotalCount(resp?.MediaContainer);
+      const returnedCount = Number(resp?.MediaContainer?.size ?? fetchedShows.length) || fetchedShows.length;
+      const responseOffset = Number(resp?.MediaContainer?.offset ?? paging.current.start) || paging.current.start;
+      if (fetchedTotal !== null) {
+        setTotalItems(fetchedTotal);
+      } else if (fetchedShows.length === 0) {
+        setTotalItems(responseOffset);
+      } else if (reset) {
+        setTotalItems(null);
+      }
       if (fetchedShows.length === 0) {
         if (reset) setShows([]);
+        if (fetchedTotal === null) {
+          setTotalItems(responseOffset);
+        }
         paging.current.exhausted = true;
         setInitialized(true);
         return;
       }
 
+      const existingKeys = reset ? new Set<string>() : new Set(shows.map((show) => show.ratingKey));
+      const fetchedKeys = fetchedShows
+        .map((show: any) => String(show.ratingKey ?? show.key ?? ""))
+        .filter(Boolean);
+
+      if (!reset && fetchedKeys.length > 0 && fetchedKeys.every((key: string) => existingKeys.has(key))) {
+        paging.current = {
+          ...paging.current,
+          exhausted: true,
+        };
+        setTotalItems((prev) => prev ?? shows.length);
+        setInitialized(true);
+        return;
+      }
+
       // Generate current mappings checksum for cache validation
-      console.log("[ShowSelection] Generating checksum for mappings");
+      debugShowSelection("[ShowSelection] Generating checksum for mappings");
       const currentMappingsChecksum = await generateMappingsChecksum(mappings, serverId);
 
       // Load existing cache
-      console.log("[ShowSelection] Loading cache for server:", serverId, "library:", library.key);
+      debugShowSelection("[ShowSelection] Loading cache for server:", serverId, "library:", library.key);
       const cache = await loadShowMappingCache(serverId, library.key);
 
       // Check if cache is valid
@@ -456,14 +506,32 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       }
 
 
-      // Update shows with final mapping status after cache is built
-      console.log("[ShowSelection] Setting shows in UI:", finalShows.length, "shows");
-      if (reset) setShows(finalShows);
-      else setShows(prev => [...prev, ...finalShows]);
+      const uniqueFinalShows = reset
+        ? finalShows
+        : finalShows.filter((show) => !existingKeys.has(show.ratingKey));
 
-      if (finalShows.length === 0 || finalShows.length < paging.current.size) {
-        paging.current.exhausted = true;
+      if (!reset && uniqueFinalShows.length === 0) {
+        paging.current = {
+          ...paging.current,
+          exhausted: true,
+        };
+        setTotalItems((prev) => prev ?? shows.length);
+        setInitialized(true);
+        setBuildingCache(false);
+        return;
       }
+
+      // Update shows with final mapping status after cache is built
+      debugShowSelection("[ShowSelection] Setting shows in UI:", uniqueFinalShows.length, "shows");
+      if (reset) setShows(uniqueFinalShows);
+      else setShows(prev => [...prev, ...uniqueFinalShows]);
+
+      const nextStart = responseOffset + returnedCount;
+      paging.current = {
+        start: nextStart,
+        size: itemsPerPage,
+        exhausted: fetchedTotal ? nextStart >= fetchedTotal : uniqueFinalShows.length === 0,
+      };
       setInitialized(true);
       setBuildingCache(false);
     } catch (e: any) {
@@ -472,9 +540,9 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       setError(e?.message ?? String(e));
       setInitialized(true);
     } finally {
-      console.log("[ShowSelection] Load function completed");
+      debugShowSelection("[ShowSelection] Load function completed");
       inFlightCountRef.current = Math.max(0, inFlightCountRef.current - 1);
-      if (!shortCircuited && inFlightCountRef.current === 0) setLoading(false);
+      if (inFlightCountRef.current === 0) setLoading(false);
     }
   }
 
@@ -482,26 +550,18 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
     // Wait for both mappings and serverId to be properly initialized
     // serverId must not be empty string and must be a proper server identifier
     if (mappings.length >= 0 && serverId && serverId !== "" && !serverId.includes("undefined")) {
+      setCurrentPage(initialPage || 1);
+      setTotalItems(null);
       load(true); /* initial */
     }
-  }, [mappings, serverId]);
+  }, [mappings, serverId, itemsPerPage]);
 
   // Debounced search
   useEffect(() => {
     if (debounce.current) window.clearTimeout(debounce.current);
     debounce.current = window.setTimeout(() => {
-      // If we have a search query and no results, try loading more shows first
-      if (query.trim() && shows.length > 0) {
-        const filtered = shows.filter(s =>
-          s.title.toLowerCase().includes(query.toLowerCase())
-        );
-        if (filtered.length === 0 && !paging.current.exhausted) {
-          // Load more shows for search
-          load(false);
-          return;
-        }
-      }
-      // Always reload when query changes (including when it becomes empty)
+      setCurrentPage(1);
+      setTotalItems(null);
       load(true);
     }, 350);
 
@@ -523,10 +583,21 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
     }
   }, [initialPage, initialized, totalPages]);
 
-  // Reset to first page when query changes
   useEffect(() => {
-    setCurrentPage(1);
-  }, [queryState]);
+    const loadedPages = Math.ceil(shows.length / itemsPerPage);
+    if (currentPage > loadedPages && !paging.current.exhausted && !loading) {
+      load(false);
+    }
+  }, [currentPage, itemsPerPage, shows.length, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (paging.current.exhausted) return;
+    if (totalItems !== null) return;
+    if (shows.length === 0) return;
+
+    load(false);
+  }, [shows.length, totalItems, loading]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -546,12 +617,15 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       currentPage={currentPage}
       totalPages={totalPages}
       query={query}
-      paging={paging}
       resolvedTheme={resolvedTheme}
       onBack={onBack}
       onSelectShow={onSelectShow}
       onSetQuery={setQuery}
-      onLoad={load}
+      onRefresh={() => {
+        setCurrentPage(1);
+        setTotalItems(null);
+        load(true);
+      }}
       onPageChange={handlePageChange}
       onToggleTheme={toggleTheme}
     />

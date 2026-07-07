@@ -8,8 +8,7 @@ use zip::{write::FileOptions, CompressionMethod, ZipWriter};
 fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     use tauri::path::BaseDirectory;
 
-    app
-        .path()
+    app.path()
         .resolve("settings.json", BaseDirectory::AppConfig)
         .map_err(|e| e.to_string())
 }
@@ -164,10 +163,7 @@ fn anonymize_value(value: &mut Value, ip_re: &Regex) {
                 ) {
                     if let Value::String(s) = v {
                         let p = Path::new(s);
-                        let file_name = p
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("");
+                        let file_name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
                         *s = if file_name.is_empty() {
                             "<redacted>".to_string()
                         } else {
@@ -220,7 +216,10 @@ pub fn export_diagnostic_bundle(app: tauri::AppHandle) -> Result<String, String>
 
 #[tauri::command]
 #[allow(non_snake_case)]
-pub fn export_diagnostic_bundle_zip(app: tauri::AppHandle, targetPath: String) -> Result<String, String> {
+pub fn export_diagnostic_bundle_zip(
+    app: tauri::AppHandle,
+    targetPath: String,
+) -> Result<String, String> {
     let ip_re = Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").map_err(|e| e.to_string())?;
 
     let settings = load_settings(&app)?;
@@ -246,7 +245,8 @@ pub fn export_diagnostic_bundle_zip(app: tauri::AppHandle, targetPath: String) -
 
     let path = PathBuf::from(&targetPath);
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Failed to create target directory: {}", e))?;
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create target directory: {}", e))?;
     }
 
     let file = fs::File::create(&path).map_err(|e| format!("Failed to create zip file: {}", e))?;
@@ -330,8 +330,17 @@ mod tests {
         assert!(server.contains("xxx.xxx.xxx.xxx"));
         assert!(!server.contains("192.168.1.50"));
 
-        assert_eq!(obj.get("original_path").and_then(|s| s.as_str()), Some("<redacted>/ep01.mkv"));
-        assert_eq!(obj.get("filePath").and_then(|s| s.as_str()), Some("<redacted>/Inception.mkv"));
-        assert_eq!(obj.get("location").and_then(|s| s.as_str()), Some("<redacted>/sub.srt"));
+        assert_eq!(
+            obj.get("original_path").and_then(|s| s.as_str()),
+            Some("<redacted>/ep01.mkv")
+        );
+        assert_eq!(
+            obj.get("filePath").and_then(|s| s.as_str()),
+            Some("<redacted>/Inception.mkv")
+        );
+        assert_eq!(
+            obj.get("location").and_then(|s| s.as_str()),
+            Some("<redacted>/sub.srt")
+        );
     }
 }

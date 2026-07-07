@@ -32,9 +32,16 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const rawItemsRef = useRef<Array<MovieItem | EpisodeItem | MusicItem>>([]);
     const reloadTriggeredRef = useRef(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const getDefaultPageSize = useCallback(() => {
+        if (library.type === "show") {
+            return Math.max(1, settings.general.pagination.defaultShowLimit || 20);
+        }
+        return Math.max(1, settings.general.pagination.defaultMovieLimit || 20);
+    }, [library.type, settings.general.pagination.defaultMovieLimit, settings.general.pagination.defaultShowLimit]);
+
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(25);
-    const [moviesPaging, setMoviesPaging] = useState({ start: 0, size: 25, total: null as number | null, exhausted: false });
+    const [pageSize, setPageSize] = useState(() => getDefaultPageSize());
+    const [moviesPaging, setMoviesPaging] = useState(() => ({ start: 0, size: getDefaultPageSize(), total: null as number | null, exhausted: false }));
 
     // Update pagination when user changes page size
     useEffect(() => {
@@ -46,6 +53,10 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         });
         setPage(1);
     }, [pageSize]);
+    useEffect(() => {
+        const nextDefaultPageSize = getDefaultPageSize();
+        setPageSize((current) => (current === nextDefaultPageSize ? current : nextDefaultPageSize));
+    }, [getDefaultPageSize]);
     const [episodesPaging, setEpisodesPaging] = useState({ start: 0, size: 50, total: null as number | null, exhausted: false });
     const seasonLoadRequestIdRef = useRef(0);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -120,6 +131,46 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         return { flatRatio, flatThreshold: MOVIE_INTELLIGENT_FLAT_THRESHOLD };
     }
 
+    function extractCollectionName(item: any): string {
+        const collections = item?.Collection || item?.collection || [];
+        if (!Array.isArray(collections) || collections.length === 0) return "";
+        return String(collections[0]?.tag || collections[0] || "").trim();
+    }
+
+    function buildMovieItem(item: any, file: string): MovieItem {
+        return {
+            type: "movie",
+            ratingKey: String(item.ratingKey ?? item.key ?? file),
+            title: String(item.title ?? "Unknown"),
+            year: item.year ? Number(item.year) : undefined,
+            file: String(file),
+            plexPath: String(file),
+            edition: String(item.edition ?? item.editionTitle ?? ""),
+            genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
+            rating: String(item.contentRating ?? ""),
+            studio: String(item.studio ?? ""),
+            director: String(item.Director?.[0]?.tag ?? item.director ?? ""),
+            writer: String(item.writer ?? ""),
+            country: String(item.country ?? ""),
+            tagline: String(item.tagline ?? ""),
+            summary: String(item.summary ?? ""),
+            collection: extractCollectionName(item),
+            guid: String(item.guid ?? ""),
+            thumb: String(item.thumb ?? ""),
+        };
+    }
+
+    function getMetadataSearchTexts(metadata?: MovieItem | EpisodeItem | MusicItem | null): string[] {
+        if (!metadata) return [];
+        if (metadata.type === "movie") {
+            return [metadata.title, metadata.collection || "", metadata.genre || "", metadata.director || "", metadata.studio || ""];
+        }
+        if (metadata.type === "episode") {
+            return [metadata.title, metadata.showTitle, metadata.grandparentTitle || "", metadata.parentTitle || ""];
+        }
+        return [metadata.track, metadata.artist, metadata.album, metadata.genre || ""];
+    }
+
     // Apply / cleanup state
     const [applyInProgress, setApplyInProgress] = useState(false);
     const [applyOperationCount, setApplyOperationCount] = useState(0);
@@ -152,6 +203,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const [seasonList, setSeasonList] = useState<Array<{index: number, title: string, leafCount: number, ratingKey: string, key: string}>>([]);
 
     const [reloadTick, setReloadTick] = useState(0);
+    const lastMovieReloadTickRef = useRef(0);
 
     // Popover state for showing Plex metadata on hover
     const [popoverData, setPopoverData] = useState<{ metadata: MovieItem | EpisodeItem | MusicItem | null; position: { x: number; y: number } }>({
@@ -163,10 +215,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const handleMouseEnter = useCallback((event: React.MouseEvent<HTMLDivElement>, row: PreviewRow) => {
         if (!row.metadata) return;
 
-        const rect = event.currentTarget.getBoundingClientRect();
         const position = {
-            x: rect.left + rect.width / 2,
-            y: rect.top - 10 // Position above the element
+            x: event.clientX,
+            y: event.clientY
         };
 
         setPopoverData({ metadata: row.metadata, position });
@@ -272,63 +323,58 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 const rawItems: Array<MovieItem | EpisodeItem | MusicItem> = [];
 
                 if (library.type === "movie") {
-                    const fetchSize = moviesPaging.size || pageSize;
+                    const isReload = reloadTick > lastMovieReloadTickRef.current;
+                    if (isReload) {
+                        lastMovieReloadTickRef.current = reloadTick;
+                        initialMoviePrefetch.current = false;
+                        moviePrefetching.current = false;
+                        prefetchedSecondPageRef.current = false;
+                        processedCountRef.current = 0;
+                        rawItemsRef.current = [];
+                        rowsRef.current = [];
+                        setRows([]);
+                        setSelectedIds(new Set());
+                        setRemoteResults([]);
+                        setRemoteQuery("");
+                        setPage(1);
+                    }
+
+                    const fetchStart = isReload ? 0 : moviesPaging.start;
+                    const fetchSize = isReload ? pageSize : (moviesPaging.size || pageSize);
                     // Fetch movie items using the existing command
                     const data = await invoke<SectionResponse>("fetch_library_content", {
                         server: server.address,
                         libraryKey: library.key,
                         token: token ?? null,
-                        start: moviesPaging.start,
+                        start: fetchStart,
                         size: fetchSize,
                     });
                     const mc = data?.MediaContainer;
                     const md = mc?.Metadata ?? [];
                     const total = Number(mc?.totalSize ?? mc?.total ?? 0) || null;
                     const returned = Number(mc?.size ?? md.length);
-                    const offset = Number(mc?.offset ?? moviesPaging.start ?? 0);
+                    const offset = Number(mc?.offset ?? fetchStart ?? 0);
                     console.log("[Preview] Movie fetch", { pageSize, fetchSize, offset, returned, total });
                     if (md.length === 0) {
-                        setMoviesPaging(prev => ({
-                            ...prev,
-                            total: total ?? prev.total ?? null,
+                        setMoviesPaging({
+                            start: offset,
+                            size: pageSize,
+                            total,
                             exhausted: true
-                        }));
+                        });
                     } else {
-                        setMoviesPaging(prev => {
-                            const done = total ? offset + returned >= total : md.length < fetchSize;
-                            // After the first load, switch to single-page fetch size
-                            return {
-                                ...prev,
-                                start: offset + returned,
-                                size: pageSize,
-                                total: total ?? prev.total ?? null,
-                                exhausted: done
-                            };
+                        const done = total ? offset + returned >= total : md.length < fetchSize;
+                        setMoviesPaging({
+                            start: offset + returned,
+                            size: pageSize,
+                            total,
+                            exhausted: done
                         });
                     }
                     for (const item of md) {
                         const file = item?.Media?.[0]?.Part?.[0]?.file;
                         if (!file) continue;
-                        const movieRatingKey = String(item.ratingKey ?? item.key ?? file);
-
-                        const m: MovieItem = {
-                            type: "movie",
-                            ratingKey: movieRatingKey,
-                            title: String(item.title ?? "Unknown"),
-                            year: item.year ? Number(item.year) : undefined,
-                            file: String(file),
-                            plexPath: String(file),
-                            edition: String(item.edition ?? item.editionTitle ?? ""),
-                            genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
-                            rating: String(item.contentRating ?? ""),
-                            studio: String(item.studio ?? ""),
-                            director: String(item.Director?.[0]?.tag ?? item.director ?? ""),
-                            writer: String(item.writer ?? ""),
-                            country: String(item.country ?? ""),
-                            tagline: String(item.tagline ?? ""),
-                            summary: String(item.summary ?? ""),
-                            thumb: String(item.thumb ?? ""),
-                        };
+                        const m: MovieItem = buildMovieItem(item, String(file));
                         rawItems.push(m);
                     }
 
@@ -358,25 +404,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 for (const item of mdMore) {
                                     const file = item?.Media?.[0]?.Part?.[0]?.file;
                                     if (!file) continue;
-                                    const movieRatingKey = String(item.ratingKey ?? item.key ?? file);
-                                    const m: MovieItem = {
-                                        type: "movie",
-                                        ratingKey: movieRatingKey,
-                                        title: String(item.title ?? "Unknown"),
-                                        year: item.year ? Number(item.year) : undefined,
-                                        file: String(file),
-                                        plexPath: String(file),
-                                        edition: String(item.edition ?? item.editionTitle ?? ""),
-                                        genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
-                                        rating: String(item.contentRating ?? ""),
-                                        studio: String(item.studio ?? ""),
-                                        director: String(item.Director?.[0]?.tag ?? item.director ?? ""),
-                                        writer: String(item.writer ?? ""),
-                                        country: String(item.country ?? ""),
-                                        tagline: String(item.tagline ?? ""),
-                                        summary: String(item.summary ?? ""),
-                                        thumb: String(item.thumb ?? ""),
-                                    };
+                                    const m: MovieItem = buildMovieItem(item, String(file));
                                     moreItems.push(m);
                                 }
                                 if (moreItems.length > 0) {
@@ -705,12 +733,12 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     const total = Number(epsResp?.MediaContainer?.totalSize ?? epsResp?.MediaContainer?.total ?? seasonData.leafCount) || null;
                     const returned = Number(epsResp?.MediaContainer?.size ?? md.length);
 
-                    console.log("[Season Load] total:", total, "returned:", returned, "exhausted:", md.length < episodesPaging.size);
+                    console.log("[Season Load] total:", total, "returned:", returned, "exhausted:", total ? returned >= total : md.length < episodesPaging.size);
 
                     setEpisodesPaging(prev => ({
                         ...prev,
                         total,
-                        exhausted: md.length < prev.size,
+                        exhausted: total ? returned >= total : md.length < prev.size,
                         start: returned,
                         size: prev.size
                     }));
@@ -882,12 +910,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 ...nonEpisodes.map(async (item) => {
                     if (item.type === "movie") {
                         const m = item as MovieItem;
-                        const collections = (m as any).Collection || (m as any).collection || [];
-                        const collectionName = Array.isArray(collections) && collections.length > 0
-                            ? (collections[0]?.tag || collections[0])
-                            : "";
                         const tpl = settings.templates.movie || template;
-                        const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
+                        const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, m.collection || "", settings, libraryFolder, library.roots || [], movieHeuristics);
                         row.metadata = m;
                         return row;
                     }
@@ -1056,7 +1080,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 const currentPath = shortenFilePath(r.filePath, libraryRoots).toLowerCase();
                 const proposedName = r.proposed.toLowerCase();
                 const fullPath = r.filePath.toLowerCase();
-                return currentPath.includes(query) || proposedName.includes(query) || fullPath.includes(query);
+                const metadataMatches = getMetadataSearchTexts(r.metadata).some(text => text.toLowerCase().includes(query));
+                return currentPath.includes(query) || proposedName.includes(query) || fullPath.includes(query) || metadataMatches;
             });
         }
 
@@ -1085,12 +1110,6 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             setRemoteResults([]);
             setRemoteQuery("");
             setSearching(false);
-            return;
-        }
-
-        // If we're currently loading initial data, wait for it to complete
-        if (loading) {
-            // Effect will re-run because of dependency on `loading`
             return;
         }
         let isCancelled = false;
@@ -1128,8 +1147,26 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     const items = hub.Directory || hub.Metadata || [];
                     if (!Array.isArray(items)) continue;
                     for (const item of items) {
+                        let detailedItem = item;
                         let filePath = "";
                         try { filePath = String(item?.Media?.[0]?.Part?.[0]?.file || ""); } catch {}
+
+                        if (!filePath && (item?.key || item?.ratingKey)) {
+                            try {
+                                const plexKey = String(item.key || `/library/metadata/${item.ratingKey}`);
+                                const detailedResp = await invoke<any>("fetch_plex_metadata", {
+                                    server: server.address,
+                                    plexKey,
+                                    token,
+                                    start: 0,
+                                    size: 1,
+                                });
+                                detailedItem = detailedResp?.MediaContainer?.Metadata?.[0] || detailedResp?.MediaContainer?.Directory?.[0] || item;
+                                filePath = String(detailedItem?.Media?.[0]?.Part?.[0]?.file || "");
+                            } catch {
+                                detailedItem = item;
+                            }
+                        }
 
                         // Skip items that don't have actual file paths (API endpoints, metadata, etc.)
                         if (!filePath || filePath.startsWith('/library/') || filePath.includes('?') || !filePath.includes('.')) {
@@ -1154,32 +1191,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             if (!filePath || filePath.length === 0) {
                                 continue;
                             }
-
-                            const movieRatingKey = String(item.ratingKey || item.key || filePath || Math.random());
-                            // Extract collection information directly from movie metadata
-                            const collections = item.Collection || item.collection || [];
-                            const collectionName = Array.isArray(collections) && collections.length > 0
-                                ? (collections[0].tag || collections[0])
-                                : "";
-
-                            const m: MovieItem = {
-                                type: "movie",
-                                ratingKey: movieRatingKey,
-                                title: String(item.title || "Unknown"),
-                                year: item.year ? Number(item.year) : undefined,
-                                file: filePath,
-                                plexPath: filePath,
-                                edition: String(item.edition ?? item.editionTitle ?? ""),
-                                genre: String(item.Genre?.[0]?.tag ?? item.genre ?? ""),
-                                rating: String(item.contentRating ?? ""),
-                                studio: String(item.studio ?? ""),
-                                director: String(item.Director?.[0]?.tag ?? item.director ?? ""),
-                                writer: String(item.writer ?? ""),
-                                country: String(item.country ?? ""),
-                                tagline: String(item.tagline ?? ""),
-                                summary: String(item.summary ?? ""),
-                                thumb: String(item.thumb ?? ""),
-                            };
+                            const m: MovieItem = buildMovieItem(detailedItem, filePath);
                             const tpl = settings.templates.movie || template;
                             const movieHeuristics = computeMovieLibraryHeuristics(
                                 rawItemsRef.current
@@ -1187,7 +1199,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                     .map((it) => (it as MovieItem).file)
                                     .concat([filePath]),
                             );
-                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
+                            const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, m.collection || "", settings, libraryFolder, library.roots || [], movieHeuristics);
                             row.metadata = m; // Store original metadata for popover
                             row.flags.push("remote-search");
                             newRows.push(row);
@@ -1203,18 +1215,18 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             const epIndex = typeof item.index === "number" ? item.index : (item.index ? Number(item.index) : undefined);
                             const e: EpisodeItem = {
                                 type: "episode",
-                                ratingKey: String(item.ratingKey || item.key || filePath || Math.random()),
+                                ratingKey: String(detailedItem.ratingKey || item.ratingKey || item.key || filePath || Math.random()),
                                 showTitle,
-                                title: String(item.title || "Episode"),
+                                title: String(detailedItem.title || item.title || "Episode"),
                                 season: seasonNum,
                                 index: epIndex,
                                 file: filePath,
                                 plexPath: filePath,
-                                year: item.year ? Number(item.year) : undefined,
-                                grandparentTitle: String(item.grandparentTitle ?? showTitle),
-                                parentTitle: String(item.parentTitle ?? ""),
-                                parentIndex: item.parentIndex ? Number(item.parentIndex) : seasonNum,
-                                thumb: String(item.thumb ?? ""),
+                                year: detailedItem.year ? Number(detailedItem.year) : (item.year ? Number(item.year) : undefined),
+                                grandparentTitle: String(detailedItem.grandparentTitle ?? item.grandparentTitle ?? showTitle),
+                                parentTitle: String(detailedItem.parentTitle ?? item.parentTitle ?? ""),
+                                parentIndex: detailedItem.parentIndex ? Number(detailedItem.parentIndex) : (item.parentIndex ? Number(item.parentIndex) : seasonNum),
+                                thumb: String(detailedItem.thumb ?? item.thumb ?? ""),
                             };
                             const tpl = settings.templates.episode || template;
                             const row = await computeEpisodeProposal(e, tpl, !!settings.tv.seasonFolders, settings, libraryFolder, library.roots || []);
@@ -1235,23 +1247,35 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         })();
         return () => { isCancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [debouncedSearchQuery, filteredRows.length, library.key, server.address, loading]);
+    }, [
+        debouncedSearchQuery,
+        library.key,
+        library.type,
+        server.address,
+        libraryFolder,
+        settingsVersion,
+        template,
+    ]);
 
     // Final rows to display - combine local and remote results
     const displayRows = useMemo(() => {
         if (!debouncedSearchQuery.trim()) return filteredRows;
 
-        // Combine local filtered results with remote results
-        let combined: PreviewRow[] = [];
+        const combined: PreviewRow[] = [];
+        const seen = new Set<string>();
 
-        // Add local results first
-        if (filteredRows.length > 0) {
-            combined.push(...filteredRows);
+        for (const row of filteredRows) {
+            if (seen.has(row.id)) continue;
+            seen.add(row.id);
+            combined.push(row);
         }
 
-        // Add remote results if they match the current query
-        if (remoteQuery === debouncedSearchQuery && remoteResults.length > 0) {
-            combined.push(...remoteResults);
+        if (remoteQuery === debouncedSearchQuery) {
+            for (const row of remoteResults) {
+                if (seen.has(row.id)) continue;
+                seen.add(row.id);
+                combined.push(row);
+            }
         }
 
         return combined;
@@ -1259,14 +1283,22 @@ export default function PreviewContainer({server, library, onBack}: Props) {
 
     const anyRedSelected = useMemo(() => displayRows.some(r => r.status === "error" && selectedIds.has(r.id)), [displayRows, selectedIds]);
     const totalItemsForPaging = useMemo(() => {
+        if (debouncedSearchQuery.trim()) {
+            return displayRows.length;
+        }
         if (library.type === "movie" && moviesPaging.total) {
             return moviesPaging.total;
         }
-        if (library.type === "show" && episodesPaging.total) {
-            return episodesPaging.total;
+        if (library.type === "show") {
+            if (episodesPaging.exhausted) {
+                return displayRows.length;
+            }
+            if (episodesPaging.total) {
+                return Math.max(episodesPaging.total, displayRows.length);
+            }
         }
         return displayRows.length;
-    }, [library.type, moviesPaging.total, episodesPaging.total, displayRows.length]);
+    }, [debouncedSearchQuery, library.type, moviesPaging.total, episodesPaging.total, episodesPaging.exhausted, displayRows.length]);
     const totalPages = Math.max(1, Math.ceil(totalItemsForPaging / pageSize));
     const pageRows = useMemo(() => displayRows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize), [displayRows, page, pageSize]);
     useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
@@ -1287,11 +1319,13 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     }, [library.type, rows.length, pageSize, moviesPaging.exhausted, loading, pageLoading]);
 
     const pageTransitionLoading = useMemo(() => {
-        // If user is beyond page 1 and data is still being built/fetched, show placeholder
+        // Only blank later pages if we still do not have rows for that page.
         if (page <= 1) return false;
         const need = page * pageSize;
+        const hasRowsForRequestedPage = pageRows.length > 0;
+        if (hasRowsForRequestedPage) return false;
         return pageLoading || loading || previewLoading || rows.length < need;
-    }, [page, pageSize, pageLoading, loading, previewLoading, rows.length]);
+    }, [page, pageSize, pageLoading, loading, previewLoading, rows.length, pageRows.length]);
 
     // Auto-load more movies when navigating to a page that requires more items than we have loaded
     useEffect(() => {
@@ -1305,6 +1339,17 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, pageSize, rows.length, moviesPaging.exhausted, library.type, loading]);
+
+    useEffect(() => {
+        if (library.type !== "show") return;
+        if (page <= 1) return;
+        const needed = page * pageSize;
+        if (!episodesPaging.exhausted && rows.length < needed && !loading && !pageLoading && !previewLoading) {
+            setPageLoading(true);
+            loadMoreEpisodes().finally(() => setPageLoading(false));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, pageSize, rows.length, episodesPaging.exhausted, library.type, loading, pageLoading, previewLoading]);
 
     const pageAllSelected = useMemo(
         () => pageRows.length > 0 && pageRows.every(r => selectedIds.has(r.id)),
@@ -1744,30 +1789,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             for (const item of md) {
                 const file = item?.Media?.[0]?.Part?.[0]?.file;
                 if (!file) continue;
-                const movieRatingKey = String(item.ratingKey ?? item.key ?? file);
-                // Extract collection information directly from movie metadata
-                const collections = item.Collection || item.collection || [];
-                const collectionName = Array.isArray(collections) && collections.length > 0
-                    ? (collections[0].tag || collections[0])
-                    : "";
-
-                const m: MovieItem = {
-                    type: "movie",
-                    ratingKey: movieRatingKey,
-                    title: String(item.title ?? "Unknown"),
-                    year: item.year ? Number(item.year) : undefined,
-                    file: resolvePlexFilePath(String(file), libraryFolder),
-                    edition: String(item.edition ?? item.editionTitle ?? ""),
-                    genre: String(item.genre ?? ""),
-                    rating: String(item.contentRating ?? ""),
-                    studio: String(item.studio ?? ""),
-                    director: String(item.director ?? ""),
-                    writer: String(item.writer ?? ""),
-                    country: String(item.country ?? ""),
-                    tagline: String(item.tagline ?? ""),
-                    summary: String(item.summary ?? ""),
-                    thumb: String(item.thumb ?? ""),
-                };
+                const m: MovieItem = buildMovieItem(item, resolvePlexFilePath(String(file), libraryFolder));
                 const tpl = settings.templates.movie || template;
                 const movieHeuristics = computeMovieLibraryHeuristics(
                     rowsRef.current
@@ -1775,7 +1797,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         .map((r) => r.plexPath || r.filePath)
                         .concat([String(file)]),
                 );
-                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, collectionName, settings, libraryFolder, library.roots || [], movieHeuristics);
+                const row = await computeMovieProposal(m, tpl, settings.movies.ownFolderPerMovie, settings.movies.collections.enabled, m.collection || "", settings, libraryFolder, library.roots || [], movieHeuristics);
                 row.metadata = m; // Store original metadata for popover
                 more.push(row);
             }
@@ -1786,6 +1808,94 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             setLoading(false);
         }
     }, [rows.length, server.address, library.key, moviesPaging.exhausted, moviesPaging.total, libraryFolder, settings, template, pageSize]);
+
+    const loadMoreEpisodes = useCallback(async () => {
+        if (library.type !== "show" || !currentShow) return;
+        if (episodesPaging.exhausted) return;
+
+        const targetSeason = selectedSeason === "all" ? null : selectedSeason;
+        if (targetSeason === null || targetSeason === undefined) return;
+
+        const seasonData = seasonList.find((season) => season.index === targetSeason);
+        if (!seasonData?.key) return;
+
+        const nextStart = episodesPaging.start;
+        const fetchSize = Math.max(pageSize, episodesPaging.size);
+        if (episodesPaging.total && nextStart >= episodesPaging.total) {
+            setEpisodesPaging((prev) => ({ ...prev, exhausted: true }));
+            return;
+        }
+
+        setLoading(true);
+        setPageLoading(true);
+        try {
+            const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
+            const epsResp = await invoke<any>("fetch_plex_metadata", {
+                server: server.address,
+                plexKey: seasonData.key,
+                token,
+                start: nextStart,
+                size: fetchSize,
+            });
+            const md = epsResp?.MediaContainer?.Metadata ?? [];
+            const total = Number(epsResp?.MediaContainer?.totalSize ?? epsResp?.MediaContainer?.total ?? seasonData.leafCount) || episodesPaging.total;
+            const returned = Number(epsResp?.MediaContainer?.size ?? md.length);
+            const offset = Number(epsResp?.MediaContainer?.offset ?? nextStart);
+
+            const moreEpisodes: EpisodeItem[] = [];
+            for (const item of md) {
+                const file = item?.Media?.[0]?.Part?.[0]?.file;
+                if (!file) continue;
+
+                const parsed = parseEpisodeInfo(String(file), String(item.title ?? "Episode"));
+                const plexSeason = Number(item.parentIndex);
+                const plexEpisode = Number(item.index);
+                moreEpisodes.push({
+                    type: "episode",
+                    ratingKey: String(item.ratingKey ?? item.key ?? file),
+                    showTitle: String(item.grandparentTitle ?? currentShow.title),
+                    title: String(item.title ?? "Episode"),
+                    season: Number.isFinite(plexSeason) ? plexSeason : parsed.season,
+                    index: Number.isFinite(plexEpisode) ? plexEpisode : parsed.index,
+                    file: String(file),
+                    plexPath: String(file),
+                    year: item.year ? Number(item.year) : undefined,
+                    grandparentTitle: String(item.grandparentTitle ?? currentShow.title),
+                    parentTitle: String(item.parentTitle ?? ""),
+                    parentIndex: Number.isFinite(plexSeason) ? plexSeason : (item.parentIndex ? Number(item.parentIndex) : parsed.season),
+                    thumb: String(item.thumb ?? ""),
+                });
+            }
+
+            setEpisodesPaging((prev) => ({
+                ...prev,
+                total,
+                exhausted: total ? offset + returned >= total : md.length < fetchSize,
+                start: offset + returned,
+                size: fetchSize,
+            }));
+
+            if (moreEpisodes.length > 0) {
+                setRawItems((prev) => [...prev, ...moreEpisodes]);
+            }
+        } catch (e) {
+            setError(`Failed to load more episodes: ${e}`);
+        } finally {
+            setPageLoading(false);
+            setLoading(false);
+        }
+    }, [
+        library.type,
+        currentShow,
+        episodesPaging.exhausted,
+        episodesPaging.start,
+        episodesPaging.size,
+        episodesPaging.total,
+        pageSize,
+        selectedSeason,
+        seasonList,
+        server.address,
+    ]);
 
     const loadMoreMusic = useCallback(async () => {
         const nextStart = rows.length;

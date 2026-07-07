@@ -1,9 +1,12 @@
+use crate::rename_types::{
+    ApplyRenamesRequest, ApplyResult, PreviewRenamesRequest, PreviewResult, RenameOperation,
+};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
 use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 use tauri::command;
-use regex::Regex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubtitleFile {
@@ -19,57 +22,16 @@ pub struct SubtitleFile {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SubtitleType {
-    Standard,      // basename matches video basename
-    NonMatching,   // pattern like "2_English.srt"
-    Subfolder,     // in per-episode subfolder
-    Unknown,       // no recognizable pattern
+    Standard,    // basename matches video basename
+    NonMatching, // pattern like "2_English.srt"
+    Subfolder,   // in per-episode subfolder
+    Unknown,     // no recognizable pattern
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SubtitleClassification {
-    VideoSubtitle(String),  // (language_suffix)
+    VideoSubtitle(String), // (language_suffix)
     Unknown,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RenameOperation {
-    pub operation_type: String,  // "rename", "move", "convert"
-    pub original_path: String,
-    pub new_path: String,
-    pub backup_path: Option<String>,
-    pub operation_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PreviewResult {
-    pub video_operations: Vec<RenameOperation>,
-    pub subtitle_operations: Vec<RenameOperation>,
-    pub warnings: Vec<String>,
-    pub blocking_errors: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ApplyResult {
-    pub success: bool,
-    pub operations_applied: usize,
-    pub operations_failed: usize,
-    pub rollback_log_path: String,
-    pub errors: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct PreviewRenamesRequest {
-    pub library_id: String,
-    pub scope: Vec<String>,  // file paths to process
-    pub settings: serde_json::Value,  // complete settings object
-    pub server_id: String,   // Plex server identifier for path mappings
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ApplyRenamesRequest {
-    pub operations: Vec<RenameOperation>,
-    pub server_id: String,
-    pub _settings: serde_json::Value, // TODO: Currently unused, may be needed for future features
 }
 
 const SUPPORTED_SUBTITLE_EXTENSIONS: &[&str] = &["srt", "ass", "ssa", "vtt"];
@@ -86,11 +48,12 @@ const SUBTITLE_PATTERNS: &[&str] = &[
 
 pub fn detect_subtitle_encoding(file_path: &str) -> Result<(String, bool), String> {
     let path = Path::new(file_path);
-    let mut file = fs::File::open(path)
-        .map_err(|e| format!("Failed to open file {}: {}", file_path, e))?;
+    let mut file =
+        fs::File::open(path).map_err(|e| format!("Failed to open file {}: {}", file_path, e))?;
 
     let mut buffer = [0u8; 1024];
-    let bytes_read = file.read(&mut buffer)
+    let bytes_read = file
+        .read(&mut buffer)
         .map_err(|e| format!("Failed to read file {}: {}", file_path, e))?;
 
     if bytes_read == 0 {
@@ -117,13 +80,16 @@ pub fn detect_subtitle_encoding(file_path: &str) -> Result<(String, bool), Strin
     Ok((encoding_name, has_bom))
 }
 
-fn convert_subtitle_to_utf8(input_path: &str, output_path: &str, backup_path: &str) -> Result<(), String> {
+fn convert_subtitle_to_utf8(
+    input_path: &str,
+    output_path: &str,
+    backup_path: &str,
+) -> Result<(), String> {
     // Create backup
-    fs::copy(input_path, backup_path)
-        .map_err(|e| format!("Failed to create backup: {}", e))?;
+    fs::copy(input_path, backup_path).map_err(|e| format!("Failed to create backup: {}", e))?;
 
-    let input_content = fs::read(input_path)
-        .map_err(|e| format!("Failed to read input file: {}", e))?;
+    let input_content =
+        fs::read(input_path).map_err(|e| format!("Failed to read input file: {}", e))?;
 
     // Detect encoding and convert
     let (encoding_name, _) = detect_subtitle_encoding(input_path)?;
@@ -141,17 +107,20 @@ fn convert_subtitle_to_utf8(input_path: &str, output_path: &str, backup_path: &s
         .map_err(|e| format!("Failed to create output file: {}", e))?;
 
     // Write UTF-8 BOM
-    output_file.write_all(&[0xEF, 0xBB, 0xBF])
+    output_file
+        .write_all(&[0xEF, 0xBB, 0xBF])
         .map_err(|e| format!("Failed to write BOM: {}", e))?;
 
-    output_file.write_all(&converted_content)
+    output_file
+        .write_all(&converted_content)
         .map_err(|e| format!("Failed to write converted content: {}", e))?;
 
     Ok(())
 }
 
 pub fn find_subtitle_files(video_path: &str) -> Vec<SubtitleFile> {
-    let video_dir = Path::new(video_path).parent()
+    let video_dir = Path::new(video_path)
+        .parent()
         .unwrap_or_else(|| Path::new(video_path))
         .to_string_lossy()
         .to_string();
@@ -170,13 +139,12 @@ pub fn find_subtitle_files(video_path: &str) -> Vec<SubtitleFile> {
                 if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                     let ext_lower = ext.to_ascii_lowercase();
                     if SUPPORTED_SUBTITLE_EXTENSIONS.contains(&ext_lower.as_str()) {
-                        let filename = path.file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy();
+                        let filename = path.file_name().unwrap_or_default().to_string_lossy();
 
                         // Check if this subtitle matches the video basename
                         if filename.starts_with(video_basename.as_ref()) {
-                            let classification = classify_subtitle_filename(&filename, &video_basename);
+                            let classification =
+                                classify_subtitle_filename(&filename, &video_basename);
                             subtitles.push(SubtitleFile {
                                 original_path: path.to_string_lossy().to_string(),
                                 proposed_path: path.to_string_lossy().to_string(), // Will be updated later
@@ -235,15 +203,16 @@ pub fn classify_subtitle_filename(filename: &str, _video_basename: &str) -> Subt
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use serde_json::json;
-
+    use tempfile::tempdir;
 
     #[test]
     fn find_subtitle_files_detects_matching_language_subtitle() {
         let dir = tempdir().expect("failed to create temp dir");
 
-        let video_path = dir.path().join("Band.of.Brothers.S01E10.1080p.BluRay.x265-RARBG.mp4");
+        let video_path = dir
+            .path()
+            .join("Band.of.Brothers.S01E10.1080p.BluRay.x265-RARBG.mp4");
         let sub_path = dir
             .path()
             .join("Band.of.Brothers.S01E10.1080p.BluRay.x265-RARBG.bul.srt");
@@ -314,7 +283,9 @@ mod tests {
             server_id: "server1".to_string(),
         };
 
-        let result = preview_renames(request).await.expect("preview_renames should succeed");
+        let result = preview_renames(request)
+            .await
+            .expect("preview_renames should succeed");
         assert!(result.subtitle_operations.is_empty());
     }
 
@@ -346,9 +317,15 @@ mod tests {
             server_id: "server1".to_string(),
         };
 
-        let result = preview_renames(request).await.expect("preview_renames should succeed");
+        let result = preview_renames(request)
+            .await
+            .expect("preview_renames should succeed");
 
-        assert_eq!(result.subtitle_operations.len(), 1, "expected one subtitle operation");
+        assert_eq!(
+            result.subtitle_operations.len(),
+            1,
+            "expected one subtitle operation"
+        );
         let op = &result.subtitle_operations[0];
         assert_eq!(op.operation_type, "rename");
 
@@ -360,6 +337,87 @@ mod tests {
 
         assert_eq!(new_basename, "Show.S01E01.eng.srt");
     }
+
+    #[tokio::test]
+    async fn preview_renames_normalizes_movie_sdh_suffix_when_configured() {
+        let dir = tempdir().expect("failed to create temp dir");
+
+        let video_path = dir.path().join("Movie.mkv");
+        let sub_path = dir.path().join("Movie.sdh.srt");
+
+        fs::write(&video_path, b"").expect("failed to write video file");
+        fs::write(&sub_path, b"").expect("failed to write subtitle file");
+
+        let settings = json!({
+            "general": {
+                "subtitles": {
+                    "skipSubtitles": false,
+                    "convertToUtf8": false
+                }
+            },
+            "movies": {
+                "subtitles": {
+                    "forcedSdhHandling": "normalize"
+                }
+            },
+            "tv": {}
+        });
+
+        let request = PreviewRenamesRequest {
+            library_id: "movie-lib".to_string(),
+            scope: vec![video_path.to_string_lossy().to_string()],
+            settings,
+            server_id: "server1".to_string(),
+        };
+
+        let result = preview_renames(request)
+            .await
+            .expect("preview_renames should succeed");
+        assert_eq!(
+            result.subtitle_operations.len(),
+            1,
+            "expected one subtitle operation"
+        );
+
+        let op = &result.subtitle_operations[0];
+        let new_basename = Path::new(&op.new_path)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+
+        assert_eq!(new_basename, "Movie.forced.srt");
+    }
+
+    #[test]
+    fn apply_single_operation_convert_creates_backup_and_utf8_bom_output() {
+        let dir = tempdir().expect("failed to create temp dir");
+        let source = dir.path().join("Movie.eng.srt");
+        let target = dir.path().join("Movie (2024).eng.srt");
+        let backup = dir.path().join("Movie.eng.srt.backup");
+
+        fs::write(&source, b"1\n00:00:00,000 --> 00:00:01,000\nHello\n")
+            .expect("failed to write subtitle file");
+
+        let operation = RenameOperation {
+            operation_type: "convert".to_string(),
+            original_path: source.to_string_lossy().to_string(),
+            new_path: target.to_string_lossy().to_string(),
+            backup_path: Some(backup.to_string_lossy().to_string()),
+            operation_id: "subtitle_test_convert".to_string(),
+        };
+
+        apply_single_operation(&operation).expect("convert operation should succeed");
+
+        assert!(backup.exists(), "backup should be created");
+        assert!(target.exists(), "converted file should be written");
+
+        let bytes = fs::read(&target).expect("read converted file");
+        assert!(
+            bytes.starts_with(&[0xEF, 0xBB, 0xBF]),
+            "converted subtitle should start with UTF-8 BOM"
+        );
+    }
 }
 
 #[command]
@@ -370,13 +428,22 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
     let blocking_errors = Vec::new();
 
     // Parse settings
-    let general_settings: serde_json::Value = request.settings.get("general")
-        .ok_or("Missing general settings")?.clone();
+    let general_settings: serde_json::Value = request
+        .settings
+        .get("general")
+        .ok_or("Missing general settings")?
+        .clone();
 
-    let movie_settings: serde_json::Value = request.settings.get("movies")
-        .ok_or("Missing movie settings")?.clone();
-    let tv_settings: serde_json::Value = request.settings.get("tv")
-        .ok_or("Missing TV settings")?.clone();
+    let movie_settings: serde_json::Value = request
+        .settings
+        .get("movies")
+        .ok_or("Missing movie settings")?
+        .clone();
+    let tv_settings: serde_json::Value = request
+        .settings
+        .get("tv")
+        .ok_or("Missing TV settings")?
+        .clone();
 
     let subtitles_config = general_settings.get("subtitles");
 
@@ -395,7 +462,6 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
     }
 
     for file_path in &request.scope {
-
         // Find subtitle files for this video
         let subtitles = find_subtitle_files(file_path);
 
@@ -416,9 +482,7 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
                 SubtitleClassification::VideoSubtitle(lang_suffix) => {
                     format!("{}.{}", new_basename, lang_suffix)
                 }
-                SubtitleClassification::Unknown => {
-                    new_basename.to_string()
-                }
+                SubtitleClassification::Unknown => new_basename.to_string(),
             };
 
             let new_path = Path::new(&subtitle.original_path)
@@ -429,7 +493,8 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
             subtitle.proposed_path = new_path.clone();
 
             // Check for encoding conversion
-            let convert_to_utf8 = general_settings.get("subtitles")
+            let convert_to_utf8 = general_settings
+                .get("subtitles")
                 .and_then(|s| s.get("convertToUtf8"))
                 .and_then(|s| s.as_bool())
                 .unwrap_or(false);
@@ -440,23 +505,31 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
                         subtitle.encoding_detected = Some(encoding.clone());
                         if encoding != "utf-8" {
                             subtitle.needs_conversion = true;
-                            subtitle.warning_flags.push("encoding_conversion".to_string());
+                            subtitle
+                                .warning_flags
+                                .push("encoding_conversion".to_string());
 
                             if encoding == "uncertain" {
-                                let skip_uncertain = general_settings.get("subtitles")
+                                let skip_uncertain = general_settings
+                                    .get("subtitles")
                                     .and_then(|s| s.get("skipUncertainEncoding"))
                                     .and_then(|s| s.as_bool())
                                     .unwrap_or(true);
 
                                 if skip_uncertain {
-                                    subtitle.warning_flags.push("uncertain_encoding_skipped".to_string());
+                                    subtitle
+                                        .warning_flags
+                                        .push("uncertain_encoding_skipped".to_string());
                                     subtitle.needs_conversion = false;
                                 }
                             }
                         }
                     }
                     Err(e) => {
-                        warnings.push(format!("Could not detect encoding for {}: {}", subtitle.original_path, e));
+                        warnings.push(format!(
+                            "Could not detect encoding for {}: {}",
+                            subtitle.original_path, e
+                        ));
                     }
                 }
             }
@@ -464,7 +537,8 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
             // Apply movie-specific rules
             let library_type = request.library_id.starts_with("movie");
             if library_type {
-                let forced_sdh_handling = movie_settings.get("subtitles")
+                let forced_sdh_handling = movie_settings
+                    .get("subtitles")
                     .and_then(|s| s.get("forcedSdhHandling"))
                     .and_then(|s| s.as_str())
                     .unwrap_or("preserve");
@@ -473,21 +547,27 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
                     "normalize" => {
                         // Normalize .sdh to .forced
                         if subtitle.proposed_path.contains(".sdh") {
-                            subtitle.proposed_path = subtitle.proposed_path.replace(".sdh", ".forced");
-                            subtitle.warning_flags.push("forced_sdh_normalized".to_string());
+                            subtitle.proposed_path =
+                                subtitle.proposed_path.replace(".sdh", ".forced");
+                            subtitle
+                                .warning_flags
+                                .push("forced_sdh_normalized".to_string());
                         }
                     }
                     "strip" => {
                         // Strip .sdh suffix
                         if subtitle.proposed_path.contains(".sdh") {
                             subtitle.proposed_path = subtitle.proposed_path.replace(".sdh", "");
-                            subtitle.warning_flags.push("forced_sdh_stripped".to_string());
+                            subtitle
+                                .warning_flags
+                                .push("forced_sdh_stripped".to_string());
                         }
                     }
                     _ => {} // preserve - do nothing
                 }
 
-                let unknown_handling = movie_settings.get("subtitles")
+                let unknown_handling = movie_settings
+                    .get("subtitles")
                     .and_then(|s| s.get("unknownSubtitleHandling"))
                     .and_then(|s| s.as_str())
                     .unwrap_or("preserve");
@@ -504,7 +584,9 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
                                 .unwrap_or_default()
                                 .to_string_lossy();
                             subtitle.proposed_path = format!("{}.unk.{}", stem, current_extension);
-                            subtitle.warning_flags.push("unknown_subtitle_appended_unk".to_string());
+                            subtitle
+                                .warning_flags
+                                .push("unknown_subtitle_appended_unk".to_string());
                         }
                         _ => {} // preserve - do nothing
                     }
@@ -513,14 +595,16 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
 
             // Apply TV-specific rules
             if !library_type {
-                let flatten_subfolders = tv_settings.get("subtitles")
+                let flatten_subfolders = tv_settings
+                    .get("subtitles")
                     .and_then(|s| s.get("flattenPerEpisodeSubfolders"))
                     .and_then(|s| s.as_bool())
                     .unwrap_or(true);
 
                 if flatten_subfolders && matches!(subtitle.subtitle_type, SubtitleType::Subfolder) {
                     // Move subtitle from subfolder to video directory
-                    let video_dir = Path::new(file_path).parent()
+                    let video_dir = Path::new(file_path)
+                        .parent()
                         .unwrap_or_else(|| Path::new(file_path))
                         .to_string_lossy();
                     let video_dir_str = video_dir.to_string();
@@ -529,36 +613,57 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
                         .to_string_lossy()
                         .to_string();
                     subtitle.proposed_path = new_path;
-                    subtitle.warning_flags.push("flattened_from_subfolder".to_string());
+                    subtitle
+                        .warning_flags
+                        .push("flattened_from_subfolder".to_string());
                 }
 
-                let handle_non_matching = tv_settings.get("subtitles")
+                let handle_non_matching = tv_settings
+                    .get("subtitles")
                     .and_then(|s| s.get("handleNonMatchingNames"))
                     .and_then(|s| s.as_bool())
                     .unwrap_or(true);
 
-                if handle_non_matching && matches!(subtitle.subtitle_type, SubtitleType::NonMatching) {
+                if handle_non_matching
+                    && matches!(subtitle.subtitle_type, SubtitleType::NonMatching)
+                {
                     // Map non-matching names (e.g., "2_English.srt" -> "Video.English.srt")
-                    let filename = Path::new(&subtitle.original_path).file_name().unwrap().to_string_lossy();
+                    let filename = Path::new(&subtitle.original_path)
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy();
                     if let Ok(regex) = Regex::new(SUBTITLE_PATTERNS[1]) {
                         if let Some(captures) = regex.captures(&filename) {
-                            if let (Some(_prefix), Some(lang_suffix)) = (captures.get(1), captures.get(2)) {
-                                let extension = Path::new(&subtitle.original_path).extension()
-                                    .unwrap_or_default().to_string_lossy();
-                                let new_filename = format!("{}.{}.{}", new_basename, lang_suffix.as_str(), extension);
-                                let video_dir = Path::new(file_path).parent()
+                            if let (Some(_prefix), Some(lang_suffix)) =
+                                (captures.get(1), captures.get(2))
+                            {
+                                let extension = Path::new(&subtitle.original_path)
+                                    .extension()
+                                    .unwrap_or_default()
+                                    .to_string_lossy();
+                                let new_filename = format!(
+                                    "{}.{}.{}",
+                                    new_basename,
+                                    lang_suffix.as_str(),
+                                    extension
+                                );
+                                let video_dir = Path::new(file_path)
+                                    .parent()
                                     .unwrap_or_else(|| Path::new(file_path))
                                     .to_string_lossy()
                                     .to_string();
                                 let full_path = Path::new(&video_dir).join(&new_filename);
                                 subtitle.proposed_path = full_path.to_string_lossy().to_string();
-                                subtitle.warning_flags.push("mapped_non_matching".to_string());
+                                subtitle
+                                    .warning_flags
+                                    .push("mapped_non_matching".to_string());
                             }
                         }
                     }
                 }
 
-                let multi_sub_handling = tv_settings.get("subtitles")
+                let multi_sub_handling = tv_settings
+                    .get("subtitles")
                     .and_then(|s| s.get("multiSubHandling"))
                     .and_then(|s| s.as_str())
                     .unwrap_or("preserve");
@@ -567,10 +672,14 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
                 // In a full implementation, this would track duplicates and apply numbering
                 match multi_sub_handling {
                     "number" => {
-                        subtitle.warning_flags.push("multi_sub_numbered".to_string());
+                        subtitle
+                            .warning_flags
+                            .push("multi_sub_numbered".to_string());
                     }
                     "first_only" => {
-                        subtitle.warning_flags.push("multi_sub_first_only".to_string());
+                        subtitle
+                            .warning_flags
+                            .push("multi_sub_first_only".to_string());
                     }
                     _ => {} // preserve - do nothing
                 }
@@ -578,7 +687,11 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
 
             // Create operation
             let operation = RenameOperation {
-                operation_type: if subtitle.needs_conversion { "convert".to_string() } else { "rename".to_string() },
+                operation_type: if subtitle.needs_conversion {
+                    "convert".to_string()
+                } else {
+                    "rename".to_string()
+                },
                 original_path: subtitle.original_path.clone(),
                 new_path: subtitle.proposed_path.clone(),
                 backup_path: if subtitle.needs_conversion {
@@ -603,94 +716,64 @@ pub async fn preview_renames(request: PreviewRenamesRequest) -> Result<PreviewRe
     })
 }
 
-#[command]
-pub async fn apply_renames(app: tauri::AppHandle, request: ApplyRenamesRequest) -> Result<ApplyResult, String> {
+fn resolve_operations_for_apply(
+    operations: &[RenameOperation],
+    mappings: &[crate::path_map::PathMapping],
+    server_id: &str,
+) -> Result<Vec<RenameOperation>, String> {
+    let mut resolved_operations = Vec::new();
+
+    for operation in operations {
+        let resolved_original = crate::path_map::resolve_apply_path_strict(
+            &operation.original_path,
+            mappings,
+            server_id,
+        )
+        .ok_or_else(|| {
+            format!(
+                "Failed to resolve original path: {}",
+                operation.original_path
+            )
+        })?;
+        let resolved_new =
+            crate::path_map::resolve_apply_path_strict(&operation.new_path, mappings, server_id)
+                .ok_or_else(|| format!("Failed to resolve new path: {}", operation.new_path))?;
+
+        resolved_operations.push(RenameOperation {
+            operation_type: operation.operation_type.clone(),
+            original_path: resolved_original.to_string_lossy().to_string(),
+            new_path: resolved_new.to_string_lossy().to_string(),
+            backup_path: operation.backup_path.as_ref().map(|backup| {
+                crate::path_map::resolve_apply_path_strict(backup, mappings, server_id)
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| backup.clone())
+            }),
+            operation_id: operation.operation_id.clone(),
+        });
+    }
+
+    Ok(resolved_operations)
+}
+
+pub(crate) fn apply_operations_with_log_path<F>(
+    operations: &[RenameOperation],
+    log_path: &Path,
+    mut apply_operation: F,
+) -> Result<ApplyResult, String>
+where
+    F: FnMut(&RenameOperation) -> Result<(), String>,
+{
     let mut operations_applied = 0;
     let mut operations_failed = 0;
     let mut errors = Vec::new();
     let mut all_operations = Vec::new();
 
-    // Get path mappings from settings
-    let settings_result = crate::settings::get_settings(app);
-    let mappings: Vec<crate::path_map::PathMapping> = match settings_result {
-        Ok(settings) => {
-            // Process mappings if available
-            let mappings = if let Some(mappings_array) = settings.get("pathMappings").and_then(|pm| pm.as_array()) {
-                mappings_array.iter()
-                    .filter_map(|m| {
-                        let obj = m.as_object()?;
-                        Some(crate::path_map::PathMapping {
-                            server_id: obj.get("server_id")?.as_str()?.to_string(),
-                            plex_root: obj.get("plex_root")?.as_str()?.to_string(),
-                            local_root: obj.get("local_root")?.as_str()?.to_string(),
-                            platform: obj.get("platform")?.as_str().map(|s| s.to_string()),
-                        })
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
-
-            mappings
-        }
-        Err(e) => return Err(format!("Failed to get settings: {}", e)),
-    };
-
-    // Resolve all paths in operations from Plex paths to local paths
-    let mut resolved_operations = Vec::new();
-    for operation in &request.operations {
-        let resolved_original = crate::path_map::resolve_plex_path(&operation.original_path, &mappings, &request.server_id, None)
-            .ok_or_else(|| {
-                let msg = format!("Failed to resolve original path: {}", operation.original_path);
-                crate::logging::log_event(
-                    "ERROR",
-                    "apply_renames",
-                    &msg,
-                    serde_json::json!({ "operation_id": operation.operation_id }),
-                );
-                msg
-            })?;
-        let resolved_new = crate::path_map::resolve_plex_path(&operation.new_path, &mappings, &request.server_id, None)
-            .ok_or_else(|| {
-                let msg = format!("Failed to resolve new path: {}", operation.new_path);
-                crate::logging::log_event(
-                    "ERROR",
-                    "apply_renames",
-                    &msg,
-                    serde_json::json!({ "operation_id": operation.operation_id }),
-                );
-                msg
-            })?;
-
-        let resolved_operation = RenameOperation {
-            operation_type: operation.operation_type.clone(),
-            original_path: resolved_original.to_string_lossy().to_string(),
-            new_path: resolved_new.to_string_lossy().to_string(),
-            backup_path: operation.backup_path.as_ref().map(|backup| {
-                crate::path_map::resolve_plex_path(backup, &mappings, &request.server_id, None)
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|| backup.clone())
-            }),
-            operation_id: operation.operation_id.clone(),
-        };
-
-        resolved_operations.push(resolved_operation);
+    if let Some(parent) = log_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create log directory: {}", e))?;
     }
 
-    // Use resolved operations
-    let operations = resolved_operations;
-
-    // Create rollback log directory
-    let log_dir = dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("~/.nameotron"))
-        .join("logs");
-    fs::create_dir_all(&log_dir)
-        .map_err(|e| format!("Failed to create log directory: {}", e))?;
-
-    let log_path = log_dir.join(format!("rollback_{}.json", chrono::Utc::now().timestamp()));
-
-    for operation in &operations {
-        match apply_single_operation(operation) {
+    for operation in operations {
+        match apply_operation(operation) {
             Ok(_) => {
                 operations_applied += 1;
                 all_operations.push(serde_json::json!({
@@ -718,12 +801,10 @@ pub async fn apply_renames(app: tauri::AppHandle, request: ApplyRenamesRequest) 
         }
     }
 
-    // Write rollback log
     let log_content = serde_json::to_string_pretty(&all_operations)
         .map_err(|e| format!("Failed to serialize rollback log: {}", e))?;
 
-    fs::write(&log_path, log_content)
-        .map_err(|e| format!("Failed to write rollback log: {}", e))?;
+    fs::write(log_path, log_content).map_err(|e| format!("Failed to write rollback log: {}", e))?;
 
     Ok(ApplyResult {
         success: operations_failed == 0,
@@ -734,27 +815,128 @@ pub async fn apply_renames(app: tauri::AppHandle, request: ApplyRenamesRequest) 
     })
 }
 
+pub(crate) fn rollback_log_path() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("~/.nameotron"))
+        .join("logs")
+        .join(format!("rollback_{}.json", chrono::Utc::now().timestamp()))
+}
+
+pub fn undo_rename_from_log_path(
+    log_path: &Path,
+    remove_log_on_success: bool,
+) -> Result<ApplyResult, String> {
+    let log_content =
+        fs::read_to_string(log_path).map_err(|e| format!("Failed to read rollback log: {}", e))?;
+
+    let operations: Vec<RenameOperation> = serde_json::from_str(&log_content)
+        .map_err(|e| format!("Failed to parse rollback log: {}", e))?;
+
+    let mut operations_applied = 0;
+    let mut operations_failed = 0;
+    let mut errors = Vec::new();
+
+    for operation in operations.iter().rev() {
+        match undo_single_operation(operation) {
+            Ok(_) => {
+                operations_applied += 1;
+            }
+            Err(e) => {
+                operations_failed += 1;
+                errors.push(e);
+            }
+        }
+    }
+
+    if remove_log_on_success && operations_failed == 0 {
+        let _ = fs::remove_file(log_path);
+    }
+
+    Ok(ApplyResult {
+        success: operations_failed == 0,
+        operations_applied,
+        operations_failed,
+        rollback_log_path: log_path.to_string_lossy().to_string(),
+        errors,
+    })
+}
+
+#[command]
+pub async fn apply_renames(
+    app: tauri::AppHandle,
+    request: ApplyRenamesRequest,
+) -> Result<ApplyResult, String> {
+    // Get path mappings from settings
+    let settings_result = crate::settings::get_settings(app);
+    let mappings: Vec<crate::path_map::PathMapping> = match settings_result {
+        Ok(settings) => crate::path_map::path_mappings_from_settings(&settings),
+        Err(e) => return Err(format!("Failed to get settings: {}", e)),
+    };
+
+    let operations =
+        resolve_operations_for_apply(&request.operations, &mappings, &request.server_id).map_err(
+            |msg| {
+                crate::logging::log_event(
+                    "ERROR",
+                    "apply_renames",
+                    &msg,
+                    serde_json::json!({ "server_id": request.server_id }),
+                );
+                msg
+            },
+        )?;
+
+    let log_path = rollback_log_path();
+
+    apply_operations_with_log_path(&operations, &log_path, apply_single_operation)
+}
+
 pub fn apply_single_operation(operation: &RenameOperation) -> Result<(), String> {
     match operation.operation_type.as_str() {
         "rename" => {
+            let original_path = Path::new(&operation.original_path);
+            let new_path = Path::new(&operation.new_path);
+            if original_path != new_path && new_path.exists() {
+                return Err(format!("Target already exists: {}", operation.new_path));
+            }
             // Simple rename
-            fs::rename(&operation.original_path, &operation.new_path)
-                .map_err(|e| format!("Failed to rename {} to {}: {}", operation.original_path, operation.new_path, e))?;
+            fs::rename(&operation.original_path, &operation.new_path).map_err(|e| {
+                format!(
+                    "Failed to rename {} to {}: {}",
+                    operation.original_path, operation.new_path, e
+                )
+            })?;
         }
         "move" => {
+            let original_path = Path::new(&operation.original_path);
+            let new_path = Path::new(&operation.new_path);
+            if original_path != new_path && new_path.exists() {
+                return Err(format!("Target already exists: {}", operation.new_path));
+            }
             // Move operation (different directories)
             // For simplicity, using rename which works across directories on same filesystem
-            fs::rename(&operation.original_path, &operation.new_path)
-                .map_err(|e| format!("Failed to move {} to {}: {}", operation.original_path, operation.new_path, e))?;
+            fs::rename(&operation.original_path, &operation.new_path).map_err(|e| {
+                format!(
+                    "Failed to move {} to {}: {}",
+                    operation.original_path, operation.new_path, e
+                )
+            })?;
         }
         "convert" => {
             // Encoding conversion with backup
             if let Some(ref backup_path) = operation.backup_path {
-                convert_subtitle_to_utf8(&operation.original_path, &operation.new_path, backup_path)?;
+                convert_subtitle_to_utf8(
+                    &operation.original_path,
+                    &operation.new_path,
+                    backup_path,
+                )?;
             }
         }
         _ => {
-            return Err(format!("Unknown operation type: {}", operation.operation_type));
+            return Err(format!(
+                "Unknown operation type: {}",
+                operation.operation_type
+            ));
         }
     }
 
@@ -775,9 +957,7 @@ pub async fn undo_last_rename() -> Result<ApplyResult, String> {
     let mut log_files: Vec<_> = fs::read_dir(&log_dir)
         .map_err(|e| format!("Failed to read log directory: {}", e))?
         .flatten()
-        .filter(|entry| {
-            entry.path().extension().map_or(false, |ext| ext == "json")
-        })
+        .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "json"))
         .collect();
 
     if log_files.is_empty() {
@@ -786,68 +966,47 @@ pub async fn undo_last_rename() -> Result<ApplyResult, String> {
 
     // Sort by modification time (newest first)
     log_files.sort_by(|a, b| {
-        b.metadata().unwrap().modified().unwrap().cmp(&a.metadata().unwrap().modified().unwrap())
+        b.metadata()
+            .unwrap()
+            .modified()
+            .unwrap()
+            .cmp(&a.metadata().unwrap().modified().unwrap())
     });
 
     let most_recent_log = log_files[0].path();
 
-    // Read and parse the rollback log
-    let log_content = fs::read_to_string(&most_recent_log)
-        .map_err(|e| format!("Failed to read rollback log: {}", e))?;
-
-    let operations: Vec<RenameOperation> = serde_json::from_str(&log_content)
-        .map_err(|e| format!("Failed to parse rollback log: {}", e))?;
-
-    let mut operations_applied = 0;
-    let mut operations_failed = 0;
-    let mut errors = Vec::new();
-
-    // Reverse each operation
-    for operation in operations.iter().rev() {
-        match undo_single_operation(operation) {
-            Ok(_) => {
-                operations_applied += 1;
-            }
-            Err(e) => {
-                operations_failed += 1;
-                errors.push(e);
-            }
-        }
-    }
-
-    // Remove the log file after successful undo
-    if operations_failed == 0 {
-        if let Err(_e) = fs::remove_file(&most_recent_log) {
-        }
-    }
-
-    Ok(ApplyResult {
-        success: operations_failed == 0,
-        operations_applied,
-        operations_failed,
-        rollback_log_path: most_recent_log.to_string_lossy().to_string(),
-        errors,
-    })
+    undo_rename_from_log_path(&most_recent_log, true)
 }
 
 fn undo_single_operation(operation: &RenameOperation) -> Result<(), String> {
     match operation.operation_type.as_str() {
         "rename" | "move" => {
             // Reverse rename/move
-            fs::rename(&operation.new_path, &operation.original_path)
-                .map_err(|e| format!("Failed to undo rename {} to {}: {}", operation.new_path, operation.original_path, e))?;
+            fs::rename(&operation.new_path, &operation.original_path).map_err(|e| {
+                format!(
+                    "Failed to undo rename {} to {}: {}",
+                    operation.new_path, operation.original_path, e
+                )
+            })?;
         }
         "convert" => {
             // Restore from backup if it exists
             if let Some(ref backup_path) = operation.backup_path {
                 if Path::new(backup_path).exists() {
-                    fs::rename(backup_path, &operation.original_path)
-                        .map_err(|e| format!("Failed to restore backup {} to {}: {}", backup_path, operation.original_path, e))?;
+                    fs::rename(backup_path, &operation.original_path).map_err(|e| {
+                        format!(
+                            "Failed to restore backup {} to {}: {}",
+                            backup_path, operation.original_path, e
+                        )
+                    })?;
                 }
             }
         }
         _ => {
-            return Err(format!("Cannot undo unknown operation type: {}", operation.operation_type));
+            return Err(format!(
+                "Cannot undo unknown operation type: {}",
+                operation.operation_type
+            ));
         }
     }
 

@@ -110,18 +110,24 @@ export function Movies({s, onChange, onConfigureParsers}: { s: Settings; onChang
                                                         break;
                                                 }
 
+                                                const fileName = `${movie.title} (${movie.year}).mkv`;
+
                                                 // Apply mode logic
                                                 if (m.collections.mode === "if2plus") {
                                                     // For "if2plus", we'd need to check if there are 2+ movies in collection
                                                     // For this preview, assume Star Wars has 2+ and others don't
                                                     const shouldUseCollection = movie.collection === "Star Wars Collection";
                                                     if (shouldUseCollection) {
-                                                        result = `${collectionFolder}/${movie.title} (${movie.year}).mkv`;
+                                                        result = m.ownFolderPerMovie
+                                                            ? `${collectionFolder}/${movie.title}/${fileName}`
+                                                            : `${collectionFolder}/${fileName}`;
                                                     } else {
-                                                        result = `${movie.title} (${movie.year}).mkv`;
+                                                        result = fileName;
                                                     }
                                                 } else { // always
-                                                    result = `${collectionFolder}/${movie.title} (${movie.year}).mkv`;
+                                                    result = m.ownFolderPerMovie
+                                                        ? `${collectionFolder}/${movie.title}/${fileName}`
+                                                        : `${collectionFolder}/${fileName}`;
                                                 }
                                             } else {
                                                 result = `${movie.title} (${movie.year}).mkv`;

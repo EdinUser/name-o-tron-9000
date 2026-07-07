@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { General } from "../General";
 import type { Settings } from "../../../state/settings";
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
@@ -108,19 +109,24 @@ describe("Settings General diagnostics", () => {
   });
 
   it("calls export_diagnostic_bundle_zip with targetPath from save dialog", async () => {
+    const user = userEvent.setup();
     (dialogSave as any).mockResolvedValue("/tmp/diag.zip");
     (tauriInvoke as any).mockResolvedValue("/tmp/diag.zip");
 
     render(<General s={baseSettings} onChange={() => {}} />);
 
     const button = screen.getByText("Export bundle");
-    await fireEvent.click(button);
+    await user.click(button);
 
-    expect(dialogSave).toHaveBeenCalled();
-    expect(tauriInvoke).toHaveBeenCalledWith("export_diagnostic_bundle_zip", { targetPath: "/tmp/diag.zip" });
+    await waitFor(() => {
+      expect(dialogSave).toHaveBeenCalled();
+      expect(tauriInvoke).toHaveBeenCalledWith("export_diagnostic_bundle_zip", { targetPath: "/tmp/diag.zip" });
+      expect(screen.getByText("Diagnostic Bundle Saved")).toBeInTheDocument();
+    });
   });
 
   it("opens logs folder via revealItemInDir", async () => {
+    const user = userEvent.setup();
     (tauriInvoke as any).mockImplementation(async (cmd: string) => {
       if (cmd === "get_logs_directory_path") return "/tmp/logs";
       return null;
@@ -129,9 +135,11 @@ describe("Settings General diagnostics", () => {
     render(<General s={baseSettings} onChange={() => {}} />);
 
     const button = screen.getByText("Open logs folder");
-    await fireEvent.click(button);
+    await user.click(button);
 
-    expect(tauriInvoke).toHaveBeenCalledWith("get_logs_directory_path");
-    expect(openerRevealItemInDir).toHaveBeenCalledWith("/tmp/logs");
+    await waitFor(() => {
+      expect(tauriInvoke).toHaveBeenCalledWith("get_logs_directory_path");
+      expect(openerRevealItemInDir).toHaveBeenCalledWith("/tmp/logs");
+    });
   });
 });

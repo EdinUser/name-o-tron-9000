@@ -2,6 +2,7 @@ import React from "react";
 import Toggle from "../../components/Toggle";
 import Radio from "../../components/Radio";
 import { type Settings } from "../../state/settings";
+import { renderEpisodeTemplateWithPlexTokens } from "../Preview/episodeTokens";
 
 function Section({title, children}: { title: string; children: React.ReactNode }) {
     return (
@@ -97,7 +98,7 @@ export function TV({s, onChange}: { s: Settings; onChange: (v: Settings["tv"]) =
                 <Row label="Detect OVA / Specials → Suggest Season 00">
                     <Toggle checked={t.detectOVAsSeason00} onChange={(checked) => set({detectOVAsSeason00: checked})}/>
                 </Row>
-                <Row label="Normalize multi-episode files (E01-02 → E01E02)">
+                <Row label="Normalize multi-episode files (S01E01E02 → S01E01-E02)">
                     <Toggle checked={t.normalizeMultiEpisode} onChange={(checked) => set({normalizeMultiEpisode: checked})}/>
                 </Row>
                 <Row label="Warn if episode count doesn't match Plex DB">
@@ -165,8 +166,10 @@ export function TV({s, onChange}: { s: Settings; onChange: (v: Settings["tv"]) =
                                             let episode = ep.episode;
                                             let title = ep.title;
                                             if (t.normalizeMultiEpisode && ep.isMultiEpisode) {
-                                                episode = ep.episode; // Keep first episode number
-                                                title = `${title} (Episodes ${ep.episode}-2)`;
+                                                dynamicTemplate = renderEpisodeTemplateWithPlexTokens(dynamicTemplate, {
+                                                    startEpisode: ep.episode,
+                                                    endEpisode: ep.episode + 1,
+                                                });
                                             }
 
                                             let result = dynamicTemplate

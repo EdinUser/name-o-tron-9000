@@ -1,8 +1,8 @@
-use wiremock::{MockServer, Mock, ResponseTemplate};
-use wiremock::matchers::{method, path};
+use name_o_tron_9000_lib::{path_map, plex_api, plex_scan_hosts_for_test, ScanResult};
 use serde_json::json;
 use std::time::Duration;
-use name_o_tron_9000_lib::{plex_api, path_map, plex_scan_hosts_for_test, ScanResult};
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 async fn start_mock_server_or_skip(test_name: &str) -> Option<MockServer> {
     if std::env::var("WIREMOCK_DISABLED").is_ok() {
@@ -56,7 +56,6 @@ async fn test_http_client_integration() {
             panic!("Unexpected network error: {}", e);
         }
     }
-
 }
 
 #[tokio::test]
@@ -97,7 +96,6 @@ async fn test_error_handling_integration() {
             // Network error is also acceptable in this test
         }
     }
-
 }
 
 #[tokio::test]
@@ -143,15 +141,15 @@ async fn test_concurrent_http_requests() {
         let value = result.unwrap();
         assert_eq!(value.get("status").unwrap(), "ok");
     }
-
 }
 
 #[tokio::test]
 async fn test_advanced_scan_finds_plex_like_identity() {
-    let mock_server = match start_mock_server_or_skip("test_advanced_scan_finds_plex_like_identity").await {
-        Some(s) => s,
-        None => return,
-    };
+    let mock_server =
+        match start_mock_server_or_skip("test_advanced_scan_finds_plex_like_identity").await {
+            Some(s) => s,
+            None => return,
+        };
 
     // Plex-like /identity
     Mock::given(method("GET"))
@@ -175,7 +173,10 @@ async fn test_advanced_scan_finds_plex_like_identity() {
     let res = &results[0];
     assert!(res.reachable, "Host should be reachable");
     assert!(res.is_plex, "Should be identified as Plex via /identity");
-    assert!(res.address.contains(&port.to_string()), "Address should include port");
+    assert!(
+        res.address.contains(&port.to_string()),
+        "Address should include port"
+    );
 }
 
 #[tokio::test]
@@ -191,10 +192,11 @@ async fn test_advanced_scan_marks_unreachable_host() {
 
 #[tokio::test]
 async fn test_list_libraries_with_mock_plex_server() {
-    let mock_server = match start_mock_server_or_skip("test_list_libraries_with_mock_plex_server").await {
-        Some(s) => s,
-        None => return,
-    };
+    let mock_server =
+        match start_mock_server_or_skip("test_list_libraries_with_mock_plex_server").await {
+            Some(s) => s,
+            None => return,
+        };
 
     // Mock the Plex libraries endpoint response
     Mock::given(method("GET"))
@@ -244,7 +246,10 @@ async fn test_list_libraries_with_mock_plex_server() {
     let server_url = mock_server.uri();
     let result = plex_api::list_libraries(server_url, None).await;
 
-    assert!(result.is_ok(), "list_libraries should succeed with valid response");
+    assert!(
+        result.is_ok(),
+        "list_libraries should succeed with valid response"
+    );
 
     let libraries = result.unwrap();
     assert_eq!(libraries.len(), 3, "Should return 3 libraries");
@@ -266,15 +271,15 @@ async fn test_list_libraries_with_mock_plex_server() {
     assert_eq!(music_lib.key, "3");
     assert_eq!(music_lib.r#type, "artist");
     assert_eq!(music_lib.title, "Music");
-
 }
 
 #[tokio::test]
 async fn test_list_libraries_with_authentication() {
-    let mock_server = match start_mock_server_or_skip("test_list_libraries_with_authentication").await {
-        Some(s) => s,
-        None => return,
-    };
+    let mock_server =
+        match start_mock_server_or_skip("test_list_libraries_with_authentication").await {
+            Some(s) => s,
+            None => return,
+        };
 
     // Mock the Plex libraries endpoint with authentication
     Mock::given(method("GET"))
@@ -302,7 +307,10 @@ async fn test_list_libraries_with_authentication() {
     let token = "test_token_12345".to_string();
     let result = plex_api::list_libraries(server_url, Some(token)).await;
 
-    assert!(result.is_ok(), "list_libraries should succeed with authentication");
+    assert!(
+        result.is_ok(),
+        "list_libraries should succeed with authentication"
+    );
 
     let libraries = result.unwrap();
     assert_eq!(libraries.len(), 1, "Should return 1 authenticated library");
@@ -317,9 +325,13 @@ async fn test_list_libraries_with_authentication() {
 #[tokio::test]
 async fn test_list_libraries_invalid_server() {
     // Test with a server that doesn't respond
-    let result = plex_api::list_libraries("http://nonexistent-server:32400".to_string(), None).await;
+    let result =
+        plex_api::list_libraries("http://nonexistent-server:32400".to_string(), None).await;
 
-    assert!(result.is_err(), "list_libraries should fail with invalid server");
+    assert!(
+        result.is_err(),
+        "list_libraries should fail with invalid server"
+    );
     println!("Invalid server test completed successfully");
 }
 
@@ -404,19 +416,17 @@ async fn test_path_mapping_functionality() {
     };
 
     let plex_path = "/media/Movies/Inception (2010)/Inception (2010).mkv";
-    let resolved = path_map::resolve_plex_path(
-        plex_path,
-        &[mapping],
-        "test_server",
-        Some("windows"),
-    );
+    let resolved =
+        path_map::resolve_plex_path(plex_path, &[mapping], "test_server", Some("windows"));
 
     assert!(resolved.is_some(), "Should resolve valid plex path");
     let resolved_path = resolved.unwrap();
     assert!(resolved_path.to_string_lossy().contains("/mnt/movies"));
     // On Windows, paths are normalized to lowercase, so check for both cases
-    assert!(resolved_path.to_string_lossy().contains("Inception (2010)") ||
-            resolved_path.to_string_lossy().contains("inception (2010)"));
+    assert!(
+        resolved_path.to_string_lossy().contains("Inception (2010)")
+            || resolved_path.to_string_lossy().contains("inception (2010)")
+    );
 
     println!("Path mapping resolution test completed successfully");
 }
@@ -428,8 +438,15 @@ async fn test_test_mapping_function() {
     let temp_path = temp_dir.path().to_string_lossy().to_string();
 
     // Test with existing writable directory
-    let result = path_map::test_mapping("test_server".to_string(), "/test/path".to_string(), temp_path.clone());
-    assert!(result.is_ok(), "test_mapping should succeed with existing directory");
+    let result = path_map::test_mapping(
+        "test_server".to_string(),
+        "/test/path".to_string(),
+        temp_path.clone(),
+    );
+    assert!(
+        result.is_ok(),
+        "test_mapping should succeed with existing directory"
+    );
 
     let test_result = result.unwrap();
     assert!(test_result.exists, "Should detect existing directory");
@@ -437,12 +454,22 @@ async fn test_test_mapping_function() {
 
     // Test with non-existent directory
     let non_existent = "/this/path/does/not/exist".to_string();
-    let result2 = path_map::test_mapping("test_server".to_string(), "/test/path".to_string(), non_existent);
-    assert!(result2.is_ok(), "test_mapping should handle non-existent directory");
+    let result2 = path_map::test_mapping(
+        "test_server".to_string(),
+        "/test/path".to_string(),
+        non_existent,
+    );
+    assert!(
+        result2.is_ok(),
+        "test_mapping should handle non-existent directory"
+    );
 
     let test_result2 = result2.unwrap();
     assert!(!test_result2.exists, "Should detect non-existent directory");
-    assert!(!test_result2.ok, "Should not be OK for non-existent directory");
+    assert!(
+        !test_result2.ok,
+        "Should not be OK for non-existent directory"
+    );
 
     println!("Path mapping test function completed successfully");
 }
@@ -461,8 +488,15 @@ async fn test_test_mapping_readonly_directory() {
         perms.set_mode(0o444); // Read-only
         fs::set_permissions(temp_path, perms).unwrap();
 
-        let result = path_map::test_mapping("test_server".to_string(), "/test/path".to_string(), temp_path.to_string_lossy().to_string());
-        assert!(result.is_ok(), "test_mapping should handle read-only directory");
+        let result = path_map::test_mapping(
+            "test_server".to_string(),
+            "/test/path".to_string(),
+            temp_path.to_string_lossy().to_string(),
+        );
+        assert!(
+            result.is_ok(),
+            "test_mapping should handle read-only directory"
+        );
 
         let test_result = result.unwrap();
         assert!(test_result.exists, "Should detect existing directory");
@@ -475,10 +509,11 @@ async fn test_test_mapping_readonly_directory() {
 
 #[tokio::test]
 async fn test_list_libraries_malformed_response() {
-    let mock_server = match start_mock_server_or_skip("test_list_libraries_malformed_response").await {
-        Some(s) => s,
-        None => return,
-    };
+    let mock_server =
+        match start_mock_server_or_skip("test_list_libraries_malformed_response").await {
+            Some(s) => s,
+            None => return,
+        };
 
     // Mock malformed JSON response
     Mock::given(method("GET"))
@@ -524,7 +559,11 @@ async fn test_list_libraries_empty_response() {
     // Should handle empty response gracefully
     match result {
         Ok(libraries) => {
-            assert_eq!(libraries.len(), 0, "Should return empty list for empty response");
+            assert_eq!(
+                libraries.len(),
+                0,
+                "Should return empty list for empty response"
+            );
         }
         Err(e) => {
             println!("Empty response resulted in error (acceptable): {}", e);
@@ -552,7 +591,10 @@ async fn test_list_libraries_server_error() {
     let server_url = mock_server.uri();
     let result = plex_api::list_libraries(server_url, None).await;
 
-    assert!(result.is_err(), "list_libraries should fail with server error");
+    assert!(
+        result.is_err(),
+        "list_libraries should fail with server error"
+    );
     if let Err(error_msg) = result {
         assert!(error_msg.contains("500") || error_msg.contains("Internal Server Error"));
     }
@@ -590,21 +632,32 @@ async fn test_subtitle_processing_integration() {
     let subtitle1_path = series_dir.join("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.bul.srt");
 
     std::fs::write(&video1_path, "fake video content").unwrap();
-    std::fs::write(&subtitle1_path, "1\r\n00:00:00,000 --> 00:00:05,000\r\nTest subtitle\r\n").unwrap();
+    std::fs::write(
+        &subtitle1_path,
+        "1\r\n00:00:00,000 --> 00:00:05,000\r\nTest subtitle\r\n",
+    )
+    .unwrap();
 
-    let video_files = vec![
-        video1_path.to_string_lossy().to_string(),
-    ];
+    let video_files = vec![video1_path.to_string_lossy().to_string()];
 
     // Test subtitle file detection
     for video_path in &video_files {
         let subtitles = name_o_tron_9000_lib::subtitle::find_subtitle_files(video_path);
-        assert!(!subtitles.is_empty(), "Should find subtitle files for {}", video_path);
+        assert!(
+            !subtitles.is_empty(),
+            "Should find subtitle files for {}",
+            video_path
+        );
 
         // Check that subtitle has correct properties
         let subtitle = &subtitles[0];
-        assert_eq!(subtitle.subtitle_type, name_o_tron_9000_lib::subtitle::SubtitleType::Standard);
-        assert!(matches!(subtitle.classification, name_o_tron_9000_lib::subtitle::SubtitleClassification::VideoSubtitle(ref lang) if lang == "bul"));
+        assert_eq!(
+            subtitle.subtitle_type,
+            name_o_tron_9000_lib::subtitle::SubtitleType::Standard
+        );
+        assert!(
+            matches!(subtitle.classification, name_o_tron_9000_lib::subtitle::SubtitleClassification::VideoSubtitle(ref lang) if lang == "bul")
+        );
         assert_eq!(subtitle.needs_conversion, false); // Default state
     }
 
@@ -616,28 +669,51 @@ async fn test_subtitle_classification() {
     // Test subtitle filename classification logic
 
     let test_cases = vec![
-        ("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.bul.srt", "bul"),
-        ("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.eng.srt", "eng"),
-        ("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.forced.srt", "forced"),
-        ("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.sdh.srt", "sdh"),
+        (
+            "Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.bul.srt",
+            "bul",
+        ),
+        (
+            "Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.eng.srt",
+            "eng",
+        ),
+        (
+            "Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.forced.srt",
+            "forced",
+        ),
+        (
+            "Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.sdh.srt",
+            "sdh",
+        ),
         ("2_English.srt", "English"), // Non-matching pattern
         ("Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG.srt", ""), // No language suffix
     ];
 
     for (filename, expected_lang) in test_cases {
         let video_basename = "Band.of.Brothers.S01E01.1080p.BluRay.x265-RARBG";
-        let classification = name_o_tron_9000_lib::subtitle::classify_subtitle_filename(filename, video_basename);
+        let classification =
+            name_o_tron_9000_lib::subtitle::classify_subtitle_filename(filename, video_basename);
 
         match classification {
             name_o_tron_9000_lib::subtitle::SubtitleClassification::VideoSubtitle(lang) => {
                 if expected_lang.is_empty() {
-                    panic!("Expected Unknown classification for {}, got VideoSubtitle({})", filename, lang);
+                    panic!(
+                        "Expected Unknown classification for {}, got VideoSubtitle({})",
+                        filename, lang
+                    );
                 }
-                assert_eq!(lang, expected_lang, "Language classification failed for {}", filename);
+                assert_eq!(
+                    lang, expected_lang,
+                    "Language classification failed for {}",
+                    filename
+                );
             }
             name_o_tron_9000_lib::subtitle::SubtitleClassification::Unknown => {
                 if !expected_lang.is_empty() {
-                    panic!("Expected VideoSubtitle({}) for {}, got Unknown", expected_lang, filename);
+                    panic!(
+                        "Expected VideoSubtitle({}) for {}, got Unknown",
+                        expected_lang, filename
+                    );
                 }
             }
         }
@@ -668,19 +744,25 @@ async fn test_subtitle_encoding_detection() {
     std::fs::write(&empty_file, "").unwrap();
 
     // Test encoding detection
-    let utf8_result = name_o_tron_9000_lib::subtitle::detect_subtitle_encoding(utf8_file.to_string_lossy().as_ref());
+    let utf8_result = name_o_tron_9000_lib::subtitle::detect_subtitle_encoding(
+        utf8_file.to_string_lossy().as_ref(),
+    );
     assert!(utf8_result.is_ok());
     let (encoding, has_bom) = utf8_result.unwrap();
     assert_eq!(encoding, "utf-8");
     assert_eq!(has_bom, true);
 
-    let plain_utf8_result = name_o_tron_9000_lib::subtitle::detect_subtitle_encoding(plain_utf8_file.to_string_lossy().as_ref());
+    let plain_utf8_result = name_o_tron_9000_lib::subtitle::detect_subtitle_encoding(
+        plain_utf8_file.to_string_lossy().as_ref(),
+    );
     assert!(plain_utf8_result.is_ok());
     let (encoding, has_bom) = plain_utf8_result.unwrap();
     assert_eq!(encoding, "utf-8");
     assert_eq!(has_bom, false);
 
-    let empty_result = name_o_tron_9000_lib::subtitle::detect_subtitle_encoding(empty_file.to_string_lossy().as_ref());
+    let empty_result = name_o_tron_9000_lib::subtitle::detect_subtitle_encoding(
+        empty_file.to_string_lossy().as_ref(),
+    );
     assert!(empty_result.is_ok());
     let (encoding, _) = empty_result.unwrap();
     assert_eq!(encoding, "empty");
@@ -692,20 +774,27 @@ async fn test_subtitle_encoding_detection() {
 async fn test_path_resolution_with_server_id_matching() {
     // Test the improved server ID matching in path resolution
 
-    let mappings = vec![
-        name_o_tron_9000_lib::path_map::PathMapping {
-            server_id: "192.168.1.132".to_string(),
-            plex_root: "/share/CACHEDEV1_DATA/Series".to_string(),
-            local_root: "/mnt/Series".to_string(),
-            platform: None,
-        },
-    ];
+    let mappings = vec![name_o_tron_9000_lib::path_map::PathMapping {
+        server_id: "192.168.1.132".to_string(),
+        plex_root: "/share/CACHEDEV1_DATA/Series".to_string(),
+        local_root: "/mnt/Series".to_string(),
+        platform: None,
+    }];
 
     // Test cases for different server ID formats
     let test_cases = vec![
-        ("192.168.1.132", "/share/CACHEDEV1_DATA/Series/Band Of Brothers/Band.of.Brothers.S01E01.mp4"),
-        ("http://192.168.1.132:32400", "/share/CACHEDEV1_DATA/Series/Band Of Brothers/Band.of.Brothers.S01E01.mp4"),
-        ("192.168.1.132:32400", "/share/CACHEDEV1_DATA/Series/Band Of Brothers/Band.of.Brothers.S01E01.mp4"),
+        (
+            "192.168.1.132",
+            "/share/CACHEDEV1_DATA/Series/Band Of Brothers/Band.of.Brothers.S01E01.mp4",
+        ),
+        (
+            "http://192.168.1.132:32400",
+            "/share/CACHEDEV1_DATA/Series/Band Of Brothers/Band.of.Brothers.S01E01.mp4",
+        ),
+        (
+            "192.168.1.132:32400",
+            "/share/CACHEDEV1_DATA/Series/Band Of Brothers/Band.of.Brothers.S01E01.mp4",
+        ),
     ];
 
     for (server_id, plex_path) in test_cases {
@@ -716,10 +805,16 @@ async fn test_path_resolution_with_server_id_matching() {
             Some("linux"),
         );
 
-        assert!(resolved.is_some(), "Should resolve path with server_id: {}", server_id);
+        assert!(
+            resolved.is_some(),
+            "Should resolve path with server_id: {}",
+            server_id
+        );
         let resolved_path = resolved.unwrap();
         assert!(resolved_path.to_string_lossy().contains("/mnt/Series"));
-        assert!(resolved_path.to_string_lossy().contains("Band.of.Brothers.S01E01.mp4"));
+        assert!(resolved_path
+            .to_string_lossy()
+            .contains("Band.of.Brothers.S01E01.mp4"));
     }
 
     println!("Path resolution with server ID matching test completed");
