@@ -9,6 +9,7 @@
           {
             "ratingKey": "101",
             "key": "/library/metadata/101",
+            "guid": "imdb://tt0816692",
             "type": "movie",
             "title": "Interstellar",
             "year": 2014,
@@ -26,6 +27,7 @@
           {
             "ratingKey": "102",
             "key": "/library/metadata/102",
+            "guid": "tmdb://329865",
             "type": "movie",
             "title": "Arrival",
             "year": 2016,
@@ -43,6 +45,7 @@
           {
             "ratingKey": "104",
             "key": "/library/metadata/104",
+            "guid": "imdb://tt0083658",
             "type": "movie",
             "title": "Blade Runner",
             "year": 1982,
@@ -62,6 +65,7 @@
           {
             "ratingKey": "105",
             "key": "/library/metadata/105",
+            "guid": "tmdb://1495",
             "type": "movie",
             "title": "Kingdom of Heaven",
             "year": 2005,
@@ -81,6 +85,7 @@
           {
             "ratingKey": "106",
             "key": "/library/metadata/106",
+            "guid": "imdb://tt0320661",
             "type": "movie",
             "title": "Kingdom of Heaven",
             "year": 2005,
@@ -100,6 +105,7 @@
           {
             "ratingKey": "107",
             "key": "/library/metadata/107",
+            "guid": "tmdb://121",
             "type": "movie",
             "title": "The Lord of the Rings: The Two Towers",
             "year": 2002,
@@ -119,6 +125,7 @@
           {
             "ratingKey": "108",
             "key": "/library/metadata/108",
+            "guid": "imdb://tt0167261",
             "type": "movie",
             "title": "The Lord of the Rings: The Two Towers",
             "year": 2002,

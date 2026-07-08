@@ -1,13 +1,18 @@
 {
   "MediaContainer": {
-    "size": 7,
-    "totalSize": 7,
+    "size": 9,
+    "totalSize": 9,
     "offset": 0,
     "Metadata": [
       {
         "ratingKey": "2001",
         "key": "/library/metadata/2001",
-        "guid": "plex://episode/mock-2001",
+        "guid": "imdb://tt7202001",
+        "Guid": [
+          { "id": "imdb://tt7202001" },
+          { "id": "tmdb://920001" },
+          { "id": "tvdb://720001" }
+        ],
         "type": "episode",
         "title": "Crossroads",
         "grandparentTitle": "Abyssal Gate",
@@ -34,7 +39,12 @@
       {
         "ratingKey": "2002",
         "key": "/library/metadata/2002",
-        "guid": "plex://episode/mock-2002",
+        "guid": "tvdb://720002",
+        "Guid": [
+          { "id": "imdb://tt7202002" },
+          { "id": "tmdb://920002" },
+          { "id": "tvdb://720002" }
+        ],
         "type": "episode",
         "title": "Reckoning",
         "grandparentTitle": "Abyssal Gate",
@@ -61,7 +71,12 @@
       {
         "ratingKey": "2003",
         "key": "/library/metadata/2003",
-        "guid": "plex://episode/mock-2003",
+        "guid": "tmdb://920003",
+        "Guid": [
+          { "id": "imdb://tt7202003" },
+          { "id": "tmdb://920003" },
+          { "id": "tvdb://720003" }
+        ],
         "type": "episode",
         "title": "The Divide",
         "grandparentTitle": "Abyssal Gate",
@@ -88,7 +103,11 @@
       {
         "ratingKey": "2004",
         "key": "/library/metadata/2004",
-        "guid": "plex://episode/mock-2004",
+        "guid": "tvdb://720004",
+        "Guid": [
+          { "id": "imdb://tt7202004" },
+          { "id": "tvdb://720004" }
+        ],
         "type": "episode",
         "title": "No Return",
         "grandparentTitle": "Abyssal Gate",
@@ -115,7 +134,12 @@
       {
         "ratingKey": "2005",
         "key": "/library/metadata/2005",
-        "guid": "plex://episode/mock-2005",
+        "guid": "imdb://tt7202005",
+        "Guid": [
+          { "id": "imdb://tt7202005" },
+          { "id": "tmdb://920005" },
+          { "id": "tvdb://720005" }
+        ],
         "type": "episode",
         "title": "The Siege Part 1",
         "grandparentTitle": "Abyssal Gate",
@@ -142,7 +166,11 @@
       {
         "ratingKey": "2006",
         "key": "/library/metadata/2006",
-        "guid": "plex://episode/mock-2006",
+        "guid": "tvdb://720006",
+        "Guid": [
+          { "id": "imdb://tt7202006" },
+          { "id": "tvdb://720006" }
+        ],
         "type": "episode",
         "title": "The Siege Part 2",
         "grandparentTitle": "Abyssal Gate",
@@ -169,7 +197,12 @@
       {
         "ratingKey": "2007",
         "key": "/library/metadata/2007",
-        "guid": "plex://episode/mock-2007",
+        "guid": "tmdb://920007",
+        "Guid": [
+          { "id": "imdb://tt7202007" },
+          { "id": "tmdb://920007" },
+          { "id": "tvdb://720007" }
+        ],
         "type": "episode",
         "title": "Genesis OVA",
         "grandparentTitle": "Abyssal Gate",
@@ -187,6 +220,70 @@
                 "id": 8007,
                 "key": "/library/parts/8007/file.mkv",
                 "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E01.Genesis.OVA.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2008",
+        "key": "/library/metadata/2008",
+        "guid": "tvdb://720008",
+        "Guid": [
+          { "id": "imdb://tt7202008" },
+          { "id": "tmdb://920008" },
+          { "id": "tvdb://720008" }
+        ],
+        "type": "episode",
+        "title": "No Regrets OVA Part 1",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Specials",
+        "parentIndex": 0,
+        "index": 2,
+        "year": 2023,
+        "thumb": "/library/metadata/2008/thumb",
+        "Media": [
+          {
+            "id": 6008,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8008,
+                "key": "/library/parts/8008/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E02.No.Regrets.Part1.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2009",
+        "key": "/library/metadata/2009",
+        "guid": "imdb://tt7202009",
+        "Guid": [
+          { "id": "imdb://tt7202009" },
+          { "id": "tmdb://920009" },
+          { "id": "tvdb://720009" }
+        ],
+        "type": "episode",
+        "title": "No Regrets OVA Part 2",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Specials",
+        "parentIndex": 0,
+        "index": 3,
+        "year": 2023,
+        "thumb": "/library/metadata/2009/thumb",
+        "Media": [
+          {
+            "id": 6009,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8009,
+                "key": "/library/parts/8009/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E03.No.Regrets.Part2.mkv",
                 "size": 1
               }
             ]

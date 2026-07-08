@@ -220,12 +220,14 @@ Yes! Each media type has customizable templates:
 - `{season:02}` - Season number (zero-padded)
 - `{episode:02}` - Episode number (zero-padded); multi-episode files automatically normalize to Plex-style ranges such as `S01E01-E02`
 
-**Available Placeholders:** `{title}`, `{year}`, `{ext}`, `{showTitle}`, `{season}`, `{episode}`, `{grandparentTitle}`, `{parentTitle}`, and more.
+**Available Placeholders:** `{title}`, `{year}`, `{ext}`, `{showTitle}`, `{season}`, `{episode}`, `{grandparentTitle}`, `{parentTitle}`, `{imdbToken}`, `{tvdbToken}`, `{tmdbToken}`, `{plexIds}`, and more.
 
 **Advanced features:**
 - **Optional groups**: `[ ({year})]` omits if year unavailable
 - **Number formatting**: `{episode:02}` for zero-padding
 - **Edition tokens**: `{edition-extended}` for special versions
+- **Recent template history**: The Preview template input keeps the last 5 unique templates per server/library and lets you restore them from a dropdown when you focus the field
+- **Saved templates**: Promote a recent template to a persistent saved favorite from the same dropdown; saved templates appear below the recent-history entries for that server/library
 
 ## Performance & Large Libraries
 

@@ -9,6 +9,7 @@
           {
             "ratingKey": "2001",
             "key": "/library/metadata/2001",
+            "guid": "imdb://tt7202001",
             "type": "episode",
             "title": "Crossroads",
             "grandparentTitle": "Abyssal Gate",
@@ -29,6 +30,7 @@
           {
             "ratingKey": "2003",
             "key": "/library/metadata/2003",
+            "guid": "tmdb://920003",
             "type": "episode",
             "title": "The Divide",
             "grandparentTitle": "Abyssal Gate",
@@ -49,6 +51,7 @@
           {
             "ratingKey": "2005",
             "key": "/library/metadata/2005",
+            "guid": "imdb://tt7202005",
             "type": "episode",
             "title": "The Siege Part 1",
             "grandparentTitle": "Abyssal Gate",
@@ -69,6 +72,7 @@
           {
             "ratingKey": "2007",
             "key": "/library/metadata/2007",
+            "guid": "tmdb://920007",
             "type": "episode",
             "title": "Genesis OVA",
             "grandparentTitle": "Abyssal Gate",
@@ -87,8 +91,51 @@
             ]
           },
           {
+            "ratingKey": "2008",
+            "key": "/library/metadata/2008",
+            "guid": "tvdb://720008",
+            "type": "episode",
+            "title": "No Regrets OVA Part 1",
+            "grandparentTitle": "Abyssal Gate",
+            "parentTitle": "Specials",
+            "parentIndex": 0,
+            "index": 2,
+            "thumb": "/library/metadata/2008/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E02.No.Regrets.Part1.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2031",
+            "key": "/library/metadata/2031",
+            "guid": "imdb://tt8032031",
+            "type": "episode",
+            "title": "And the Soft Opening",
+            "grandparentTitle": "Two Broke Girls",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 1,
+            "thumb": "/library/metadata/2031/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E01.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "ratingKey": "2013",
             "key": "/library/metadata/2013",
+            "guid": "tvdb://721013",
             "type": "episode",
             "title": "Black Ice",
             "grandparentTitle": "Northwind Homicide",
@@ -107,20 +154,21 @@
             ]
           },
           {
-            "ratingKey": "2022",
-            "key": "/library/metadata/2022",
+            "ratingKey": "2021",
+            "key": "/library/metadata/2021",
+            "guid": "tvdb://722021",
             "type": "episode",
-            "title": "Undertow",
+            "title": "Pilot",
             "grandparentTitle": "Quiet Harbor",
             "parentTitle": "Season 01",
             "parentIndex": 1,
-            "index": 2,
-            "thumb": "/library/metadata/2022/thumb",
+            "index": 1,
+            "thumb": "/library/metadata/2021/thumb",
             "Media": [
               {
                 "Part": [
                   {
-                    "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E02E03.Finale.mkv"
+                    "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E01.mkv"
                   }
                 ]
               }

@@ -18,7 +18,14 @@ import {
     detectSplitPartSuffix,
     renderEpisodeTemplateWithPlexTokens,
 } from "./episodeTokens";
-import { extractImdbId, extractTvdbId, extractTmdbId, renderTemplate } from "../../utils/template";
+import {
+    buildPlexIdTokens,
+    extractImdbId,
+    extractTvdbId,
+    extractTmdbId,
+    formatPlexIdToken,
+    renderTemplate,
+} from "../../utils/template";
 
 export async function computeMultiEpisodeProposal(
     episodes: EpisodeItem[],
@@ -118,9 +125,14 @@ export async function computeMultiEpisodeProposal(
     // Apply ID settings to template
     if (settings.tv.ids === "none") {
         dynamicTemplate = dynamicTemplate.replace(/\{imdb[^}]*\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{imdbToken\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{tvdb\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{tvdbToken\}/g, '');
         dynamicTemplate = dynamicTemplate.replace(/\{thetvdb[^}]*\}/g, '');
         dynamicTemplate = dynamicTemplate.replace(/\{tmdb[^}]*\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{tmdbToken\}/g, '');
         dynamicTemplate = dynamicTemplate.replace(/\{ids\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{plexIds\}/g, '');
     }
 
     // Process IDs based on user settings
@@ -143,9 +155,7 @@ export async function computeMultiEpisodeProposal(
             }
         }
     } else if (settings.tv.ids === "auto_append_all") {
-        if (imdbId) processedIds += ` {imdb}`;
-        if (thetvdbId) processedIds += ` {thetvdb}`;
-        if (tmdbId) processedIds += ` {tmdb}`;
+        processedIds = buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId });
     }
 
     // Apply folder structure settings
@@ -224,9 +234,14 @@ export async function computeMultiEpisodeProposal(
         parentIndex: primaryEpisode.parentIndex ?? detectedSeason ?? 0,
         // ID fields
         imdb: imdbId ?? "",
+        imdbToken: formatPlexIdToken("imdb", imdbId),
+        tvdb: thetvdbId ?? "",
         thetvdb: thetvdbId ?? "",
+        tvdbToken: formatPlexIdToken("tvdb", thetvdbId),
         tmdb: tmdbId ?? "",
+        tmdbToken: formatPlexIdToken("tmdb", tmdbId),
         ids: processedIds,
+        plexIds: processedIds,
     } as any;
 
     let templateResult = "";
@@ -428,9 +443,14 @@ export async function computeEpisodeProposal(
     if (settings.tv.ids === "none") {
         // Remove ID placeholders from template when IDs are disabled
         dynamicTemplate = dynamicTemplate.replace(/\{imdb[^}]*\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{imdbToken\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{tvdb\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{tvdbToken\}/g, '');
         dynamicTemplate = dynamicTemplate.replace(/\{thetvdb[^}]*\}/g, '');
         dynamicTemplate = dynamicTemplate.replace(/\{tmdb[^}]*\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{tmdbToken\}/g, '');
         dynamicTemplate = dynamicTemplate.replace(/\{ids\}/g, '');
+        dynamicTemplate = dynamicTemplate.replace(/\{plexIds\}/g, '');
     }
 
     // Process IDs based on user settings
@@ -455,9 +475,7 @@ export async function computeEpisodeProposal(
         }
     } else if (settings.tv.ids === "auto_append_all") {
         // Auto-append all available IDs from Plex metadata
-        if (imdbId) processedIds += ` {imdb}`;
-        if (thetvdbId) processedIds += ` {thetvdb}`;
-        if (tmdbId) processedIds += ` {tmdb}`;
+        processedIds = buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId });
     }
 
     // Apply folder structure settings BEFORE template rendering
@@ -543,9 +561,14 @@ export async function computeEpisodeProposal(
         parentIndex: e.parentIndex ?? detectedSeason ?? 0,
         // ID fields
         imdb: imdbId ?? "",
+        imdbToken: formatPlexIdToken("imdb", imdbId),
+        tvdb: thetvdbId ?? "",
         thetvdb: thetvdbId ?? "",
+        tvdbToken: formatPlexIdToken("tvdb", thetvdbId),
         tmdb: tmdbId ?? "",
+        tmdbToken: formatPlexIdToken("tmdb", tmdbId),
         ids: processedIds,
+        plexIds: processedIds,
     } as any;
 
     let templateResult = "";

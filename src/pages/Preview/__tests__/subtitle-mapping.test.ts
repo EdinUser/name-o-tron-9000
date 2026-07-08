@@ -98,5 +98,32 @@ describe("attachSubtitleOperations", () => {
       "/mnt/Series/Band Of Brothers/S01E10 - Currahee - 2001.srt",
     );
   });
-});
 
+  it("attaches subtitle operations for flat TV layouts without season folders in the source path", () => {
+    const rows: PreviewRow[] = [
+      makeRow({
+        filePath: "/mnt/Series/Two Broke Girls/Two_Broke_Girls.S01E01.mkv",
+        plexPath: "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E01.mkv",
+        proposed:
+          "/mnt/Series/Two Broke Girls/Two Broke Girls - S01E01 - And the Soft Opening.mkv",
+      }),
+    ];
+
+    const previewResult = {
+      subtitle_operations: [
+        {
+          original_path: "/mnt/Series/Two Broke Girls/Two_Broke_Girls.S01E01.eng.srt",
+          new_path: "",
+          operation_type: "rename",
+        },
+      ],
+    };
+
+    attachSubtitleOperations(rows, previewResult);
+
+    expect(rows[0].subtitleOperations).toBeDefined();
+    expect(rows[0].subtitleOperations![0].proposedPath).toContain(
+      "/mnt/Series/Two Broke Girls/Two Broke Girls - S01E01 - And the Soft Opening.eng.srt",
+    );
+  });
+});

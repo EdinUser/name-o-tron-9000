@@ -1,28 +1,37 @@
 {
   "MediaContainer": {
-    "size": 3,
-    "totalSize": 3,
+    "size": 4,
+    "totalSize": 4,
     "offset": 0,
     "Directory": [
       {
         "ratingKey": "200",
         "key": "/library/metadata/200",
-        "guid": "plex://show/mock-abyssal-gate",
+        "guid": "tvdb://720200",
+        "Guid": [
+          { "id": "tvdb://720200" },
+          { "id": "imdb://tt7202001" },
+          { "id": "tmdb://920200" }
+        ],
         "type": "show",
         "title": "Abyssal Gate",
-        "summary": "Mock TV show fixture for endpoint coverage.",
+        "summary": "Mock TV show fixture for endpoint coverage with season 01 episodes and season 00 OVAs.",
         "thumb": "/library/metadata/200/thumb",
         "art": "/library/metadata/200/art",
         "studio": "Mock Network",
         "Genre": [{ "tag": "Science Fiction" }],
-        "leafCount": 7,
+        "leafCount": 9,
         "viewedLeafCount": 0,
         "year": 2023
       },
       {
         "ratingKey": "201",
         "key": "/library/metadata/201",
-        "guid": "plex://show/mock-northwind-homicide",
+        "guid": "tvdb://720201",
+        "Guid": [
+          { "id": "tvdb://720201" },
+          { "id": "imdb://tt7202011" }
+        ],
         "type": "show",
         "title": "Northwind Homicide",
         "summary": "A multi-season procedural with a holiday special and standard season boundaries.",
@@ -37,7 +46,11 @@
       {
         "ratingKey": "202",
         "key": "/library/metadata/202",
-        "guid": "plex://show/mock-quiet-harbor",
+        "guid": "tvdb://720202",
+        "Guid": [
+          { "id": "tvdb://720202" },
+          { "id": "tmdb://920202" }
+        ],
         "type": "show",
         "title": "Quiet Harbor",
         "summary": "A prestige miniseries with a double-episode finale stored in a single file.",
@@ -48,6 +61,26 @@
         "leafCount": 3,
         "viewedLeafCount": 0,
         "year": 2021
+      },
+      {
+        "ratingKey": "203",
+        "key": "/library/metadata/203",
+        "guid": "tvdb://803203",
+        "Guid": [
+          { "id": "tvdb://803203" },
+          { "id": "imdb://tt8032031" },
+          { "id": "tmdb://930203" }
+        ],
+        "type": "show",
+        "title": "Two Broke Girls",
+        "summary": "A flat-layout sitcom fixture with all episodes stored directly under the show folder and mixed subtitle files.",
+        "thumb": "/library/metadata/203/thumb",
+        "art": "/library/metadata/203/art",
+        "studio": "City Laughs",
+        "Genre": [{ "tag": "Comedy" }],
+        "leafCount": 6,
+        "viewedLeafCount": 0,
+        "year": 2011
       }
     ]
   }

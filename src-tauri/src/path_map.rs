@@ -61,6 +61,17 @@ fn server_ids_match(mapping_id: &str, server_id: &str) -> bool {
     host_only(mapping_id) == host_only(server_id)
 }
 
+fn join_relative_path_components(base: &Path, relative_path: &str) -> PathBuf {
+    let mut joined = base.to_path_buf();
+    for segment in relative_path
+        .split(['/', '\\'])
+        .filter(|segment| !segment.is_empty())
+    {
+        joined.push(segment);
+    }
+    joined
+}
+
 pub fn path_mappings_from_settings(settings: &serde_json::Value) -> Vec<PathMapping> {
     settings
         .get("pathMappings")
@@ -147,7 +158,7 @@ pub fn resolve_apply_path_allow_local_or_relative(
     }
 
     extract_library_root_from_path(resolved_original_path, mappings)
-        .map(|library_root| library_root.join(path))
+        .map(|library_root| join_relative_path_components(&library_root, path))
 }
 
 /// Check if a path is already resolved to a local filesystem path.

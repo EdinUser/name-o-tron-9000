@@ -49,10 +49,15 @@ const TEMPLATE_FIELDS: TemplateField[] = [
   { name: "title:03", description: "Pad numbers with 3 digits (e.g., {episode:03})", example: "012", availableIn: "both" },
 
   // ID fields available in both movies and episodes
-  { name: "imdb", description: "IMDB ID (extracted from Plex GUID)", example: "tt0111161", availableIn: "both" },
-  { name: "thetvdb", description: "TVDB ID (extracted from Plex GUID)", example: "81189", availableIn: "both" },
-  { name: "tmdb", description: "TMDb ID (extracted from Plex GUID)", example: "278", availableIn: "both" },
-  { name: "ids", description: "All available IDs combined (based on settings)", example: " {imdb} {thetvdb}", availableIn: "both" },
+  { name: "imdb", description: "Raw IMDb ID (extracted from Plex GUID)", example: "tt0111161", availableIn: "both" },
+  { name: "imdbToken", description: "Plex-style IMDb tag", example: "{imdb-tt0111161}", availableIn: "both" },
+  { name: "tvdb", description: "Raw TVDB ID (extracted from Plex GUID)", example: "81189", availableIn: "both" },
+  { name: "tvdbToken", description: "Plex-style TVDB tag", example: "{tvdb-81189}", availableIn: "both" },
+  { name: "thetvdb", description: "Legacy alias for raw TVDB ID", example: "81189", availableIn: "both" },
+  { name: "tmdb", description: "Raw TMDb ID (extracted from Plex GUID)", example: "278", availableIn: "both" },
+  { name: "tmdbToken", description: "Plex-style TMDb tag", example: "{tmdb-278}", availableIn: "both" },
+  { name: "plexIds", description: "All available Plex-style ID tags joined with spaces", example: "{imdb-tt0111161} {tvdb-81189}", availableIn: "both" },
+  { name: "ids", description: "Legacy alias for {plexIds}", example: "{imdb-tt0111161} {tvdb-81189}", availableIn: "both" },
 ];
 
 type Props = {
@@ -168,6 +173,11 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
                   <span className="text-neutral-400">With Collection:</span>{" "}
                   <code className="text-cyan-400">{"{title}[ ({year})][ ({collection})]{ext}"}</code>
                   <span className="text-neutral-300 ml-2">→ Inception (2010) (Trilogy).mkv</span>
+                </div>
+                <div className="bg-neutral-800 rounded p-2">
+                  <span className="text-neutral-400">With Plex IDs:</span>{" "}
+                  <code className="text-cyan-400">{"{title}[ ({year})][ {plexIds}]{ext}"}</code>
+                  <span className="text-neutral-300 ml-2">{"→ Inception (2010) {imdb-tt1375666}.mkv"}</span>
                 </div>
               </>
             )}

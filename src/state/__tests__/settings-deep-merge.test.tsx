@@ -197,4 +197,58 @@ describe('deepMerge utility', () => {
     expect(result.tv.seasonFolders).toBe(false); // Added
     expect(result.music.formatAAT).toBe(true); // Added
   });
+
+  it('should deeply merge template history by server and library', () => {
+    const target = {
+      templateHistory: {
+        serverA: {
+          movies: ['{title}{ext}'],
+        },
+      },
+    };
+
+    const source = {
+      templateHistory: {
+        serverA: {
+          shows: ['{showTitle} - S{season:02}E{episode:02} - {title}{ext}'],
+        },
+        serverB: {
+          movies: ['{title}[ ({year})]{ext}'],
+        },
+      },
+    };
+
+    const result = deepMerge(target, source);
+
+    expect(result.templateHistory.serverA.movies).toEqual(['{title}{ext}']);
+    expect(result.templateHistory.serverA.shows).toEqual(['{showTitle} - S{season:02}E{episode:02} - {title}{ext}']);
+    expect(result.templateHistory.serverB.movies).toEqual(['{title}[ ({year})]{ext}']);
+  });
+
+  it('should deeply merge template favorites by server and library', () => {
+    const target = {
+      templateFavorites: {
+        serverA: {
+          movies: ['{title}{ext}'],
+        },
+      },
+    };
+
+    const source = {
+      templateFavorites: {
+        serverA: {
+          shows: ['{showTitle} - S{season:02}E{episode:02} - {title}{ext}'],
+        },
+        serverB: {
+          movies: ['{title}[ ({year})]{ext}'],
+        },
+      },
+    };
+
+    const result = deepMerge(target, source);
+
+    expect(result.templateFavorites.serverA.movies).toEqual(['{title}{ext}']);
+    expect(result.templateFavorites.serverA.shows).toEqual(['{showTitle} - S{season:02}E{episode:02} - {title}{ext}']);
+    expect(result.templateFavorites.serverB.movies).toEqual(['{title}[ ({year})]{ext}']);
+  });
 });

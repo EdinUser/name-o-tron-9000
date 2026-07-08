@@ -10,7 +10,14 @@ import {
     resolvePlexFilePath,
     sanitizeProposal,
 } from "./utils";
-import { extractImdbId, extractTvdbId, extractTmdbId, renderTemplate } from "../../utils/template";
+import {
+    buildPlexIdTokens,
+    extractImdbId,
+    extractTvdbId,
+    extractTmdbId,
+    formatPlexIdToken,
+    renderTemplate,
+} from "../../utils/template";
 
 export async function computeMusicProposal(
     m: MusicItem,
@@ -70,8 +77,14 @@ export async function computeMusicProposal(
         genre: m.genre ?? "",
         // ID fields
         imdb: imdbId ?? "",
+        imdbToken: formatPlexIdToken("imdb", imdbId),
+        tvdb: thetvdbId ?? "",
         thetvdb: thetvdbId ?? "",
+        tvdbToken: formatPlexIdToken("tvdb", thetvdbId),
         tmdb: tmdbId ?? "",
+        tmdbToken: formatPlexIdToken("tmdb", tmdbId),
+        ids: buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId }),
+        plexIds: buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId }),
     } as any;
 
     let proposed = "";

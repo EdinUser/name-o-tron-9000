@@ -1,5 +1,6 @@
 use super::*;
 use serde_json::json;
+use std::path::Path;
 
 #[test]
 fn highlight_non_latin_respects_setting() {
@@ -529,6 +530,84 @@ fn movie_edition_tokens_are_injected_before_extension() {
 }
 
 #[test]
+fn movie_template_imdb_token_renders_as_plex_tag() {
+    let movie = MovieItem {
+        rating_key: "m7".to_string(),
+        title: "Interstellar".to_string(),
+        year: Some(2014),
+        file: "Interstellar.mkv".to_string(),
+        genre: vec![],
+        collection: None,
+        edition_title: None,
+        guids: vec![],
+        imdb_id: Some("tt0816692".to_string()),
+        tmdb_id: None,
+        tvdb_id: None,
+    };
+
+    let settings = json!({
+        "movies": {
+            "folderStructure": "none",
+            "ownFolderPerMovie": false
+        },
+        "general": {
+            "safety": {
+                "pathLengthCheck": true,
+                "reservedNamesCheck": true,
+                "permissionsCheck": true
+            },
+            "encoding": {
+                "highlightNonLatin": false
+            }
+        }
+    });
+
+    let op = compute_movie_proposal(&movie, "{title} {imdbToken}{ext}", &settings)
+        .expect("movie proposal with imdb token");
+
+    assert_eq!(op.new_path, "Interstellar {imdb-tt0816692}.mkv");
+}
+
+#[test]
+fn movie_template_plex_ids_renders_available_provider_tags() {
+    let movie = MovieItem {
+        rating_key: "m8".to_string(),
+        title: "Dune".to_string(),
+        year: Some(2021),
+        file: "Dune.mkv".to_string(),
+        genre: vec![],
+        collection: None,
+        edition_title: None,
+        guids: vec![],
+        imdb_id: Some("tt1160419".to_string()),
+        tmdb_id: Some("438631".to_string()),
+        tvdb_id: None,
+    };
+
+    let settings = json!({
+        "movies": {
+            "folderStructure": "none",
+            "ownFolderPerMovie": false
+        },
+        "general": {
+            "safety": {
+                "pathLengthCheck": true,
+                "reservedNamesCheck": true,
+                "permissionsCheck": true
+            },
+            "encoding": {
+                "highlightNonLatin": false
+            }
+        }
+    });
+
+    let op = compute_movie_proposal(&movie, "{title}[ {plexIds}]{ext}", &settings)
+        .expect("movie proposal with plex ids");
+
+    assert_eq!(op.new_path, "Dune {imdb-tt1160419} {tmdb-438631}.mkv");
+}
+
+#[test]
 fn compute_relative_dirs_preserves_grouping_under_library_root() {
     let library_roots = vec!["/media/Movies".to_string()];
     let original = "/media/Movies/A-D/Nolan/Inception (2010).mkv";
@@ -767,12 +846,15 @@ fn cleanup_empty_folders_removes_empty_directories_but_keeps_non_empty_ones() {
     assert!(result
         .removed_directories
         .iter()
-        .any(|p| p.ends_with("/A/Empty")));
-    assert!(result.removed_directories.iter().any(|p| p.ends_with("/A")));
+        .any(|p| Path::new(p).ends_with(Path::new("A").join("Empty"))));
+    assert!(result
+        .removed_directories
+        .iter()
+        .any(|p| Path::new(p).ends_with(Path::new("A"))));
     assert!(!result
         .removed_directories
         .iter()
-        .any(|p| p.ends_with("/B/Keep")));
+        .any(|p| Path::new(p).ends_with(Path::new("B").join("Keep"))));
     assert!(non_empty_dir.exists(), "non-empty directory should remain");
     assert!(!empty_dir.exists(), "empty directory should be removed");
 }

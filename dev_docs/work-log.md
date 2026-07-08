@@ -518,3 +518,95 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - `npm run test:types` passed.
 - Follow-ups:
   - If TV proposal generation gets more async work later, keep the page-transition gate keyed to page-row availability rather than broad global loading flags.
+
+## 2026-07-07
+
+- Summary: Fixed Windows-sensitive rename-path handling by joining relative apply targets component-wise under the mapped library root, and updated empty-folder cleanup assertions to use path-aware suffix checks instead of hardcoded `/` separators.
+- Files or areas: `src-tauri/src/path_map.rs`, `src-tauri/src/video_rename/tests.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml path_mapped_apply_uses_library_root_for_relative_new_paths -- --exact` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml cleanup_empty_folders_removes_empty_directories_but_keeps_non_empty_ones -- --exact` passed.
+- Follow-ups:
+  - The backend still returns native filesystem paths in cleanup/apply results; keep tests and any future UI string matching path-aware rather than slash-specific.
+
+## 2026-07-07
+
+- Summary: Added delete controls for saved Preview template favorites so users can remove persistent favorites directly from the shared recent/saved dropdown without affecting template history.
+- Files or areas: `src/state/settings.tsx`, `src/state/__tests__/settings-load-save.test.tsx`, `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/PreviewTemplate.tsx`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`.
+- Verification:
+  - `npm run test:types` passed.
+  - `npm test -- src/state/__tests__/settings-load-save.test.tsx src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` passed.
+- Follow-ups:
+  - The Preview recompute path still emits duplicate-key warnings in the movie pagination integration harness; delete/favorites behavior is covered, but the row-key warning remains a separate cleanup item.
+
+## 2026-07-07
+
+- Summary: Added per-library saved template favorites alongside recent template history, with a single Preview dropdown that lets users promote recent entries into persistent saved templates and reapply either section directly.
+- Files or areas: `src/state/settings.tsx`, `src/state/__tests__/test-utils/settings-setup.tsx`, `src/state/__tests__/settings-load-save.test.tsx`, `src/state/__tests__/settings-deep-merge.test.tsx`, `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/PreviewTemplate.tsx`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`, `src/pages/Settings/__tests__/general-diagnostics.test.tsx`, `docs/faq.md`.
+- Verification:
+  - `npm run test:types` passed.
+  - `npm test -- src/state/__tests__/settings-load-save.test.tsx src/state/__tests__/settings-deep-merge.test.tsx src/pages/Settings/__tests__/general-diagnostics.test.tsx src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` passed.
+- Follow-ups:
+  - The Preview recompute path still emits duplicate-key warnings in the movie pagination integration harness when template changes cause duplicate row ids; favorites/history work correctly, but that row-key issue should be audited separately.
+
+## 2026-07-07
+
+- Summary: Added per-server/per-library Preview template history with capped dedupe persistence in UI settings, plus a recent-template dropdown on the Preview input so users can restore one of the last 5 templates without leaving the screen.
+- Files or areas: `src/state/settings.tsx`, `src/state/__tests__/test-utils/settings-setup.tsx`, `src/state/__tests__/settings-load-save.test.tsx`, `src/state/__tests__/settings-deep-merge.test.tsx`, `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/PreviewTemplate.tsx`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`, `src/pages/Settings/__tests__/general-diagnostics.test.tsx`, `docs/faq.md`.
+- Verification:
+  - `npm run test:types` passed.
+  - `npm test -- src/state/__tests__/settings-load-save.test.tsx src/state/__tests__/settings-deep-merge.test.tsx src/pages/Settings/__tests__/general-diagnostics.test.tsx src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` passed.
+- Follow-ups:
+  - The TV mock Plex bundle still lacks external ID tags for show-level template coverage; add `guid` / provider IDs there before writing dedicated TV token-history or TV-token template tests.
+  - Preview still emits duplicate-key warnings in the movie pagination integration harness when the template changes; the history feature works, but the row recompute path should be audited separately if we want to eliminate that noise.
+
+## 2026-07-07
+
+- Summary: Promoted Plex ID placeholders to first-class token fields by adding `{imdbToken}` / `{tvdbToken}` / `{tmdbToken}` plus `{plexIds}`, then aligned frontend preview, Rust template rendering, help copy, and tests around Plex-style `{provider-id}` output while keeping legacy raw ID placeholders available.
+- Files or areas: `src/utils/template.ts`, `src/pages/Preview/movieProposal.ts`, `src/pages/Preview/episodeProposal.ts`, `src/pages/Preview/musicProposal.ts`, `src/components/TemplateHelpModal.tsx`, `src/pages/Settings/TV.tsx`, `src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts`, `src-tauri/src/video_rename/movies.rs`, `src-tauri/src/video_rename/episodes.rs`, `src-tauri/src/video_rename/tests.rs`, `docs/faq.md`, `docs/tips.md`.
+- Verification:
+  - `npm test -- src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml movie_template_imdb_token_renders_as_plex_tag -- --exact` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml movie_template_plex_ids_renders_available_provider_tags -- --exact` passed.
+- Follow-ups:
+  - Existing raw placeholders `{imdb}`, `{tvdb}` / `{thetvdb}`, and `{tmdb}` still resolve for backward compatibility; if we want to fully deprecate them later, the Settings UI should surface a migration note for saved custom templates.
+
+## 2026-07-07
+
+- Summary: Expanded the tracked mock Plex bundle with external-ID-bearing GUIDs, added a flat-layout TV fixture with subtitle sidecars, and broadened the anime-special coverage so `{imdb}`/`{tmdb}`/`{tvdb}` template paths and Season 00 subtitle flows can be exercised without touching a real Plex server.
+- Files or areas: `tests/mock-plex/fixtures/`, `tests/mock-plex/bin/setup-test-media.sh`, `tests/mock-plex/bin/verify-mock-plex.sh`, `src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts`, `src/pages/Preview/__tests__/subtitle-mapping.test.ts`.
+- Verification:
+  - `npm test -- src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts src/pages/Preview/__tests__/subtitle-mapping.test.ts` passed.
+  - `npm run mock:setup` passed.
+  - `npm run mock:verify` passed against the local tracked mock server.
+- Follow-ups:
+  - If we later want full Plex-shape fidelity for multi-provider IDs, the frontend preview path should eventually consume the `Guid[]` array in addition to the single `guid` field.
+
+## 2026-07-08
+
+- Summary: Bumped GitHub Actions Node.js runtime pins from 20 to 24 across CI and post-merge build workflows because Node 20 is EOL and GitHub was warning on the older runtime during Linux and Windows jobs.
+- Files or areas: `.github/workflows/ci.yml`, `.github/workflows/main.yml`.
+- Verification:
+  - `npm run test:types` passed locally under Node `v22.19.0`.
+  - `npm test -- src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed locally.
+  - `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests` passed locally.
+- Follow-ups:
+  - I could not run the suite under Node 24 locally in this environment; the authoritative validation is the refreshed GitHub Actions run on PR `#51`.
+
+- Summary: Hardened CI after the repaired `develop -> main` promotion exposed a ShowSelection pagination regression in the test harness and deterministic Windows fixture-harness failures caused by the Rust tests shelling out to implicit WSL `bash` instead of Git Bash.
+- Files or areas: `src/pages/ShowSelection/ShowSelectionContainer.tsx`, `src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx`, `src-tauri/tests/mock_plex_harness_tests.rs`.
+- Verification:
+  - `npm test -- src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed locally.
+  - `npm test -- src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx -t "loads the next backend page from pagination controls without showing Load more"` passed 5 consecutive local runs.
+  - `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests` passed locally on Linux after the harness change.
+- Follow-ups:
+  - The Windows CI runner still depends on Git for Windows shipping `bash.exe` at the standard path unless `GIT_BASH_EXE` is set explicitly.
+  - If the ShowSelection pagination test flakes again in CI, the next step should be instrumenting the page-transition state in the container rather than just extending test waits further.
+
+- Summary: Fixed movie blocks-view poster loading for later paginated pages by reusing the same poster-enrichment step for incremental movie loads, and added a regression test that exercises page 3 in blocks view.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`.
+- Verification:
+  - `npm test -- src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`
+  - `npm run test:types`
+- Follow-ups:
+  - Poster loading is still tied to the Preview row lifecycle rather than a viewport-aware image loader; that is acceptable for now, but if blocks view grows much larger we should consider visible-row-driven loading to reduce up-front image work.

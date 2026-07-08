@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { loadSettings, saveSettings } from '../settings';
+import { addTemplateFavoriteEntry, addTemplateHistoryEntry, getTemplateFavoriteEntries, getTemplateHistoryEntries, loadSettings, removeTemplateFavoriteEntry, saveSettings } from '../settings';
 import { localStorageMock, setupLocalStorageMock, resetLocalStorageMock, createDefaultSettings } from './test-utils/settings-setup';
 
 setupLocalStorageMock();
@@ -22,6 +22,8 @@ describe('Settings Load/Save', () => {
       expect(settings.music).toBeDefined();
       expect(settings.misc).toBeDefined();
       expect(settings.templates).toBeDefined();
+      expect(settings.templateHistory).toEqual({});
+      expect(settings.templateFavorites).toEqual({});
       expect(settings.manualFixes).toEqual([]);
     });
 
@@ -56,6 +58,8 @@ describe('Settings Load/Save', () => {
       // Other defaults should still be present
       expect(settings.tv.seasonFolders).toBe(true); // From defaults
       expect(settings.templates.movie).toBe('{title}[ ({year})]{ext}'); // From defaults
+      expect(settings.templateHistory).toEqual({});
+      expect(settings.templateFavorites).toEqual({});
     });
 
     it('should handle invalid JSON in localStorage gracefully', () => {
@@ -150,6 +154,8 @@ describe('Settings Load/Save', () => {
       expect(settings.music).toBeDefined();
       expect(settings.misc).toBeDefined();
       expect(settings.templates).toBeDefined();
+      expect(settings.templateHistory).toBeDefined();
+      expect(settings.templateFavorites).toBeDefined();
 
       // Should preserve old settings
       expect(settings.general.theme).toBe('dark');
@@ -227,6 +233,63 @@ describe('Settings Load/Save', () => {
       expect(typeof (window as any).nameotron.settings.saveSettings).toBe('function');
       expect(typeof (window as any).nameotron.settings.getCurrentSettings).toBe('function');
       expect(typeof (window as any).nameotron.settings.resetToDefaults).toBe('function');
+    });
+  });
+
+  describe('Template history', () => {
+    it('stores template history entries per server and library with newest first', () => {
+      const base = createDefaultSettings();
+
+      const updated = addTemplateHistoryEntry(base as any, 'server-1', 'library-1', '{title}{ext}');
+      const updatedAgain = addTemplateHistoryEntry(updated as any, 'server-1', 'library-1', '{title}[ ({year})]{ext}');
+
+      expect(getTemplateHistoryEntries(updatedAgain as any, 'server-1', 'library-1')).toEqual([
+        '{title}[ ({year})]{ext}',
+        '{title}{ext}',
+      ]);
+    });
+
+    it('deduplicates template history and caps it at five entries', () => {
+      let settings: any = createDefaultSettings();
+      const entries = ['a', 'b', 'c', 'd', 'e', 'f'];
+
+      for (const entry of entries) {
+        settings = addTemplateHistoryEntry(settings, 'server-1', 'library-1', entry);
+      }
+
+      settings = addTemplateHistoryEntry(settings, 'server-1', 'library-1', 'd');
+
+      expect(getTemplateHistoryEntries(settings, 'server-1', 'library-1')).toEqual([
+        'd',
+        'f',
+        'e',
+        'c',
+        'b',
+      ]);
+    });
+
+    it('stores favorite templates separately and preserves all unique entries', () => {
+      let settings: any = createDefaultSettings();
+      settings = addTemplateFavoriteEntry(settings, 'server-1', 'library-1', '{title}{ext}');
+      settings = addTemplateFavoriteEntry(settings, 'server-1', 'library-1', '{title}[ ({year})]{ext}');
+      settings = addTemplateFavoriteEntry(settings, 'server-1', 'library-1', '{title}{ext}');
+
+      expect(getTemplateFavoriteEntries(settings, 'server-1', 'library-1')).toEqual([
+        '{title}{ext}',
+        '{title}[ ({year})]{ext}',
+      ]);
+      expect(getTemplateHistoryEntries(settings, 'server-1', 'library-1')).toEqual([]);
+    });
+
+    it('can remove a saved favorite template without touching history', () => {
+      let settings: any = createDefaultSettings();
+      settings = addTemplateFavoriteEntry(settings, 'server-1', 'library-1', '{title}{ext}');
+      settings = addTemplateHistoryEntry(settings, 'server-1', 'library-1', '{title}[ ({year})]{ext}');
+
+      settings = removeTemplateFavoriteEntry(settings, 'server-1', 'library-1', '{title}{ext}');
+
+      expect(getTemplateFavoriteEntries(settings, 'server-1', 'library-1')).toEqual([]);
+      expect(getTemplateHistoryEntries(settings, 'server-1', 'library-1')).toEqual(['{title}[ ({year})]{ext}']);
     });
   });
 });
