@@ -584,6 +584,16 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 
 ## 2026-07-08
 
+- Summary: Hardened CI after the repaired `develop -> main` promotion exposed a ShowSelection pagination regression in the test harness and deterministic Windows fixture-harness failures caused by the Rust tests shelling out to implicit WSL `bash` instead of Git Bash.
+- Files or areas: `src/pages/ShowSelection/ShowSelectionContainer.tsx`, `src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx`, `src-tauri/tests/mock_plex_harness_tests.rs`.
+- Verification:
+  - `npm test -- src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed locally.
+  - `npm test -- src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx -t "loads the next backend page from pagination controls without showing Load more"` passed 5 consecutive local runs.
+  - `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests` passed locally on Linux after the harness change.
+- Follow-ups:
+  - The Windows CI runner still depends on Git for Windows shipping `bash.exe` at the standard path unless `GIT_BASH_EXE` is set explicitly.
+  - If the ShowSelection pagination test flakes again in CI, the next step should be instrumenting the page-transition state in the container rather than just extending test waits further.
+
 - Summary: Fixed movie blocks-view poster loading for later paginated pages by reusing the same poster-enrichment step for incremental movie loads, and added a regression test that exercises page 3 in blocks view.
 - Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`.
 - Verification:

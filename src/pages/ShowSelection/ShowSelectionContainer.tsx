@@ -115,6 +115,8 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   const inFlightCountRef = useRef(0);
   // Track if we've restored the initial page for this navigation
   const initialPageRestoredRef = useRef(false);
+  // Avoid double-loading on first mount; initial data load is handled separately.
+  const searchEffectInitializedRef = useRef(false);
 
   // Wrapper for setQuery
   const setQuery = (value: string) => {
@@ -558,6 +560,11 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
   // Debounced search
   useEffect(() => {
+    if (!searchEffectInitializedRef.current) {
+      searchEffectInitializedRef.current = true;
+      return;
+    }
+
     if (debounce.current) window.clearTimeout(debounce.current);
     debounce.current = window.setTimeout(() => {
       setCurrentPage(1);

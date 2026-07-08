@@ -115,6 +115,26 @@ impl ResolvedFixture {
     }
 }
 
+fn build_fixture_shell() -> Command {
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(custom_bash) = std::env::var_os("GIT_BASH_EXE") {
+            return Command::new(custom_bash);
+        }
+
+        for candidate in [
+            r"C:\Program Files\Git\bin\bash.exe",
+            r"C:\Program Files\Git\usr\bin\bash.exe",
+        ] {
+            if Path::new(candidate).exists() {
+                return Command::new(candidate);
+            }
+        }
+    }
+
+    Command::new("bash")
+}
+
 fn materialize_scenario(name: &str) -> MaterializedScenario {
     let tempdir = tempfile::tempdir().expect("temp dir");
     let manifest_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -128,8 +148,8 @@ fn materialize_scenario(name: &str) -> MaterializedScenario {
         .join("bin")
         .join("build_fixture_tree.sh");
 
-    let output = Command::new("bash")
-        .arg(builder_path)
+    let output = build_fixture_shell()
+        .arg(&builder_path)
         .arg("--manifest")
         .arg(&manifest_path)
         .arg("--out")

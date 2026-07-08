@@ -158,7 +158,11 @@ describe('ShowSelection Integration Tests', () => {
     vi.clearAllMocks();
 
     // Setup default mocks
-    localStorageMock.getItem.mockReturnValue('fake-token');
+    localStorageMock.getItem.mockImplementation((key) => {
+      if (key === 'plexToken') return 'fake-token';
+      if (key === 'nameotron-settings') return JSON.stringify({});
+      return null;
+    });
     sessionStorageMock.getItem.mockReturnValue(null);
 
     // Mock invoke responses
@@ -645,6 +649,7 @@ describe('ShowSelection Integration Tests', () => {
   });
 
   it('loads the next backend page from pagination controls without showing Load more', async () => {
+    let savedCache: any = null;
     const pageOneShows = Array.from({ length: 20 }, (_, index) => ({
       ratingKey: `show-${index + 1}`,
       title: `Show ${index + 1}`,
@@ -683,10 +688,12 @@ describe('ShowSelection Integration Tests', () => {
         case 'generate_mappings_checksum_cmd':
           return Promise.resolve('test-checksum');
         case 'load_show_mapping_cache':
-          return Promise.resolve(null);
+          return Promise.resolve(savedCache);
         case 'save_show_mapping_cache':
+          savedCache = args?.cache ?? args?.data ?? savedCache;
           return Promise.resolve();
         case 'invalidate_show_mapping_cache':
+          savedCache = null;
           return Promise.resolve();
         default:
           return Promise.reject(new Error(`Unknown command: ${command}`));
@@ -706,6 +713,9 @@ describe('ShowSelection Integration Tests', () => {
       expect(screen.getByText('Show 1')).toBeInTheDocument();
       expect(screen.getByText('Page 1 / 2')).toBeInTheDocument();
     });
+    await waitFor(() => {
+      expect(screen.queryByText('Loading shows…')).not.toBeInTheDocument();
+    });
 
     expect(screen.queryByText('Load more')).not.toBeInTheDocument();
 
@@ -720,9 +730,11 @@ describe('ShowSelection Integration Tests', () => {
     });
 
     await waitFor(() => {
+      expect(screen.queryByText('Loading shows…')).not.toBeInTheDocument();
+      expect(screen.getByText('Page 2 / 2')).toBeInTheDocument();
       expect(screen.getByText('Show 21')).toBeInTheDocument();
-    }, { timeout: 3000 });
-  });
+    }, { timeout: 5000 });
+  }, 10000);
 
   it('uses fallback total-count fields when Plex omits totalSize', async () => {
     const showsPage = Array.from({ length: 20 }, (_, index) => ({
