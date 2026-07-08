@@ -36,6 +36,9 @@ type TemplateProps = {
     gridTemplate: string;
     showMapModal: boolean;
     showTemplateHelp: boolean;
+    showTemplateHistory: boolean;
+    templateHistoryEntries: string[];
+    templateFavoriteEntries: string[];
     editingItem: PreviewRow | null;
     renameResultModal: {
         success: boolean;
@@ -80,6 +83,11 @@ type TemplateProps = {
     onSetPageSize: (size: number) => void;
     onSetShowMapModal: (show: boolean) => void;
     onSetShowTemplateHelp: (show: boolean) => void;
+    onSetShowTemplateHistory: (show: boolean) => void;
+    onApplyTemplateValue: (template: string) => void;
+    onCommitTemplateHistory: (template: string) => void;
+    onSaveTemplateFavorite: (template: string) => void;
+    onDeleteTemplateFavorite: (template: string) => void;
     onSetEditingItem: (item: PreviewRow | null) => void;
     onStartResize: (which: "current" | "proposed", ev: React.MouseEvent) => void;
     onHandleMouseEnter: (event: React.MouseEvent<HTMLDivElement>, row: PreviewRow) => void;
@@ -142,6 +150,9 @@ export default function PreviewTemplate({
     gridTemplate,
     showMapModal,
     showTemplateHelp,
+    showTemplateHistory,
+    templateHistoryEntries,
+    templateFavoriteEntries,
     editingItem,
     renameResultModal,
     undoResultModal,
@@ -169,6 +180,11 @@ export default function PreviewTemplate({
     onSetPageSize,
     onSetShowMapModal,
     onSetShowTemplateHelp,
+    onSetShowTemplateHistory,
+    onApplyTemplateValue,
+    onCommitTemplateHistory,
+    onSaveTemplateFavorite,
+    onDeleteTemplateFavorite,
     onSetEditingItem,
     onStartResize,
     onHandleMouseEnter,
@@ -226,27 +242,119 @@ export default function PreviewTemplate({
                         <button onClick={onExportPreviewSnapshot} className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700">
                             Export snapshot
                         </button>
-                        <input
-                            value={template}
-                            onChange={(e) => {
-                                const next = e.target.value;
-                                const templateKey = library.type === "movie" ? "movie" :
-                                                   library.type === "show" ? "episode" : "music";
-                                const updated = {
-                                    ...settings,
-                                    templates: {
-                                        ...settings.templates,
-                                        [templateKey]: next,
+                        <div className="relative">
+                            <input
+                                value={template}
+                                onChange={(e) => {
+                                    onApplyTemplateValue(e.target.value);
+                                    if (!showTemplateHistory && (templateHistoryEntries.length > 0 || templateFavoriteEntries.length > 0)) {
+                                        onSetShowTemplateHistory(true);
                                     }
-                                } as any;
-                                onUpdateSettings(updated);
-                            }}
-                            placeholder={
-                                library.type === "movie" ? "Movie template" :
-                                library.type === "show" ? "Episode template" : "Music template"
-                            }
-                            className="w-[380px] rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-500"
-                        />
+                                }}
+                                onFocus={() => {
+                                    if (templateHistoryEntries.length > 0 || templateFavoriteEntries.length > 0) {
+                                        onSetShowTemplateHistory(true);
+                                    }
+                                }}
+                                onClick={() => {
+                                    if (templateHistoryEntries.length > 0 || templateFavoriteEntries.length > 0) {
+                                        onSetShowTemplateHistory(true);
+                                    }
+                                }}
+                                onBlur={() => {
+                                    onCommitTemplateHistory(template);
+                                    window.setTimeout(() => onSetShowTemplateHistory(false), 120);
+                                }}
+                                placeholder={
+                                    library.type === "movie" ? "Movie template" :
+                                    library.type === "show" ? "Episode template" : "Music template"
+                                }
+                                className="w-[380px] rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-500"
+                            />
+                            {showTemplateHistory && (templateHistoryEntries.length > 0 || templateFavoriteEntries.length > 0) && (
+                                <div className="absolute left-0 top-full z-20 mt-1 w-[380px] rounded-md border border-neutral-700 bg-neutral-900 shadow-lg">
+                                    {templateHistoryEntries.length > 0 && (
+                                        <>
+                                            <div className="border-b border-neutral-800 px-3 py-2 text-xs uppercase tracking-wide text-neutral-400">
+                                                Recent templates
+                                            </div>
+                                            <div className="py-1">
+                                                {templateHistoryEntries.map((entry, index) => {
+                                                    const isSaved = templateFavoriteEntries.includes(entry);
+                                                    return (
+                                                        <div key={`${entry}-${index}`} className="flex items-center gap-2 px-2">
+                                                            <button
+                                                                type="button"
+                                                                onMouseDown={(e) => {
+                                                                    e.preventDefault();
+                                                                    onApplyTemplateValue(entry);
+                                                                    onCommitTemplateHistory(entry);
+                                                                    onSetShowTemplateHistory(false);
+                                                                }}
+                                                                className="block min-w-0 flex-1 truncate rounded px-1 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-800"
+                                                                title={entry}
+                                                            >
+                                                                {entry}
+                                                            </button>
+                                                            {!isSaved && (
+                                                                <button
+                                                                    type="button"
+                                                                    onMouseDown={(e) => {
+                                                                        e.preventDefault();
+                                                                        onSaveTemplateFavorite(entry);
+                                                                    }}
+                                                                    className="shrink-0 rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-800"
+                                                                    title="Save template"
+                                                                >
+                                                                    Save
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    )}
+                                    {templateFavoriteEntries.length > 0 && (
+                                        <>
+                                            <div className="border-y border-neutral-800 px-3 py-2 text-xs uppercase tracking-wide text-neutral-400">
+                                                Saved templates
+                                            </div>
+                                            <div className="py-1">
+                                                {templateFavoriteEntries.map((entry, index) => (
+                                                    <div key={`favorite-${entry}-${index}`} className="flex items-center gap-2 px-2">
+                                                        <button
+                                                            type="button"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                onApplyTemplateValue(entry);
+                                                                onCommitTemplateHistory(entry);
+                                                                onSetShowTemplateHistory(false);
+                                                            }}
+                                                            className="block min-w-0 flex-1 truncate rounded px-1 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-800"
+                                                            title={entry}
+                                                        >
+                                                            {entry}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                onDeleteTemplateFavorite(entry);
+                                                            }}
+                                                            className="shrink-0 rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-800"
+                                                            title="Delete saved template"
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => onSetShowTemplateHelp(true)}
@@ -263,16 +371,8 @@ export default function PreviewTemplate({
                               : library.type === "show"
                               ? "{showTitle} - S{season:02}E{episode:02} - {title}{ext}"
                               : "{artist}/{album}/{trackNumber:02} - {track}{ext}";
-                            const templateKey = library.type === "movie" ? "movie" :
-                                               library.type === "show" ? "episode" : "music";
-                            const updated = {
-                              ...settings,
-                              templates: {
-                                ...settings.templates,
-                                [templateKey]: def,
-                              }
-                            } as any;
-                            onUpdateSettings(updated);
+                            onApplyTemplateValue(def);
+                            onCommitTemplateHistory(def);
                           }}
                           className="inline-flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm hover:bg-neutral-700"
                         >

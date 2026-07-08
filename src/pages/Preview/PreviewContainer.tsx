@@ -1,7 +1,14 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
-import {useSettings} from "../../state/settings";
+import {
+    addTemplateFavoriteEntry,
+    addTemplateHistoryEntry,
+    getTemplateFavoriteEntries,
+    getTemplateHistoryEntries,
+    removeTemplateFavoriteEntry,
+    useSettings
+} from "../../state/settings";
 import {useTheme} from "../../state/theme";
 import type {Props, MovieItem, EpisodeItem, MusicItem, PreviewRow, SectionResponse} from "./types";
 import {computeMovieProposal} from "./movieProposal";
@@ -65,9 +72,11 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     const template = library.type === "movie" ? settings.templates.movie :
                      library.type === "show" ? settings.templates.episode :
                      settings.templates.music;
+    const serverId = generateServerId(server);
     const [libraryFolder, setLibraryFolder] = useState<string | null>(null);
     const [showMapModal, setShowMapModal] = useState(false);
     const [showTemplateHelp, setShowTemplateHelp] = useState(false);
+    const [showTemplateHistory, setShowTemplateHistory] = useState(false);
     const [editingItem, setEditingItem] = useState<PreviewRow | null>(null);
     const [renameResultModal, setRenameResultModal] = useState<{
         success: boolean;
@@ -171,6 +180,36 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         return [metadata.track, metadata.artist, metadata.album, metadata.genre || ""];
     }
 
+    function getRawItemKey(item: MovieItem | EpisodeItem | MusicItem): string {
+        return `${item.type}:${item.ratingKey || item.file}`;
+    }
+
+    function mergeUniqueRawItems(
+        existing: Array<MovieItem | EpisodeItem | MusicItem>,
+        incoming: Array<MovieItem | EpisodeItem | MusicItem>,
+    ): Array<MovieItem | EpisodeItem | MusicItem> {
+        const seen = new Set(existing.map(getRawItemKey));
+        const merged = [...existing];
+        for (const item of incoming) {
+            const key = getRawItemKey(item);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            merged.push(item);
+        }
+        return merged;
+    }
+
+    function mergeUniqueRows(existing: PreviewRow[], incoming: PreviewRow[]): PreviewRow[] {
+        const seen = new Set(existing.map((row) => row.id));
+        const merged = [...existing];
+        for (const row of incoming) {
+            if (seen.has(row.id)) continue;
+            seen.add(row.id);
+            merged.push(row);
+        }
+        return merged;
+    }
+
     // Apply / cleanup state
     const [applyInProgress, setApplyInProgress] = useState(false);
     const [applyOperationCount, setApplyOperationCount] = useState(0);
@@ -231,6 +270,48 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     useEffect(() => {
         rowsRef.current = rows;
     }, [rows]);
+
+    const templateHistoryEntries = useMemo(
+        () => getTemplateHistoryEntries(settings, serverId, library.key),
+        [settings, serverId, library.key],
+    );
+    const templateFavoriteEntries = useMemo(
+        () => getTemplateFavoriteEntries(settings, serverId, library.key),
+        [settings, serverId, library.key],
+    );
+
+    const commitTemplateHistory = useCallback((nextTemplate: string) => {
+        const nextSettings = addTemplateHistoryEntry(settings, serverId, library.key, nextTemplate);
+        if (nextSettings !== settings) {
+            updateSettings(nextSettings);
+        }
+    }, [settings, updateSettings, serverId, library.key]);
+
+    const saveTemplateFavorite = useCallback((nextTemplate: string) => {
+        const nextSettings = addTemplateFavoriteEntry(settings, serverId, library.key, nextTemplate);
+        if (nextSettings !== settings) {
+            updateSettings(nextSettings);
+        }
+    }, [settings, updateSettings, serverId, library.key]);
+
+    const deleteTemplateFavorite = useCallback((nextTemplate: string) => {
+        const nextSettings = removeTemplateFavoriteEntry(settings, serverId, library.key, nextTemplate);
+        if (nextSettings !== settings) {
+            updateSettings(nextSettings);
+        }
+    }, [settings, updateSettings, serverId, library.key]);
+
+    const applyTemplateValue = useCallback((nextTemplate: string) => {
+        const templateKey = library.type === "movie" ? "movie" :
+            library.type === "show" ? "episode" : "music";
+        updateSettings({
+            ...settings,
+            templates: {
+                ...settings.templates,
+                [templateKey]: nextTemplate,
+            },
+        } as any);
+    }, [library.type, settings, updateSettings]);
 
     // Load path mappings and determine the library folder for shortening paths
     useEffect(() => {
@@ -408,7 +489,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                     moreItems.push(m);
                                 }
                                 if (moreItems.length > 0) {
-                                    setRawItems(prev => [...prev, ...moreItems]);
+                                    setRawItems(prev => mergeUniqueRawItems(prev, moreItems));
                                     setMoviesPaging(prev => {
                                         const totalFinal = moreTotal ?? prev.total ?? null;
                                         const newStart = moreOffset + moreReturned;
@@ -853,6 +934,30 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         return null;
     }, [server.address]);
 
+    const enrichRowsWithPosters = useCallback(async (inputRows: PreviewRow[]): Promise<PreviewRow[]> => {
+        const isBlocksView = settings.general.viewMode[library.type === "movie" ? "movies" : "tv"] === "blocks";
+        if (!isBlocksView || inputRows.length === 0) {
+            return inputRows;
+        }
+
+        try {
+            await Promise.all(inputRows.map(async (row) => {
+                if (!row.metadata?.thumb || row.metadata.cachedPosterUrl) {
+                    return;
+                }
+
+                const posterUrl = await fetchPoster(row.metadata.thumb, row.id);
+                if (posterUrl) {
+                    row.metadata.cachedPosterUrl = posterUrl;
+                }
+            }));
+        } catch (posterError) {
+            console.warn("Failed to fetch some posters:", posterError);
+        }
+
+        return inputRows;
+    }, [fetchPoster, library.type, settings.general.viewMode]);
+
     // Compute proposals from raw items when settings or inputs change
     useEffect(() => {
         async function computeProposals() {
@@ -979,25 +1084,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 // Continue without subtitle operations
             }
 
-            // Fetch posters for items with thumbnails (only for blocks view)
-            const isBlocksView = settings.general.viewMode[library.type === "movie" ? "movies" : "tv"] === "blocks";
-            if (isBlocksView) {
-                try {
-                    const posterPromises = newRows.map(async (row) => {
-                        if (row.metadata?.thumb) {
-                            const posterUrl = await fetchPoster(row.metadata.thumb, row.id);
-                            if (posterUrl) {
-                                // Add cached poster URL to metadata
-                                row.metadata.cachedPosterUrl = posterUrl;
-                            }
-                        }
-                        return row;
-                    });
-                    await Promise.all(posterPromises);
-                } catch (posterError) {
-                    console.warn("Failed to fetch some posters:", posterError);
-                }
-            }
+            await enrichRowsWithPosters(newRows);
 
             if (isFullRecompute) {
                 // Replace rows on full recompute
@@ -1005,7 +1092,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 setSelectedIds(new Set());
             } else {
                 // Append rows incrementally
-                const combined = [...rowsRef.current, ...newRows];
+                const combined = mergeUniqueRows(rowsRef.current, newRows);
                 setRows(combined);
             }
 
@@ -1330,6 +1417,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     // Auto-load more movies when navigating to a page that requires more items than we have loaded
     useEffect(() => {
         if (library.type !== "movie") return;
+        if (page <= 1) return;
         const needed = page * pageSize;
         // If we already fetched two pages in the initial request, do not refetch when going to page 2
         if (page === 2 && rows.length >= pageSize * 2) return;
@@ -1755,7 +1843,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     // Load more functions
     const loadMoreMovies = useCallback(async () => {
         if (moviesPaging.exhausted) return;
-        const nextStart = rows.length;
+        const nextStart = moviesPaging.start;
         const pageSizeLocal = pageSize;
         if (moviesPaging.total && nextStart >= moviesPaging.total) {
             setMoviesPaging(prev => ({ ...prev, exhausted: true }));
@@ -1801,13 +1889,14 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 row.metadata = m; // Store original metadata for popover
                 more.push(row);
             }
-            setRows(prev => [...prev, ...more]);
+            await enrichRowsWithPosters(more);
+            setRows(prev => mergeUniqueRows(prev, more));
         } catch (e) {
         } finally {
             setPageLoading(false);
             setLoading(false);
         }
-    }, [rows.length, server.address, library.key, moviesPaging.exhausted, moviesPaging.total, libraryFolder, settings, template, pageSize]);
+    }, [server.address, library.key, moviesPaging.exhausted, moviesPaging.total, moviesPaging.start, libraryFolder, settings, template, pageSize, enrichRowsWithPosters]);
 
     const loadMoreEpisodes = useCallback(async () => {
         if (library.type !== "show" || !currentShow) return;
@@ -1972,6 +2061,9 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             gridTemplate={gridTemplate}
             showMapModal={showMapModal}
             showTemplateHelp={showTemplateHelp}
+            showTemplateHistory={showTemplateHistory}
+            templateHistoryEntries={templateHistoryEntries}
+            templateFavoriteEntries={templateFavoriteEntries}
             editingItem={editingItem}
             renameResultModal={renameResultModal}
             undoResultModal={undoResultModal}
@@ -1998,6 +2090,11 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             onSetPageSize={setPageSize}
             onSetShowMapModal={setShowMapModal}
             onSetShowTemplateHelp={setShowTemplateHelp}
+            onSetShowTemplateHistory={setShowTemplateHistory}
+            onApplyTemplateValue={applyTemplateValue}
+            onCommitTemplateHistory={commitTemplateHistory}
+            onSaveTemplateFavorite={saveTemplateFavorite}
+            onDeleteTemplateFavorite={deleteTemplateFavorite}
             onSetEditingItem={setEditingItem}
             onStartResize={startResize}
             onHandleMouseEnter={handleMouseEnter}

@@ -305,6 +305,28 @@ export function extractTmdbId(guid: string): string | null {
     return tmdbMatch ? tmdbMatch[1] : null;
 }
 
+export function formatPlexIdToken(
+  provider: "imdb" | "tvdb" | "tmdb",
+  id: string | null | undefined,
+): string {
+  if (!id) return "";
+  return `{${provider}-${id}}`;
+}
+
+export function buildPlexIdTokens(ids: {
+  imdb?: string | null;
+  tvdb?: string | null;
+  tmdb?: string | null;
+}): string {
+  return [
+    formatPlexIdToken("imdb", ids.imdb),
+    formatPlexIdToken("tvdb", ids.tvdb),
+    formatPlexIdToken("tmdb", ids.tmdb),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function padNumber(value: number, width: number): string {
   const s = String(Math.abs(value));
   const sign = value < 0 ? "-" : "";
@@ -374,6 +396,5 @@ export function renderTemplate(template: string, context: TemplateContext): stri
   // Collapse duplicate slashes that may result from empty groups
   return replaced.replace(/\/+/, "/").replace(/\s{2,}/g, " ").trim();
 }
-
 
 

@@ -5,7 +5,11 @@
       {
         "ratingKey": "101",
         "key": "/library/metadata/101",
-        "guid": "plex://movie/mock-interstellar",
+        "guid": "imdb://tt0816692",
+        "Guid": [
+          { "id": "imdb://tt0816692" },
+          { "id": "tmdb://157336" }
+        ],
         "studio": "Warner Bros.",
         "type": "movie",
         "title": "Interstellar",

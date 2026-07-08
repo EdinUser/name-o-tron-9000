@@ -7,7 +7,11 @@
       {
         "ratingKey": "101",
         "key": "/library/metadata/101",
-        "guid": "plex://movie/mock-interstellar",
+        "guid": "imdb://tt0816692",
+        "Guid": [
+          { "id": "imdb://tt0816692" },
+          { "id": "tmdb://157336" }
+        ],
         "type": "movie",
         "title": "Interstellar",
         "year": 2014,
@@ -37,7 +41,11 @@
       {
         "ratingKey": "102",
         "key": "/library/metadata/102",
-        "guid": "plex://movie/mock-arrival",
+        "guid": "tmdb://329865",
+        "Guid": [
+          { "id": "imdb://tt2543164" },
+          { "id": "tmdb://329865" }
+        ],
         "type": "movie",
         "title": "Arrival",
         "year": 2016,
@@ -97,18 +105,23 @@
       {
         "ratingKey": "104",
         "key": "/library/metadata/104",
-        "guid": "plex://movie/mock-blade-runner",
+        "guid": "imdb://tt0083658",
+        "Guid": [
+          { "id": "imdb://tt0083658" },
+          { "id": "tmdb://78" },
+          { "id": "tvdb://204104" }
+        ],
         "type": "movie",
         "title": "Blade Runner",
         "year": 1982,
-        "summary": "Edition fixture for Director's Cut naming and subtitle pairing.",
-        "thumb": "/library/metadata/104/thumb",
-        "art": "/library/metadata/104/art",
         "edition": "{edition-directors-cut}",
         "editionTitle": "Director's Cut",
-        "Genre": [{ "tag": "Science Fiction" }, { "tag": "Neo-Noir" }],
+        "summary": "A fixture with an edition token and subtitle sidecar.",
+        "thumb": "/library/metadata/104/thumb",
+        "art": "/library/metadata/104/art",
+        "Genre": [{ "tag": "Science Fiction" }],
+        "Collection": [{ "tag": "Blade Runner Collection" }],
         "Studio": [{ "tag": "Warner Bros." }],
-        "Director": [{ "tag": "Ridley Scott" }],
         "Media": [
           {
             "id": 5004,
@@ -129,24 +142,28 @@
       {
         "ratingKey": "105",
         "key": "/library/metadata/105",
-        "guid": "plex://movie/mock-kingdom-of-heaven",
+        "guid": "tmdb://1495",
+        "Guid": [
+          { "id": "imdb://tt0320661" },
+          { "id": "tmdb://1495" }
+        ],
         "type": "movie",
         "title": "Kingdom of Heaven",
         "year": 2005,
-        "summary": "Sibling edition fixture for theatrical release handling.",
-        "thumb": "/library/metadata/105/thumb",
-        "art": "/library/metadata/105/art",
         "edition": "{edition-theatrical}",
         "editionTitle": "Theatrical Release",
+        "summary": "A fixture representing the theatrical cut when multiple editions exist.",
+        "thumb": "/library/metadata/105/thumb",
+        "art": "/library/metadata/105/art",
         "Genre": [{ "tag": "Historical Drama" }],
+        "Collection": [{ "tag": "Ridley Scott Collection" }],
         "Studio": [{ "tag": "20th Century Fox" }],
-        "Director": [{ "tag": "Ridley Scott" }],
         "Media": [
           {
             "id": 5005,
             "container": "mkv",
             "videoCodec": "h264",
-            "audioCodec": "dts",
+            "audioCodec": "ac3",
             "Part": [
               {
                 "id": 7005,
@@ -161,24 +178,28 @@
       {
         "ratingKey": "106",
         "key": "/library/metadata/106",
-        "guid": "plex://movie/mock-kingdom-of-heaven-dc",
+        "guid": "imdb://tt0320661",
+        "Guid": [
+          { "id": "imdb://tt0320661" },
+          { "id": "tmdb://1495" }
+        ],
         "type": "movie",
         "title": "Kingdom of Heaven",
         "year": 2005,
-        "summary": "Sibling edition fixture for director's cut handling.",
-        "thumb": "/library/metadata/106/thumb",
-        "art": "/library/metadata/106/art",
         "edition": "{edition-directors-cut}",
         "editionTitle": "Director's Cut",
+        "summary": "A fixture representing the director's cut variant.",
+        "thumb": "/library/metadata/106/thumb",
+        "art": "/library/metadata/106/art",
         "Genre": [{ "tag": "Historical Drama" }],
+        "Collection": [{ "tag": "Ridley Scott Collection" }],
         "Studio": [{ "tag": "20th Century Fox" }],
-        "Director": [{ "tag": "Ridley Scott" }],
         "Media": [
           {
             "id": 5006,
             "container": "mkv",
             "videoCodec": "h264",
-            "audioCodec": "dts",
+            "audioCodec": "ac3",
             "Part": [
               {
                 "id": 7006,
@@ -193,19 +214,22 @@
       {
         "ratingKey": "107",
         "key": "/library/metadata/107",
-        "guid": "plex://movie/mock-two-towers-theatrical",
+        "guid": "tmdb://121",
+        "Guid": [
+          { "id": "imdb://tt0167261" },
+          { "id": "tmdb://121" }
+        ],
         "type": "movie",
         "title": "The Lord of the Rings: The Two Towers",
         "year": 2002,
-        "summary": "Sibling edition fixture for theatrical fantasy release handling.",
-        "thumb": "/library/metadata/107/thumb",
-        "art": "/library/metadata/107/art",
         "edition": "{edition-theatrical}",
         "editionTitle": "Theatrical Release",
+        "summary": "A theatrical fixture used to verify edition-aware grouping.",
+        "thumb": "/library/metadata/107/thumb",
+        "art": "/library/metadata/107/art",
         "Genre": [{ "tag": "Fantasy" }, { "tag": "Adventure" }],
-        "Collection": [{ "tag": "Middle-earth Collection" }],
+        "Collection": [{ "tag": "The Lord of the Rings Collection" }],
         "Studio": [{ "tag": "New Line Cinema" }],
-        "Director": [{ "tag": "Peter Jackson" }],
         "Media": [
           {
             "id": 5007,
@@ -226,19 +250,22 @@
       {
         "ratingKey": "108",
         "key": "/library/metadata/108",
-        "guid": "plex://movie/mock-two-towers-extended",
+        "guid": "imdb://tt0167261",
+        "Guid": [
+          { "id": "imdb://tt0167261" },
+          { "id": "tmdb://121" }
+        ],
         "type": "movie",
         "title": "The Lord of the Rings: The Two Towers",
         "year": 2002,
-        "summary": "Sibling edition fixture for extended fantasy release handling.",
-        "thumb": "/library/metadata/108/thumb",
-        "art": "/library/metadata/108/art",
         "edition": "{edition-extended}",
         "editionTitle": "Extended Edition",
+        "summary": "An extended-edition fixture for multi-edition rename behavior.",
+        "thumb": "/library/metadata/108/thumb",
+        "art": "/library/metadata/108/art",
         "Genre": [{ "tag": "Fantasy" }, { "tag": "Adventure" }],
-        "Collection": [{ "tag": "Middle-earth Collection" }],
+        "Collection": [{ "tag": "The Lord of the Rings Collection" }],
         "Studio": [{ "tag": "New Line Cinema" }],
-        "Director": [{ "tag": "Peter Jackson" }],
         "Media": [
           {
             "id": 5008,

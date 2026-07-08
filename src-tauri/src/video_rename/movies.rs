@@ -4,6 +4,13 @@ use super::{
     safe_folder_name, sanitize_and_validate_path, MovieItem, RenameOperation, TemplateContext,
 };
 
+fn format_plex_id_token(provider: &str, id: Option<&str>) -> String {
+    match id {
+        Some(value) if !value.is_empty() => format!("{{{}-{}}}", provider, value),
+        _ => String::new(),
+    }
+}
+
 pub(super) fn compute_movie_proposal(
     movie: &MovieItem,
     template: &str,
@@ -22,26 +29,44 @@ pub(super) fn compute_movie_proposal(
         movie.imdb_id.clone().unwrap_or_default(),
     );
     context.insert(
+        "imdbToken".to_string(),
+        format_plex_id_token("imdb", movie.imdb_id.as_deref()),
+    );
+    context.insert(
         "tmdb".to_string(),
         movie.tmdb_id.clone().unwrap_or_default(),
     );
     context.insert(
+        "tmdbToken".to_string(),
+        format_plex_id_token("tmdb", movie.tmdb_id.as_deref()),
+    );
+    context.insert(
         "tvdb".to_string(),
+        movie.tvdb_id.clone().unwrap_or_default(),
+    );
+    context.insert(
+        "tvdbToken".to_string(),
+        format_plex_id_token("tvdb", movie.tvdb_id.as_deref()),
+    );
+    context.insert(
+        "thetvdb".to_string(),
         movie.tvdb_id.clone().unwrap_or_default(),
     );
     context.insert("ext".to_string(), ext.clone());
 
     let mut processed_ids = Vec::new();
     if let Some(imdb) = &movie.imdb_id {
-        processed_ids.push(format!("imdb:{}", imdb));
+        processed_ids.push(format!("{{imdb-{}}}", imdb));
     }
     if let Some(tmdb) = &movie.tmdb_id {
-        processed_ids.push(format!("tmdb:{}", tmdb));
+        processed_ids.push(format!("{{tmdb-{}}}", tmdb));
     }
     if let Some(tvdb) = &movie.tvdb_id {
-        processed_ids.push(format!("tvdb:{}", tvdb));
+        processed_ids.push(format!("{{tvdb-{}}}", tvdb));
     }
-    context.insert("ids".to_string(), processed_ids.join(","));
+    let plex_ids = processed_ids.join(" ");
+    context.insert("ids".to_string(), plex_ids.clone());
+    context.insert("plexIds".to_string(), plex_ids);
 
     let mut proposed = render_template(template, &context);
     if !proposed.ends_with(&ext) {

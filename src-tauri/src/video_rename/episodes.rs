@@ -7,6 +7,13 @@ use super::episode_tokens::{
     render_episode_template_with_plex_tokens,
 };
 
+fn format_plex_id_token(provider: &str, id: Option<&str>) -> String {
+    match id {
+        Some(value) if !value.is_empty() => format!("{{{}-{}}}", provider, value),
+        _ => String::new(),
+    }
+}
+
 pub(super) fn compute_episode_proposal(
     episode: &EpisodeItem,
     template: &str,
@@ -26,11 +33,27 @@ pub(super) fn compute_episode_proposal(
         episode.imdb_id.clone().unwrap_or_default(),
     );
     context.insert(
+        "imdbToken".to_string(),
+        format_plex_id_token("imdb", episode.imdb_id.as_deref()),
+    );
+    context.insert(
         "tmdb".to_string(),
         episode.tmdb_id.clone().unwrap_or_default(),
     );
     context.insert(
+        "tmdbToken".to_string(),
+        format_plex_id_token("tmdb", episode.tmdb_id.as_deref()),
+    );
+    context.insert(
         "tvdb".to_string(),
+        episode.tvdb_id.clone().unwrap_or_default(),
+    );
+    context.insert(
+        "tvdbToken".to_string(),
+        format_plex_id_token("tvdb", episode.tvdb_id.as_deref()),
+    );
+    context.insert(
+        "thetvdb".to_string(),
         episode.tvdb_id.clone().unwrap_or_default(),
     );
     context.insert("ext".to_string(), ext.clone());
@@ -76,15 +99,17 @@ pub(super) fn compute_episode_proposal(
 
     let mut processed_ids = Vec::new();
     if let Some(imdb) = &episode.imdb_id {
-        processed_ids.push(format!("imdb:{}", imdb));
+        processed_ids.push(format!("{{imdb-{}}}", imdb));
     }
     if let Some(tmdb) = &episode.tmdb_id {
-        processed_ids.push(format!("tmdb:{}", tmdb));
+        processed_ids.push(format!("{{tmdb-{}}}", tmdb));
     }
     if let Some(tvdb) = &episode.tvdb_id {
-        processed_ids.push(format!("tvdb:{}", tvdb));
+        processed_ids.push(format!("{{tvdb-{}}}", tvdb));
     }
-    context.insert("ids".to_string(), processed_ids.join(","));
+    let plex_ids = processed_ids.join(" ");
+    context.insert("ids".to_string(), plex_ids.clone());
+    context.insert("plexIds".to_string(), plex_ids);
 
     let rendered_template =
         render_episode_template_with_plex_tokens(template, episode.index, range_end);

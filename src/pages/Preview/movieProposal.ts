@@ -18,7 +18,16 @@ import {
     sortEditionsByPriority,
     splitPathSegments,
 } from "./utils";
-import {detectEditionFromPathWithPriority, extractImdbId, extractTmdbId, extractTvdbId, mapEditionTokenToTitle, renderTemplate} from "../../utils/template";
+import {
+    buildPlexIdTokens,
+    detectEditionFromPathWithPriority,
+    extractImdbId,
+    extractTmdbId,
+    extractTvdbId,
+    formatPlexIdToken,
+    mapEditionTokenToTitle,
+    renderTemplate,
+} from "../../utils/template";
 
 // Helper function to detect existing folder structure patterns
 export function detectExistingFolderStructure(folders: string[]): {
@@ -287,14 +296,10 @@ export async function computeMovieProposal(
     let processedIds = "";
     if (settings.movies.ids === "preserve") {
         // Preserve existing IDs in the filename
-        if (imdbId) processedIds += ` {imdb}`;
-        if (thetvdbId) processedIds += ` {thetvdb}`;
-        if (tmdbId) processedIds += ` {tmdb}`;
+        processedIds = buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId });
     } else if (settings.movies.ids === "auto_append_all") {
         // Auto-append all available IDs
-        if (imdbId) processedIds += ` {imdb}`;
-        if (thetvdbId) processedIds += ` {thetvdb}`;
-        if (tmdbId) processedIds += ` {tmdb}`;
+        processedIds = buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId });
     }
 
     // Process edition based on user settings
@@ -367,9 +372,14 @@ export async function computeMovieProposal(
         collection: effectiveCollectionName,
         // ID fields
         imdb: imdbId ?? "",
+        imdbToken: formatPlexIdToken("imdb", imdbId),
+        tvdb: thetvdbId ?? "",
         thetvdb: thetvdbId ?? "",
+        tvdbToken: formatPlexIdToken("tvdb", thetvdbId),
         tmdb: tmdbId ?? "",
+        tmdbToken: formatPlexIdToken("tmdb", tmdbId),
         ids: processedIds,
+        plexIds: processedIds,
     } as any;
 
     let proposed = "";
