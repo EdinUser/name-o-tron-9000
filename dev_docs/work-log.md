@@ -584,6 +584,16 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 
 ## 2026-07-08
 
+- Summary: Resolved the open Dependabot transitive alerts by refreshing the npm lockfile onto `express@5.2.1`, `body-parser@2.3.0`, and an explicit `qs@6.15.3` override, and by updating the Rust lockfile from `rand 0.8.5` to `0.8.6`.
+- Files or areas: `package.json`, `package-lock.json`, `src-tauri/Cargo.lock`.
+- Verification:
+  - `npm ls express body-parser qs` shows `express@5.2.1`, `body-parser@2.3.0`, and `qs@6.15.3`.
+  - `npm run test:types` passed locally.
+  - `npm test` passed locally.
+  - `cargo test --manifest-path src-tauri/Cargo.toml` passed locally.
+- Follow-ups:
+  - The npm `qs` alert tied to `express` may take GitHub a short time to recalculate because upstream still declares `^6.14.0`; the repo now forces the patched resolved version.
+
 - Summary: Bumped GitHub Actions Node.js runtime pins from 20 to 24 across CI and post-merge build workflows because Node 20 is EOL and GitHub was warning on the older runtime during Linux and Windows jobs.
 - Files or areas: `.github/workflows/ci.yml`, `.github/workflows/main.yml`.
 - Verification:
