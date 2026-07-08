@@ -150,6 +150,16 @@ function renderWithProviders(component: React.ReactElement) {
   );
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('ShowSelection Integration Tests', () => {
   const mockOnBack = vi.fn();
   const mockOnSelectShow = vi.fn();
@@ -735,6 +745,126 @@ describe('ShowSelection Integration Tests', () => {
       expect(screen.getByText('Show 21')).toBeInTheDocument();
     }, { timeout: 5000 });
   }, 10000);
+
+  it('ignores a stale initial TV response after refresh triggers a newer load', async () => {
+    const staleShows = [
+      {
+        ratingKey: 'stale-show',
+        title: 'Stale Show',
+        thumb: '/library/metadata/stale-show/thumb/123',
+        year: '2000',
+        Genre: [{ tag: 'Drama' }],
+        studio: 'Studio',
+        childCount: 1,
+      },
+    ];
+    const freshShows = [
+      {
+        ratingKey: 'fresh-show',
+        title: 'Fresh Show',
+        thumb: '/library/metadata/fresh-show/thumb/123',
+        year: '2001',
+        Genre: [{ tag: 'Comedy' }],
+        studio: 'Studio',
+        childCount: 1,
+      },
+    ];
+    const deferredInitial = createDeferred<any>();
+    let fetchCallCount = 0;
+
+    const raceCache = {
+      lastUpdated: Date.now(),
+      mappingsChecksum: 'test-checksum',
+      shows: {
+        'stale-show': {
+          isMapped: true,
+          location: '/media/TV Shows/Stale Show/Season 1/Stale Show - S01E01.mkv',
+          lastChecked: Date.now(),
+          posterUrl: `http://192.168.1.100:32400${staleShows[0].thumb}`,
+          year: 2000,
+          genre: 'Drama',
+          studio: 'Studio',
+          creators: ['Creator'],
+          yearsRunning: '2000-2001',
+        },
+        'fresh-show': {
+          isMapped: true,
+          location: '/media/TV Shows/Fresh Show/Season 1/Fresh Show - S01E01.mkv',
+          lastChecked: Date.now(),
+          posterUrl: `http://192.168.1.100:32400${freshShows[0].thumb}`,
+          year: 2001,
+          genre: 'Comedy',
+          studio: 'Studio',
+          creators: ['Creator'],
+          yearsRunning: '2001-2002',
+        },
+      },
+    };
+
+    mockInvoke.mockImplementation((command: string) => {
+      switch (command) {
+        case 'get_settings':
+          return Promise.resolve({ pathMappings: mockMappings });
+        case 'fetch_tv_shows':
+          fetchCallCount += 1;
+          if (fetchCallCount === 1) {
+            return deferredInitial.promise;
+          }
+          return Promise.resolve({
+            MediaContainer: {
+              Directory: freshShows,
+              totalSize: 1,
+              size: 1,
+              offset: 0,
+            }
+          });
+        case 'fetch_show_episodes':
+          return Promise.resolve(mockEpisodeData);
+        case 'fetch_plex_image':
+          return Promise.resolve('data:image/jpeg;base64,fake-image-data');
+        case 'generate_mappings_checksum_cmd':
+          return Promise.resolve('test-checksum');
+        case 'load_show_mapping_cache':
+          return Promise.resolve(raceCache);
+        case 'save_show_mapping_cache':
+          return Promise.resolve();
+        case 'invalidate_show_mapping_cache':
+          return Promise.resolve();
+        default:
+          return Promise.reject(new Error(`Unknown command: ${command}`));
+      }
+    });
+
+    renderWithProviders(
+      <ShowSelectionContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={mockOnBack}
+        onSelectShow={mockOnSelectShow}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+
+    await waitFor(() => {
+      expect(fetchCallCount).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText('Fresh Show')).toBeInTheDocument();
+    });
+
+    deferredInitial.resolve({
+      MediaContainer: {
+        Directory: staleShows,
+        totalSize: 1,
+        size: 1,
+        offset: 0,
+      }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Fresh Show')).toBeInTheDocument();
+      expect(screen.queryByText('Stale Show')).not.toBeInTheDocument();
+    });
+  });
 
   it('uses fallback total-count fields when Plex omits totalSize', async () => {
     const showsPage = Array.from({ length: 20 }, (_, index) => ({
