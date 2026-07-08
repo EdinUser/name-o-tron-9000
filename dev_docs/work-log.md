@@ -584,6 +584,15 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 
 ## 2026-07-08
 
+- Summary: Bumped GitHub Actions Node.js runtime pins from 20 to 24 across CI and post-merge build workflows because Node 20 is EOL and GitHub was warning on the older runtime during Linux and Windows jobs.
+- Files or areas: `.github/workflows/ci.yml`, `.github/workflows/main.yml`.
+- Verification:
+  - `npm run test:types` passed locally under Node `v22.19.0`.
+  - `npm test -- src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed locally.
+  - `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests` passed locally.
+- Follow-ups:
+  - I could not run the suite under Node 24 locally in this environment; the authoritative validation is the refreshed GitHub Actions run on PR `#51`.
+
 - Summary: Hardened CI after the repaired `develop -> main` promotion exposed a ShowSelection pagination regression in the test harness and deterministic Windows fixture-harness failures caused by the Rust tests shelling out to implicit WSL `bash` instead of Git Bash.
 - Files or areas: `src/pages/ShowSelection/ShowSelectionContainer.tsx`, `src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx`, `src-tauri/tests/mock_plex_harness_tests.rs`.
 - Verification:
