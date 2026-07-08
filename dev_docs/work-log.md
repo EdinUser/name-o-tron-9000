@@ -584,6 +584,15 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 
 ## 2026-07-08
 
+- Summary: Fixed CI PR-route enforcement so retargeting a pull request triggers a fresh validation run instead of reusing stale base-branch event data.
+- Files or areas: `.github/workflows/ci.yml`.
+- Verification:
+  - Documentation/config-only change.
+  - Live GitHub inspection confirmed the stale failure was a rerun of an older `base_ref=main` pull_request event while PR `#52` now targets `develop`.
+- Follow-ups:
+  - GitHub rulesets still cannot enforce “only `develop -> main`” by source branch; keep `validate-pr-route` as the policy gate.
+  - If you also want “no direct pushes to main,” add that separately through ruleset update restrictions or branch protection push restrictions.
+
 - Summary: Resolved the open Dependabot transitive alerts by refreshing the npm lockfile onto `express@5.2.1`, `body-parser@2.3.0`, and an explicit `qs@6.15.3` override, and by updating the Rust lockfile from `rand 0.8.5` to `0.8.6`.
 - Files or areas: `package.json`, `package-lock.json`, `src-tauri/Cargo.lock`.
 - Verification:
