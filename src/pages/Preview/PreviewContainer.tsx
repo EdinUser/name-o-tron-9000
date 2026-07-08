@@ -1986,6 +1986,94 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         server.address,
     ]);
 
+    const loadMoreEpisodes = useCallback(async () => {
+        if (library.type !== "show" || !currentShow) return;
+        if (episodesPaging.exhausted) return;
+
+        const targetSeason = selectedSeason === "all" ? null : selectedSeason;
+        if (targetSeason === null || targetSeason === undefined) return;
+
+        const seasonData = seasonList.find((season) => season.index === targetSeason);
+        if (!seasonData?.key) return;
+
+        const nextStart = episodesPaging.start;
+        const fetchSize = Math.max(pageSize, episodesPaging.size);
+        if (episodesPaging.total && nextStart >= episodesPaging.total) {
+            setEpisodesPaging((prev) => ({ ...prev, exhausted: true }));
+            return;
+        }
+
+        setLoading(true);
+        setPageLoading(true);
+        try {
+            const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
+            const epsResp = await invoke<any>("fetch_plex_metadata", {
+                server: server.address,
+                plexKey: seasonData.key,
+                token,
+                start: nextStart,
+                size: fetchSize,
+            });
+            const md = epsResp?.MediaContainer?.Metadata ?? [];
+            const total = Number(epsResp?.MediaContainer?.totalSize ?? epsResp?.MediaContainer?.total ?? seasonData.leafCount) || episodesPaging.total;
+            const returned = Number(epsResp?.MediaContainer?.size ?? md.length);
+            const offset = Number(epsResp?.MediaContainer?.offset ?? nextStart);
+
+            const moreEpisodes: EpisodeItem[] = [];
+            for (const item of md) {
+                const file = item?.Media?.[0]?.Part?.[0]?.file;
+                if (!file) continue;
+
+                const parsed = parseEpisodeInfo(String(file), String(item.title ?? "Episode"));
+                const plexSeason = Number(item.parentIndex);
+                const plexEpisode = Number(item.index);
+                moreEpisodes.push({
+                    type: "episode",
+                    ratingKey: String(item.ratingKey ?? item.key ?? file),
+                    showTitle: String(item.grandparentTitle ?? currentShow.title),
+                    title: String(item.title ?? "Episode"),
+                    season: Number.isFinite(plexSeason) ? plexSeason : parsed.season,
+                    index: Number.isFinite(plexEpisode) ? plexEpisode : parsed.index,
+                    file: String(file),
+                    plexPath: String(file),
+                    year: item.year ? Number(item.year) : undefined,
+                    grandparentTitle: String(item.grandparentTitle ?? currentShow.title),
+                    parentTitle: String(item.parentTitle ?? ""),
+                    parentIndex: Number.isFinite(plexSeason) ? plexSeason : (item.parentIndex ? Number(item.parentIndex) : parsed.season),
+                    thumb: String(item.thumb ?? ""),
+                });
+            }
+
+            setEpisodesPaging((prev) => ({
+                ...prev,
+                total,
+                exhausted: total ? offset + returned >= total : md.length < fetchSize,
+                start: offset + returned,
+                size: fetchSize,
+            }));
+
+            if (moreEpisodes.length > 0) {
+                setRawItems((prev) => [...prev, ...moreEpisodes]);
+            }
+        } catch (e) {
+            setError(`Failed to load more episodes: ${e}`);
+        } finally {
+            setPageLoading(false);
+            setLoading(false);
+        }
+    }, [
+        library.type,
+        currentShow,
+        episodesPaging.exhausted,
+        episodesPaging.start,
+        episodesPaging.size,
+        episodesPaging.total,
+        pageSize,
+        selectedSeason,
+        seasonList,
+        server.address,
+    ]);
+
     const loadMoreMusic = useCallback(async () => {
         const nextStart = rows.length;
         setLoading(true);
