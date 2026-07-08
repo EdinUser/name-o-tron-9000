@@ -5,15 +5,20 @@
       {
         "ratingKey": "200",
         "key": "/library/metadata/200",
-        "guid": "plex://show/mock-abyssal-gate",
+        "guid": "tvdb://720200",
+        "Guid": [
+          { "id": "tvdb://720200" },
+          { "id": "imdb://tt7202001" },
+          { "id": "tmdb://920200" }
+        ],
         "type": "show",
         "title": "Abyssal Gate",
-        "summary": "Mock TV show fixture for endpoint coverage.",
+        "summary": "Mock TV show fixture for endpoint coverage with season 01 episodes and season 00 OVAs.",
         "thumb": "/library/metadata/200/thumb",
         "art": "/library/metadata/200/art",
         "Genre": [{ "tag": "Science Fiction" }],
         "studio": "Mock Network",
-        "leafCount": 7,
+        "leafCount": 9,
         "year": 2023
       }
     ]

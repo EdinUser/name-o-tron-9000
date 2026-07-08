@@ -133,6 +133,9 @@ export type TemplateSettings = {
   music: string;
 };
 
+export type TemplateHistory = Record<string, Record<string, string[]>>;
+export type TemplateFavorites = Record<string, Record<string, string[]>>;
+
 export type PaginationSettings = {
   defaultMovieLimit: number;
   defaultShowLimit: number;
@@ -164,6 +167,8 @@ export type Settings = {
   music: MusicSettings;
   misc: MiscSettings;
   templates: TemplateSettings;
+  templateHistory: TemplateHistory;
+  templateFavorites: TemplateFavorites;
   /** Manual fixes for specific Plex items */
   manualFixes: ManualFix[];
 };
@@ -281,6 +286,8 @@ const defaultSettings: Settings = {
     episode: "{showTitle} - S{season:02}E{episode:02} - {title}{ext}",
     music: "{artist}/{album}/{trackNumber:02} - {track}{ext}",
   },
+  templateHistory: {},
+  templateFavorites: {},
   manualFixes: [],
 };
 
@@ -328,6 +335,124 @@ export function cleanupOldManualFixes(settings: Settings): Settings {
   return {
     ...settings,
     manualFixes: settings.manualFixes.filter(fix => fix.createdAt > ninetyDaysAgo)
+  };
+}
+
+export function getTemplateHistoryEntries(
+  settings: Settings,
+  serverId: string,
+  libraryId: string,
+): string[] {
+  return settings.templateHistory?.[serverId]?.[libraryId] || [];
+}
+
+export function getTemplateFavoriteEntries(
+  settings: Settings,
+  serverId: string,
+  libraryId: string,
+): string[] {
+  return settings.templateFavorites?.[serverId]?.[libraryId] || [];
+}
+
+export function addTemplateHistoryEntry(
+  settings: Settings,
+  serverId: string,
+  libraryId: string,
+  template: string,
+): Settings {
+  const normalized = template.trim();
+  if (!normalized) {
+    return settings;
+  }
+
+  const existingServerHistory = settings.templateHistory?.[serverId] || {};
+  const existingEntries = existingServerHistory[libraryId] || [];
+  const nextEntries = [
+    normalized,
+    ...existingEntries.filter((entry) => entry !== normalized),
+  ].slice(0, 5);
+
+  const unchanged =
+    existingEntries.length === nextEntries.length &&
+    existingEntries.every((entry, index) => entry === nextEntries[index]);
+
+  if (unchanged) {
+    return settings;
+  }
+
+  return {
+    ...settings,
+    templateHistory: {
+      ...settings.templateHistory,
+      [serverId]: {
+        ...existingServerHistory,
+        [libraryId]: nextEntries,
+      },
+    },
+  };
+}
+
+export function addTemplateFavoriteEntry(
+  settings: Settings,
+  serverId: string,
+  libraryId: string,
+  template: string,
+): Settings {
+  const normalized = template.trim();
+  if (!normalized) {
+    return settings;
+  }
+
+  const existingServerFavorites = settings.templateFavorites?.[serverId] || {};
+  const existingEntries = existingServerFavorites[libraryId] || [];
+  const nextEntries = [
+    normalized,
+    ...existingEntries.filter((entry) => entry !== normalized),
+  ];
+
+  const unchanged =
+    existingEntries.length === nextEntries.length &&
+    existingEntries.every((entry, index) => entry === nextEntries[index]);
+
+  if (unchanged) {
+    return settings;
+  }
+
+  return {
+    ...settings,
+    templateFavorites: {
+      ...settings.templateFavorites,
+      [serverId]: {
+        ...existingServerFavorites,
+        [libraryId]: nextEntries,
+      },
+    },
+  };
+}
+
+export function removeTemplateFavoriteEntry(
+  settings: Settings,
+  serverId: string,
+  libraryId: string,
+  template: string,
+): Settings {
+  const existingServerFavorites = settings.templateFavorites?.[serverId] || {};
+  const existingEntries = existingServerFavorites[libraryId] || [];
+  const nextEntries = existingEntries.filter((entry) => entry !== template);
+
+  if (nextEntries.length === existingEntries.length) {
+    return settings;
+  }
+
+  return {
+    ...settings,
+    templateFavorites: {
+      ...settings.templateFavorites,
+      [serverId]: {
+        ...existingServerFavorites,
+        [libraryId]: nextEntries,
+      },
+    },
   };
 }
 

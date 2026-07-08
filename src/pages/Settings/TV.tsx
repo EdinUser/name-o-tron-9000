@@ -151,8 +151,11 @@ export function TV({s, onChange}: { s: Settings; onChange: (v: Settings["tv"]) =
                                             if (t.ids === "none") {
                                                 // Remove ID placeholders from template when IDs are disabled
                                                 dynamicTemplate = dynamicTemplate.replace(/\{imdb[^}]*\}/g, '');
+                                                dynamicTemplate = dynamicTemplate.replace(/\{tvdb\}/g, '');
+                                                dynamicTemplate = dynamicTemplate.replace(/\{tvdbToken\}/g, '');
                                                 dynamicTemplate = dynamicTemplate.replace(/\{thetvdb[^}]*\}/g, '');
                                                 dynamicTemplate = dynamicTemplate.replace(/\{tmdb[^}]*\}/g, '');
+                                                dynamicTemplate = dynamicTemplate.replace(/\{plexIds\}/g, '');
                                                 dynamicTemplate = dynamicTemplate.replace(/\{ids\}/g, '');
                                             }
 

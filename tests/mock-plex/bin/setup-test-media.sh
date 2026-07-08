@@ -37,6 +37,7 @@ mkdir -p \
   "$OUT/TV/Northwind_Homicide/Season 02" \
   "$OUT/TV/Northwind_Homicide/Specials" \
   "$OUT/TV/Quiet_Harbor/Season 01" \
+  "$OUT/TV/Two_Broke_Girls" \
   "$OUT/Music/Mock Artist/Mock Album" \
   "$OUT/Misc"
 
@@ -75,6 +76,23 @@ EOF
 : > "$OUT/TV/Abyssal_Gate/Season 01/Abyssal_Gate.S01E05.Part1.mkv"
 : > "$OUT/TV/Abyssal_Gate/Season 01/Abyssal_Gate.S01E06.Part2.mkv"
 : > "$OUT/TV/Abyssal_Gate/Specials/Abyssal_Gate.S00E01.Genesis.OVA.mkv"
+cat > "$OUT/TV/Abyssal_Gate/Specials/Abyssal_Gate.S00E01.Genesis.OVA.eng.srt" <<'EOF'
+1
+00:00:00,000 --> 00:00:01,500
+The gate opens wider.
+EOF
+: > "$OUT/TV/Abyssal_Gate/Specials/Abyssal_Gate.S00E02.No.Regrets.Part1.mkv"
+cat > "$OUT/TV/Abyssal_Gate/Specials/Abyssal_Gate.S00E02.No.Regrets.Part1.eng.srt" <<'EOF'
+1
+00:00:00,000 --> 00:00:01,500
+There is no turning back.
+EOF
+: > "$OUT/TV/Abyssal_Gate/Specials/Abyssal_Gate.S00E03.No.Regrets.Part2.mkv"
+cat > "$OUT/TV/Abyssal_Gate/Specials/Abyssal_Gate.S00E03.No.Regrets.Part2.eng.forced.srt" <<'EOF'
+1
+00:00:00,000 --> 00:00:01,500
+Hold the line.
+EOF
 
 : > "$OUT/TV/Northwind_Homicide/Season 01/Northwind_Homicide.S01E01.mkv"
 : > "$OUT/TV/Northwind_Homicide/Season 01/Northwind_Homicide.S01E02.mkv"
@@ -89,6 +107,28 @@ cat > "$OUT/TV/Quiet_Harbor/Season 01/Quiet_Harbor.S01E02E03.Finale.eng.srt" <<'
 00:00:00,000 --> 00:00:01,500
 The tide is turning.
 EOF
+
+: > "$OUT/TV/Two_Broke_Girls/Two_Broke_Girls.S01E01.mkv"
+cat > "$OUT/TV/Two_Broke_Girls/Two_Broke_Girls.S01E01.eng.srt" <<'EOF'
+1
+00:00:00,000 --> 00:00:01,500
+Soft opening tonight.
+EOF
+: > "$OUT/TV/Two_Broke_Girls/Two_Broke_Girls.S01E02.mkv"
+: > "$OUT/TV/Two_Broke_Girls/Two_Broke_Girls.S01E03.mkv"
+cat > "$OUT/TV/Two_Broke_Girls/Two_Broke_Girls.S01E03.eng.forced.srt" <<'EOF'
+1
+00:00:00,000 --> 00:00:01,500
+Table six is yours.
+EOF
+: > "$OUT/TV/Two_Broke_Girls/Two_Broke_Girls.S01E04.mkv"
+cat > "$OUT/TV/Two_Broke_Girls/Two_Broke_Girls.S01E04.spa.srt" <<'EOF'
+1
+00:00:00,000 --> 00:00:01,500
+La cuenta esta abierta.
+EOF
+: > "$OUT/TV/Two_Broke_Girls/Two_Broke_Girls.S01E05.mkv"
+: > "$OUT/TV/Two_Broke_Girls/Two_Broke_Girls.S01E06.mkv"
 
 : > "$OUT/Music/Mock Artist/Mock Album/01 Mock Track.mp3"
 printf '%s\n' "mock plex local media" > "$OUT/Misc/README.txt"
@@ -114,6 +154,11 @@ echo "  - Abyssal_Gate/Season 01/Abyssal_Gate.S01E03E04.Multi.eng.srt"
 echo "  - Abyssal_Gate/Season 01/Abyssal_Gate.S01E05.Part1.mkv"
 echo "  - Abyssal_Gate/Season 01/Abyssal_Gate.S01E06.Part2.mkv"
 echo "  - Abyssal_Gate/Specials/Abyssal_Gate.S00E01.Genesis.OVA.mkv"
+echo "  - Abyssal_Gate/Specials/Abyssal_Gate.S00E01.Genesis.OVA.eng.srt"
+echo "  - Abyssal_Gate/Specials/Abyssal_Gate.S00E02.No.Regrets.Part1.mkv"
+echo "  - Abyssal_Gate/Specials/Abyssal_Gate.S00E02.No.Regrets.Part1.eng.srt"
+echo "  - Abyssal_Gate/Specials/Abyssal_Gate.S00E03.No.Regrets.Part2.mkv"
+echo "  - Abyssal_Gate/Specials/Abyssal_Gate.S00E03.No.Regrets.Part2.eng.forced.srt"
 echo "  - Northwind_Homicide/Season 01/Northwind_Homicide.S01E01.mkv"
 echo "  - Northwind_Homicide/Season 01/Northwind_Homicide.S01E02.mkv"
 echo "  - Northwind_Homicide/Season 02/Northwind_Homicide.S02E01.mkv"
@@ -122,3 +167,12 @@ echo "  - Northwind_Homicide/Specials/Northwind_Homicide.S00E01.Holiday.Special.
 echo "  - Quiet_Harbor/Season 01/Quiet_Harbor.S01E01.mkv"
 echo "  - Quiet_Harbor/Season 01/Quiet_Harbor.S01E02E03.Finale.mkv"
 echo "  - Quiet_Harbor/Season 01/Quiet_Harbor.S01E02E03.Finale.eng.srt"
+echo "  - Two_Broke_Girls/Two_Broke_Girls.S01E01.mkv"
+echo "  - Two_Broke_Girls/Two_Broke_Girls.S01E01.eng.srt"
+echo "  - Two_Broke_Girls/Two_Broke_Girls.S01E02.mkv"
+echo "  - Two_Broke_Girls/Two_Broke_Girls.S01E03.mkv"
+echo "  - Two_Broke_Girls/Two_Broke_Girls.S01E03.eng.forced.srt"
+echo "  - Two_Broke_Girls/Two_Broke_Girls.S01E04.mkv"
+echo "  - Two_Broke_Girls/Two_Broke_Girls.S01E04.spa.srt"
+echo "  - Two_Broke_Girls/Two_Broke_Girls.S01E05.mkv"
+echo "  - Two_Broke_Girls/Two_Broke_Girls.S01E06.mkv"

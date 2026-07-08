@@ -133,6 +133,8 @@ export const createDefaultSettings = (overrides: any = {}) => ({
     episode: '{showTitle} - S{season:02}E{episode:02} - {title}{ext}',
     music: '{artist}/{album}/{trackNumber:02} - {track}{ext}',
   },
+  templateHistory: {},
+  templateFavorites: {},
   manualFixes: [],
   ...overrides,
 });

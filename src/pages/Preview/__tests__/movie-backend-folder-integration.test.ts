@@ -184,4 +184,62 @@ describe("Movie backend folder integration", () => {
 
     expect(row.proposed).toBe("Nolan Collection/Inception (2010).mkv");
   });
+
+  it("renders Plex-style imdb token placeholders when the mock metadata exposes an imdb guid", async () => {
+    const movie: MovieItem = {
+      type: "movie",
+      ratingKey: "rk-imdb",
+      title: "Interstellar",
+      year: 2014,
+      file: "/media/Movies/Interstellar.2014.1080p.BluRay.x264.mkv",
+      plexPath: "/media/Movies/Interstellar.2014.1080p.BluRay.x264.mkv",
+      guid: "imdb://tt0816692",
+    } as any;
+
+    const settings = JSON.parse(JSON.stringify(baseSettings));
+    settings.movies.ids = "preserve";
+    settings.movies.ownFolderPerMovie = false;
+
+    const row = await computeMovieProposal(
+      movie,
+      "{title} {imdbToken}{ext}",
+      false,
+      false,
+      "",
+      settings,
+      "/mnt/Movies",
+      ["/media/Movies"],
+    );
+
+    expect(row.proposed).toBe("Interstellar {imdb-tt0816692}.mkv");
+  });
+
+  it("renders plexIds as a space-separated list of available Plex-style provider tags", async () => {
+    const movie: MovieItem = {
+      type: "movie",
+      ratingKey: "rk-plexids",
+      title: "Dune",
+      year: 2021,
+      file: "/media/Movies/Dune.2021.2160p.WEB-DL.mkv",
+      plexPath: "/media/Movies/Dune.2021.2160p.WEB-DL.mkv",
+      guid: "imdb://tt1160419",
+    } as any;
+
+    const settings = JSON.parse(JSON.stringify(baseSettings));
+    settings.movies.ids = "auto_append_all";
+    settings.movies.ownFolderPerMovie = false;
+
+    const row = await computeMovieProposal(
+      movie,
+      "{title}[ ({year})][ {plexIds}]{ext}",
+      false,
+      false,
+      "",
+      settings,
+      "/mnt/Movies",
+      ["/media/Movies"],
+    );
+
+    expect(row.proposed).toBe("Dune (2021) {imdb-tt1160419}.mkv");
+  });
 });

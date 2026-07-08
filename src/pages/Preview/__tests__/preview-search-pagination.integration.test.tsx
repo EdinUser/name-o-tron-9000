@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
 import PreviewContainer from "../PreviewContainer";
 import { SettingsProvider } from "../../../state/settings";
 import { ThemeProvider } from "../../../state/theme";
 import type { PlexLibrary, PlexServer } from "../../../types/plex";
+import { generateServerId } from "../../../utils/cache";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -64,6 +65,7 @@ function makeLibraryMovie(index: number) {
     ratingKey: `library-${index}`,
     title: `Library Movie ${index}`,
     year: 2000 + index,
+    thumb: `/library/metadata/library-${index}/thumb`,
     Media: [{ Part: [{ file: `/media/Movies/Library Movie ${index} (${2000 + index}).mkv` }] }],
   };
 }
@@ -278,6 +280,121 @@ describe("Preview movie search pagination regressions", () => {
     expect(fetchStarts.slice(fetchCountBeforeReload)).toContain(0);
   });
 
+  it("fetches posters for movie blocks view rows loaded on page 3", async () => {
+    localStorageMock.getItem.mockImplementation((key: string) => {
+      if (key === "plexToken") return "fake-token";
+      if (key === "nameotron.settings.v1") {
+        return JSON.stringify({
+          general: {
+            pagination: {
+              defaultMovieLimit: 10,
+              defaultShowLimit: 20,
+              defaultMusicLimit: 200,
+            },
+            viewMode: {
+              movies: "blocks",
+              tv: "blocks",
+            },
+          },
+        });
+      }
+      return null;
+    });
+
+    const page1Rows = Array.from({ length: 10 }, (_, index) => makeLibraryMovie(index + 1));
+    const page2Rows = Array.from({ length: 10 }, (_, index) => makeLibraryMovie(index + 11));
+    const page3Rows = Array.from({ length: 5 }, (_, index) => makeLibraryMovie(index + 21));
+    const fetchImageCalls: string[] = [];
+
+    mockInvoke.mockImplementation(async (command: string, args?: any) => {
+      switch (command) {
+        case "get_settings":
+          return { pathMappings: [{ server_id: "test-server-id", plex_root: "/media/Movies", local_root: "/mnt/Movies" }] };
+        case "fetch_library_content":
+          if (args?.start === 0) {
+            return {
+              MediaContainer: {
+                Metadata: page1Rows,
+                totalSize: 25,
+                size: page1Rows.length,
+                offset: 0,
+              },
+            };
+          }
+          if (args?.start === 10) {
+            return {
+              MediaContainer: {
+                Metadata: page2Rows,
+                totalSize: 25,
+                size: page2Rows.length,
+                offset: 10,
+              },
+            };
+          }
+          if (args?.start === 20) {
+            return {
+              MediaContainer: {
+                Metadata: page3Rows,
+                totalSize: 25,
+                size: page3Rows.length,
+                offset: 20,
+              },
+            };
+          }
+          return {
+            MediaContainer: {
+              Metadata: [],
+              totalSize: 25,
+              size: 0,
+              offset: args?.start ?? 0,
+            },
+          };
+        case "sanitize_filename_cmd":
+          return args?.filename;
+        case "preview_video_renames":
+          return {
+            video_operations: [],
+            subtitle_operations: [],
+            warnings: [],
+            blocking_errors: [],
+          };
+        case "fetch_plex_image":
+          fetchImageCalls.push(String(args?.imagePath ?? ""));
+          return "data:image/jpeg;base64,ZmFrZQ==";
+        default:
+          throw new Error(`Unexpected invoke: ${command}`);
+      }
+    });
+
+    renderWithProviders(
+      <PreviewContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Page 2 \/ /)).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Page 3 \/ 3/)).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(fetchImageCalls).toContain("/library/metadata/library-21/thumb");
+    });
+
+    expect(screen.getByAltText("Library Movie 21 poster")).toBeInTheDocument();
+  });
+
   it("loads more TV season episodes when page 2 needs more rows", async () => {
     localStorageMock.getItem.mockImplementation((key: string) => {
       if (key === "plexToken") return "fake-token";
@@ -392,5 +509,300 @@ describe("Preview movie search pagination regressions", () => {
 
     expect(fetchStarts).toEqual([0, 30]);
     delete (window as any).__initialShow;
+  });
+
+  it("restores a recent per-library template from the preview input dropdown", async () => {
+    const serverId = generateServerId(mockServer);
+    localStorageMock.getItem.mockImplementation((key: string) => {
+      if (key === "plexToken") return "fake-token";
+      if (key === "nameotron.settings.v1") {
+        return JSON.stringify({
+          general: {
+            pagination: {
+              defaultMovieLimit: 10,
+              defaultShowLimit: 20,
+              defaultMusicLimit: 200,
+            },
+            viewMode: {
+              movies: "table",
+              tv: "blocks",
+            },
+          },
+          templates: {
+            movie: "{title}[ ({year})]{ext}",
+          },
+          templateHistory: {
+            [serverId]: {
+              [mockLibrary.key]: [
+                "{title}{ext}",
+                "{title}[ ({year})]{ext}",
+              ],
+            },
+          },
+        });
+      }
+      return null;
+    });
+
+    mockInvoke.mockImplementation(async (command: string, args?: any) => {
+      switch (command) {
+        case "get_settings":
+          return { pathMappings: [{ server_id: "test-server-id", plex_root: "/media/Movies", local_root: "/mnt/Movies" }] };
+        case "fetch_library_content":
+          return {
+            MediaContainer: {
+              Metadata: [makeLibraryMovie(1)],
+              totalSize: 1,
+              size: 1,
+              offset: 0,
+            },
+          };
+        case "sanitize_filename_cmd":
+          return args?.filename;
+        case "preview_video_renames":
+          return {
+            video_operations: [],
+            subtitle_operations: [],
+            warnings: [],
+            blocking_errors: [],
+          };
+        default:
+          throw new Error(`Unexpected invoke: ${command}`);
+      }
+    });
+
+    renderWithProviders(
+      <PreviewContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Library Movie 1 (2001).mkv")).toBeInTheDocument();
+    });
+
+    const templateInput = screen.getByPlaceholderText("Movie template");
+    await userEvent.click(templateInput);
+
+    await waitFor(() => {
+      expect(screen.getByText("Recent templates")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "{title}{ext}" })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "{title}{ext}" }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("{title}{ext}")).toBeInTheDocument();
+    });
+  });
+
+  it("can save a recent template as a persistent favorite and delete it from the saved section", async () => {
+    const serverId = generateServerId(mockServer);
+    localStorageMock.getItem.mockImplementation((key: string) => {
+      if (key === "plexToken") return "fake-token";
+      if (key === "nameotron.settings.v1") {
+        return JSON.stringify({
+          general: {
+            pagination: {
+              defaultMovieLimit: 10,
+              defaultShowLimit: 20,
+              defaultMusicLimit: 200,
+            },
+            viewMode: {
+              movies: "table",
+              tv: "blocks",
+            },
+          },
+          templates: {
+            movie: "{title}[ ({year})]{ext}",
+          },
+          templateHistory: {
+            [serverId]: {
+              [mockLibrary.key]: [
+                "{title}{ext}",
+                "{title}[ ({year})]{ext}",
+              ],
+            },
+          },
+          templateFavorites: {
+            [serverId]: {
+              [mockLibrary.key]: [
+                "{title}/Extras/{title}{ext}",
+              ],
+            },
+          },
+        });
+      }
+      return null;
+    });
+
+    mockInvoke.mockImplementation(async (command: string, args?: any) => {
+      switch (command) {
+        case "get_settings":
+          return { pathMappings: [{ server_id: "test-server-id", plex_root: "/media/Movies", local_root: "/mnt/Movies" }] };
+        case "fetch_library_content":
+          return {
+            MediaContainer: {
+              Metadata: [makeLibraryMovie(1)],
+              totalSize: 1,
+              size: 1,
+              offset: 0,
+            },
+          };
+        case "sanitize_filename_cmd":
+          return args?.filename;
+        case "preview_video_renames":
+          return {
+            video_operations: [],
+            subtitle_operations: [],
+            warnings: [],
+            blocking_errors: [],
+          };
+        default:
+          throw new Error(`Unexpected invoke: ${command}`);
+      }
+    });
+
+    renderWithProviders(
+      <PreviewContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Library Movie 1 (2001).mkv")).toBeInTheDocument();
+    });
+
+    const templateInput = screen.getByPlaceholderText("Movie template");
+    await userEvent.click(templateInput);
+
+    await waitFor(() => {
+      expect(screen.getByText("Recent templates")).toBeInTheDocument();
+      expect(screen.getByText("Saved templates")).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "Save" }).length).toBeGreaterThan(0);
+    });
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Save" })[0]);
+
+    await userEvent.click(templateInput);
+
+    await waitFor(() => {
+      expect(screen.getByText("Saved templates")).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "{title}{ext}" }).length).toBeGreaterThanOrEqual(2);
+      expect(screen.queryAllByRole("button", { name: "Save" }).length).toBe(1);
+      expect(screen.getAllByRole("button", { name: "Delete" }).length).toBeGreaterThan(0);
+    });
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]);
+
+    await userEvent.click(templateInput);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button", { name: "{title}{ext}" }).length).toBe(1);
+      expect(screen.getByRole("button", { name: "{title}/Extras/{title}{ext}" })).toBeInTheDocument();
+      expect(screen.queryAllByRole("button", { name: "Delete" }).length).toBe(1);
+      expect(screen.queryAllByRole("button", { name: "Save" }).length).toBe(2);
+    });
+  });
+
+  it("does not add in-progress template edits to history until the input blurs", async () => {
+    const serverId = generateServerId(mockServer);
+    localStorageMock.getItem.mockImplementation((key: string) => {
+      if (key === "plexToken") return "fake-token";
+      if (key === "nameotron.settings.v1") {
+        return JSON.stringify({
+          general: {
+            pagination: {
+              defaultMovieLimit: 10,
+              defaultShowLimit: 20,
+              defaultMusicLimit: 200,
+            },
+            viewMode: {
+              movies: "table",
+              tv: "blocks",
+            },
+          },
+          templates: {
+            movie: "{title}[ ({year})]{ext}",
+          },
+          templateHistory: {
+            [serverId]: {
+              [mockLibrary.key]: [
+                "{title}[ ({year})]{ext}",
+              ],
+            },
+          },
+        });
+      }
+      return null;
+    });
+
+    mockInvoke.mockImplementation(async (command: string, args?: any) => {
+      switch (command) {
+        case "get_settings":
+          return { pathMappings: [{ server_id: "test-server-id", plex_root: "/media/Movies", local_root: "/mnt/Movies" }] };
+        case "fetch_library_content":
+          return {
+            MediaContainer: {
+              Metadata: [makeLibraryMovie(1)],
+              totalSize: 1,
+              size: 1,
+              offset: 0,
+            },
+          };
+        case "sanitize_filename_cmd":
+          return args?.filename;
+        case "preview_video_renames":
+          return {
+            video_operations: [],
+            subtitle_operations: [],
+            warnings: [],
+            blocking_errors: [],
+          };
+        default:
+          throw new Error(`Unexpected invoke: ${command}`);
+      }
+    });
+
+    renderWithProviders(
+      <PreviewContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Library Movie 1 (2001).mkv")).toBeInTheDocument();
+    });
+
+    const templateInput = screen.getByPlaceholderText("Movie template");
+    await userEvent.click(templateInput);
+
+    await waitFor(() => {
+      expect(screen.getByText("Recent templates")).toBeInTheDocument();
+    });
+
+    fireEvent.change(templateInput, {
+      target: { value: "{title}[ ({year})][ {plexIds}]{ext}" },
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    });
+
+    expect(screen.queryByRole("button", { name: "{title}[ ({year})][ {plexIds}]{ext}" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Reload" }));
+
+    await userEvent.click(templateInput);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "{title}[ ({year})][ {plexIds}]{ext}" })).toBeInTheDocument();
+    });
   });
 });

@@ -382,7 +382,7 @@ Beethoven - Complete Symphonies/
 - **Movie Templates**: Start with `{title}[ ({year})]{ext}` and customize as needed.
 - **TV Templates**: Use `{showTitle} - S{season:02}E{episode:02} - {title}{ext}` for standard formatting.
 - **Optional Groups**: Use `[ ({year})]` to omit year when not available.
-- **Available Placeholders**: `{title}`, `{year}`, `{ext}`, `{showTitle}`, `{season}`, `{episode}`, `{grandparentTitle}`, `{parentTitle}`, and more.
+- **Available Placeholders**: `{title}`, `{year}`, `{ext}`, `{showTitle}`, `{season}`, `{episode}`, `{grandparentTitle}`, `{parentTitle}`, `{imdbToken}`, `{tvdbToken}`, `{tmdbToken}`, `{plexIds}`, and more.
 
 ### Settings Export/Import
 - **Backup Settings**: Export settings before major configuration changes.
