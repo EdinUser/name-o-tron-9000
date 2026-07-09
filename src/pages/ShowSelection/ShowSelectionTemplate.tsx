@@ -34,8 +34,10 @@ type Props = {
   onSelectShow: (show: { ratingKey: string; title: string }, currentPage: number) => void;
   onSetQuery: (query: string) => void;
   onRefresh: () => void;
+  onRescanShow: (show: TvShow) => void;
   onPageChange: (page: number) => void;
   onToggleTheme: () => void;
+  rescanningShowId: string | null;
 };
 
 export default function ShowSelectionTemplate({
@@ -56,8 +58,10 @@ export default function ShowSelectionTemplate({
   onSelectShow,
   onSetQuery,
   onRefresh,
+  onRescanShow,
   onPageChange,
   onToggleTheme,
+  rescanningShowId,
 }: Props) {
   return (
     <main className="min-h-screen bg-neutral-900 text-neutral-100" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
@@ -171,11 +175,23 @@ export default function ShowSelectionTemplate({
                     {/* Show Information */}
                     <div className="flex-1 min-w-0">
                       <div className="mb-1">
-                        <div
-                          className="font-medium truncate cursor-pointer hover:text-cyan-300 transition-colors"
-                          onClick={() => onSelectShow(s, currentPage)}
-                        >
-                          {s.title}
+                        <div className="flex items-start justify-between gap-2">
+                          <div
+                            className="font-medium truncate cursor-pointer hover:text-cyan-300 transition-colors"
+                            onClick={() => onSelectShow(s, currentPage)}
+                          >
+                            {s.title}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onRescanShow(s)}
+                            disabled={!s.location || rescanningShowId === s.ratingKey}
+                            className="p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 rounded transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                            title={s.location ? "Trigger Plex rescan for this show folder" : "Show path is unavailable"}
+                            aria-label={`Rescan ${s.title}`}
+                          >
+                            <IconRefresh className="h-4 w-4" />
+                          </button>
                         </div>
                         {isUnmapped && (
                           <span className="inline-flex items-center gap-1 rounded bg-red-500/20 px-2 py-0.5 text-[11px] text-red-300 mt-1">

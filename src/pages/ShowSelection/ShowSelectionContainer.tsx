@@ -5,6 +5,7 @@ import { useTheme } from "../../state/theme";
 import { useSettings } from "../../state/settings";
 import type { PlexLibrary, PlexServer } from "../../types/plex";
 import ShowSelectionTemplate from "./ShowSelectionTemplate";
+import { dirnamePlexPath } from "../Preview/plexRefresh";
 import {
   loadShowMappingCache,
   saveShowMappingCache,
@@ -107,6 +108,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   const [totalItems, setTotalItems] = useState<number | null>(null);
   const [queryState, setQueryState] = useState("");
   const [currentPage, setCurrentPage] = useState(initialPage || 1);
+  const [rescanningShowId, setRescanningShowId] = useState<string | null>(null);
 
   // Track active request id to avoid race-condition UI flicker
   // Bump this on every load() call to ignore stale responses
@@ -621,6 +623,50 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
     setCurrentPage(page);
   };
 
+  async function rescanShow(show: TvShow) {
+    if (!show.location) {
+      alert(`Plex rescan is unavailable for "${show.title}" because no mapped show path was found.`);
+      return;
+    }
+
+    const showPath = dirnamePlexPath(dirnamePlexPath(show.location));
+
+    let token: string | null = null;
+    try {
+      token = localStorage.getItem("plexToken");
+    } catch {
+      token = null;
+    }
+
+    if (!token) {
+      alert("Plex token is missing. Log in on the Home screen before triggering a show rescan.");
+      return;
+    }
+
+    const sectionId = Number(library.key);
+    if (!Number.isFinite(sectionId)) {
+      alert(`Library key "${library.key}" is not numeric, so a show rescan cannot be triggered.`);
+      return;
+    }
+
+    setRescanningShowId(show.ratingKey);
+    try {
+      const result = await invoke<string>("plex_refresh_library_section_with_path", {
+        server: server.address,
+        sectionId,
+        path: showPath,
+        token,
+      });
+      console.log("[ShowSelection] Plex show rescan started:", { show: show.title, path: showPath, result });
+      alert(`Plex rescan started for:\n${show.title}\n\n${showPath}`);
+    } catch (error) {
+      console.error("[ShowSelection] Plex show rescan failed:", { show: show.title, path: showPath, error });
+      alert(`Plex show rescan failed for:\n${show.title}\n\n${String(error)}`);
+    } finally {
+      setRescanningShowId(null);
+    }
+  }
+
   return (
     <ShowSelectionTemplate
       server={server}
@@ -644,8 +690,10 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
         setTotalItems(null);
         load(true);
       }}
+      onRescanShow={rescanShow}
       onPageChange={handlePageChange}
       onToggleTheme={toggleTheme}
+      rescanningShowId={rescanningShowId}
     />
   );
 }

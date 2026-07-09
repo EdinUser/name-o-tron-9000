@@ -7,10 +7,22 @@ const PORT = 32400;
 const FIXTURES_DIR = path.join(__dirname, "fixtures");
 
 const activePins = new Map();
+const refreshEvents = [];
 const tinyPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9pM8SfoAAAAASUVORK5CYII=",
   "base64",
 );
+
+function recordRefreshEvent(event) {
+  refreshEvents.push({
+    at: new Date().toISOString(),
+    ...event,
+  });
+
+  if (refreshEvents.length > 100) {
+    refreshEvents.splice(0, refreshEvents.length - 100);
+  }
+}
 
 app.use((req, _res, next) => {
   console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
@@ -308,6 +320,26 @@ app.get("/library/sections/:id/search", (req, res) => {
   );
 });
 
+app.post("/library/sections/:id/refresh", (req, res) => {
+  recordRefreshEvent({
+    kind: "section_refresh",
+    sectionId: String(req.params.id),
+    path: typeof req.query.path === "string" ? req.query.path : null,
+  });
+
+  res.status(200).end();
+});
+
+app.put("/library/metadata/:id/refresh", (req, res) => {
+  recordRefreshEvent({
+    kind: "metadata_refresh",
+    metadataId: String(req.params.id),
+    markUpdated: typeof req.query.markUpdated === "string" ? req.query.markUpdated : null,
+  });
+
+  res.status(200).end();
+});
+
 app.get("/library/metadata/:id", (req, res) => {
   const payload = metadataFixtureForId(req.params.id);
   if (!payload) {
@@ -470,6 +502,17 @@ app.get("/api/v2/pins/:pinId", (req, res) => {
     authToken: pin.authToken,
     trusted: true,
   });
+});
+
+app.get("/_debug/refresh-events", (_req, res) => {
+  res.type("application/json; charset=utf-8").json({
+    events: refreshEvents,
+  });
+});
+
+app.delete("/_debug/refresh-events", (_req, res) => {
+  refreshEvents.splice(0, refreshEvents.length);
+  res.status(204).end();
 });
 
 app.use((req, res) => {

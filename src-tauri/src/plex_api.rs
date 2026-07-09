@@ -37,21 +37,17 @@ fn current_client_id() -> String {
 
 fn build_base_variants(server: &str) -> Vec<String> {
     let base = server.trim_end_matches('/');
-    let mut bases: Vec<String> = vec![
-        if base.starts_with("http://") || base.starts_with("https://") {
-            base.to_string()
-        } else {
-            format!("http://{}", base)
-        },
-    ];
+    let mut bases: Vec<String> = Vec::new();
     if base.starts_with("http://") {
+        bases.push(base.to_string());
         bases.push(base.replacen("http://", "https://", 1));
     } else if base.starts_with("https://") {
+        bases.push(base.to_string());
         bases.push(base.replacen("https://", "http://", 1));
     } else {
         bases.push(format!("https://{}", base));
+        bases.push(format!("http://{}", base));
     }
-    bases.sort();
     bases.dedup();
     bases
 }
@@ -2474,19 +2470,20 @@ pub async fn refresh_metadata_item(
 
     let client_id = current_client_id();
     let mut last_err: Option<String> = None;
+    let encoded_item_ids = item_ids
+        .split(',')
+        .map(|id| urlencoding::encode(id.trim()).into_owned())
+        .collect::<Vec<_>>()
+        .join(",");
 
     for base_url in bases.iter() {
         let mut url = format!(
             "{}/library/metadata/{}/refresh",
             base_url,
-            urlencoding::encode(&item_ids)
+            encoded_item_ids
         );
         // Add markUpdated=1 to ensure Plex recognizes the file changes
         url.push_str("?markUpdated=1");
-
-        if let Some(t) = token.as_ref() {
-            url.push_str(&format!("&X-Plex-Token={}", urlencoding::encode(t)));
-        }
 
         println!("[Plex API] Making refresh request to: {}", url);
 
@@ -2561,7 +2558,6 @@ pub async fn refresh_library_section(
         req = req.query(&[("force", "1")]);
         if let Some(t) = token.as_ref() {
             req = req.header("X-Plex-Token", t);
-            req = req.query(&[("X-Plex-Token", t)]);
         }
 
         match req.send().await {
@@ -2629,8 +2625,7 @@ pub async fn refresh_library_section_with_path(
         );
 
         let mut req = with_plex_headers(client.post(&url), &client_id);
-        // Add both force=1 and path parameters
-        req = req.query(&[("force", "1"), ("path", &path)]);
+        req = req.query(&[("path", &path)]);
         if let Some(t) = token.as_ref() {
             req = req.header("X-Plex-Token", t);
         }

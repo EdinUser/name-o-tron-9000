@@ -629,3 +629,91 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - `npm run test:types`
 - Follow-ups:
   - Poster loading is still tied to the Preview row lifecycle rather than a viewport-aware image loader; that is acceptable for now, but if blocks view grows much larger we should consider visible-row-driven loading to reduce up-front image work.
+
+- Summary: Fixed TV multi-episode preview proposals to stop joining episode titles with `/`, which produced OS-invalid filenames, and added a regression test around the Battlestar-style combined-episode case.
+- Files or areas: `src/pages/Preview/episodeProposal.ts`, `src/pages/Preview/__tests__/tv-episode-token-normalization.test.ts`, `src/components/TemplateHelpModal.tsx`.
+- Verification:
+  - `npm test -- src/pages/Preview/__tests__/tv-episode-token-normalization.test.ts`
+- Follow-ups:
+  - Several Preview tests still mock `sanitize_filename_cmd` as a no-op with empty `characterReplacement` settings; if more filename-safety regressions show up, it would be worth centralizing a realistic sanitizer mock for the Preview test suite.
+
+- Summary: Added a temporary movie-only Plex item refresh button in Preview so a real PMS can be tested against `plex_refresh_metadata_item` before wiring any automatic post-rename behavior.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/PreviewTemplate.tsx`.
+- Verification:
+  - `npm run test:types`
+- Follow-ups:
+  - This is a manual test hook only and should be removed or replaced when the final Plex refresh flow is implemented.
+
+- Summary: Extended the temporary Preview Plex test hooks to cover TV episode-item refresh, TV show-item refresh, and comma-joined multi-ID movie refresh requests for empirical API validation before finalizing the automatic ping design.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/PreviewTemplate.tsx`.
+- Verification:
+  - `npm run test:types`
+- Follow-ups:
+  - Multi-ID behavior is intentionally empirical here because the Plex OpenAPI names the path parameter `ids` but does not document the delimiter/encoding semantics for multiple IDs.
+
+- Summary: Updated the Plex API client to prefer the caller-provided scheme first when probing server base URLs, and stopped placing the Plex token in metadata/section refresh URLs so refresh logs no longer leak it.
+- Files or areas: `src-tauri/src/plex_api.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml build_base_variants -- --nocapture`
+- Follow-ups:
+  - Metadata multi-ID refresh still returned `404` against PMS even after path encoding was corrected, so the final automatic movie refresh flow should send one refresh per item.
+
+- Summary: Re-enabled automatic post-rename Plex refreshes in Preview using differentiated metadata-item strategies: movies refresh one item at a time, TV refreshes episodes individually for small batches, and TV batches over two episodes try a season refresh first with fallback to show refresh and then episode refresh if needed.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/PreviewTemplate.tsx`.
+- Verification:
+  - `npm run test:types`
+- Follow-ups:
+  - Undo still uses the older no-refresh path; if undo must mirror apply, the next step is to carry or reconstruct the same refresh-target strategy for rollback-driven operations.
+
+- Summary: Replaced the new automatic post-rename metadata refresh with targeted Plex section path refreshes because metadata refresh left renamed files marked Unavailable in Plex, and fixed the apply summary modal reopen bug by collapsing the summary state update to a single write after refresh completes.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`.
+- Verification:
+  - `npm run test:types`
+- Follow-ups:
+  - The temporary metadata-refresh test hooks remain useful for probing Plex behavior, but the real automatic rename path should now be evaluated against path refresh only.
+
+- Summary: Disabled the newly added automatic post-rename Plex ping after real-PMS testing showed that section path refresh still triggered a full movie-library rescan, which makes it unsafe for normal rename flow.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`.
+- Verification:
+  - based on real PMS behavior from manual rename + refresh testing
+- Follow-ups:
+  - Keep the temporary manual refresh test hooks for further exploration, but do not auto-trigger Plex refresh again until a server-safe strategy is confirmed.
+
+- Summary: Removed the temporary per-row Plex refresh test controls from Preview, added a deliberate header-level `Force Plex Scan` action for manual full-library rescans, and changed the empty-folder summary modal so the destructive cleanup button disappears after the first cleanup run, leaving only Close.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/PreviewTemplate.tsx`.
+- Verification:
+  - `npm run test:types`
+- Follow-ups:
+  - Undo still has no Plex integration. The new `Force Plex Scan` is intentionally explicit and manual because the tested automatic refresh options were unsafe.
+
+- Summary: Added back a temporary per-movie path-scan test button in Preview so the no-`force` section-path refresh variant can be tested directly from a movie row without using the broad header-level `Force Plex Scan`.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/PreviewTemplate.tsx`.
+- Verification:
+  - `npm run test:types`
+- Follow-ups:
+  - This button is only for the current PMS behavior experiment and should be removed again once the path-scan result is confirmed.
+
+- Summary: Re-enabled automatic movie-only post-rename Plex path refreshes using the confirmed working no-`force` section-path scan, and restored temporary TV episode/show row buttons to test the same path-scan strategy for TV folders.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/PreviewTemplate.tsx`.
+- Verification:
+  - `npm run test:types`
+- Follow-ups:
+  - TV path-scan behavior is still exploratory and should not be made automatic until real PMS testing confirms it remains scoped and reconciles renamed files correctly.
+
+- Summary: Enabled automatic post-rename TV Plex path refreshes using the confirmed working section-path scan strategy, with episode-folder refresh for small batches and show-folder refresh when more than two episodes were renamed; also converted the Preview TV episode control to the same compact icon-only rescan trigger used for movies and restored an icon-only manual show rescan action in the TV Show Selection list.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/PreviewTemplate.tsx`, `src/pages/ShowSelection/ShowSelectionContainer.tsx`, `src/pages/ShowSelection/ShowSelectionTemplate.tsx`.
+- Verification:
+  - `npm run test:types`
+- Follow-ups:
+  - Undo still does not trigger a matching Plex path rescan, so rollback-driven file moves can still require a manual rescan until that path is implemented.
+
+- Summary: Hooked successful `Undo Last Rename` runs into the targeted Plex section-path refresh flow by returning rollback operations from the backend, reconstructing Plex paths from saved mappings on the frontend, and surfacing undo-time Plex refresh warnings in the UI. Added regression coverage for refresh target selection, Preview undo-triggered refresh calls, TV Show Selection scoped rescans, and the backend rollback payload contract. Extended the tracked mock Plex server with refresh-recording endpoints and documented that they record requests without emulating real Plex rescans.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/PreviewTemplate.tsx`, `src/pages/Preview/plexRefresh.ts`, `src/pages/Preview/__tests__/plex-refresh.test.ts`, `src/pages/Preview/__tests__/preview-plex-refresh.integration.test.tsx`, `src/pages/ShowSelection/ShowSelectionContainer.tsx`, `src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx`, `src-tauri/src/rename_types.rs`, `src-tauri/src/subtitle.rs`, `src-tauri/tests/mock_plex_harness_tests.rs`, `tests/mock-plex/mock-plex-server.cjs`, `tests/mock-plex/README.md`, `dev_docs/playbooks/rename-safety-playbook.md`, `dev_docs/playbooks/testing-playbook.md`, `docs/features.md`.
+- Verification:
+  - `npm run test:types`
+  - `npm test`
+  - `npm run test:rust` reached the known sandbox limit in the wiremock port-binding integration tests
+  - `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests`
+  - `node -c tests/mock-plex/mock-plex-server.cjs`
+- Follow-ups:
+  - Real PMS validation is still required for any future change to refresh semantics because the mock refresh routes are observational only.

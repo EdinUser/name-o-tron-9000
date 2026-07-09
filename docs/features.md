@@ -103,9 +103,17 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 
 ### Recovery Options
 - **One-Click Undo**: Restore all files from the last rename operation
+- **Targeted Plex reconciliation after apply/undo**: Successful rename and undo flows trigger focused Plex section-path rescans instead of an automatic full-library scan
 - **Export Capabilities**: Export logs as TXT, CSV, or JSON formats based on General settings
 - **Backup Files**: Optional `filenames_backup.json` before operations
 - **Diagnostic Bundles**: Export anonymized diagnostic ZIP bundles (settings + recent logs) from the Settings → General tab for bug reports
+
+### Plex Rescan Strategy
+- **Movies**: Automatic Plex follow-up rescans target the single movie folder affected by the rename or undo
+- **TV episodes**: Small batches target episode folders directly
+- **TV shows**: Larger TV batches target the show folder to avoid excessive per-episode requests
+- **Manual controls**: Preview rows and the TV Show Selection list expose compact manual rescan actions when you want to force a scoped Plex update yourself
+- **Explicit full scan only**: Broad library rescans stay manual via the header action because automatic full-library scans were proven too disruptive
 
 ### Storage Locations
 - **Cross-Platform**: OS-appropriate application data directories
