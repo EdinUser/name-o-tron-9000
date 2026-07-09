@@ -672,6 +672,20 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 - Follow-ups:
   - The temporary metadata-refresh test hooks remain useful for probing Plex behavior, but the real automatic rename path should now be evaluated against path refresh only.
 
+- Summary: Fixed GitHub Actions shell selection for Linux/container workflow steps that use `set -euo pipefail` by forcing those steps to run under `bash` instead of `/bin/sh`.
+- Files or areas: `.github/workflows/ci.yml`, `.github/workflows/main.yml`, `.github/workflows/docs-site.yml`.
+- Verification:
+  - workflow logic review only; not executed locally
+- Follow-ups:
+  - Re-run the Linux CI job to confirm the self-hosted container step no longer fails with `Illegal option -o pipefail`.
+
+- Summary: Tightened diagnostic bundle export policy by switching from “any recent JSON” collection to explicit rollback/preview file allowlists, keeping rename-relevant item names while redacting environment identifiers, and excluding prior diagnostic bundles from re-export. Added focused Rust tests for the sanitizer and recent-file selection behavior.
+- Files or areas: `src-tauri/src/diagnostics.rs`, `README.md`, `docs/settings.md`, `docs/faq.md`.
+- Verification:
+  - `cargo test diagnostics --manifest-path src-tauri/Cargo.toml`
+- Follow-ups:
+  - If users want a stronger privacy mode later, add a separate strict-anonymous export that pseudonymizes item names as well.
+
 - Summary: Disabled the newly added automatic post-rename Plex ping after real-PMS testing showed that section path refresh still triggered a full movie-library rescan, which makes it unsafe for normal rename flow.
 - Files or areas: `src/pages/Preview/PreviewContainer.tsx`.
 - Verification:

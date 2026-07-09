@@ -22,6 +22,7 @@ jobs:
 
     steps:
       - name: Repair workspace permissions
+        shell: bash
         run: |
           set -euo pipefail
           if [ -e "$GITHUB_WORKSPACE" ]; then
@@ -202,6 +203,7 @@ jobs:
           path: installers/
 
       - name: Stage installers for upload
+        shell: bash
         run: |
           set -euo pipefail
           VERSION="${{ steps.app-version.outputs.version }}"
@@ -211,6 +213,7 @@ jobs:
           ls -lah "$STAGE"
 
       - name: Generate revision metadata
+        shell: bash
         run: |
           set -euo pipefail
           VERSION="${{ steps.app-version.outputs.version }}"

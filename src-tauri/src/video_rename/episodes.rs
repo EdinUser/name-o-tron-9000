@@ -1,10 +1,10 @@
-use super::{
-    extname, normalize_unicode, render_template, sanitize_and_validate_path, EpisodeItem,
-    RenameOperation, TemplateContext,
-};
 use super::episode_tokens::{
     append_split_part_suffix, detect_multi_episode_range, detect_split_part_suffix,
     render_episode_template_with_plex_tokens,
+};
+use super::{
+    extname, normalize_unicode, render_template, sanitize_and_validate_path, EpisodeItem,
+    RenameOperation, TemplateContext,
 };
 
 fn format_plex_id_token(provider: &str, id: Option<&str>) -> String {

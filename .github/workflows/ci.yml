@@ -29,6 +29,9 @@ jobs:
     runs-on: [self-hosted, linux, mint]
     container:
       image: ubuntu:22.04
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Install system dependencies inside container

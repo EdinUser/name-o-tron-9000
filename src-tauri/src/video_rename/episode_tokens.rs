@@ -2,7 +2,11 @@ use regex::Regex;
 
 use super::basename;
 
-fn format_episode_range_value(start_episode: i32, end_episode: i32, width: Option<usize>) -> String {
+fn format_episode_range_value(
+    start_episode: i32,
+    end_episode: i32,
+    width: Option<usize>,
+) -> String {
     let start = if let Some(width) = width {
         format!("{:0width$}", start_episode, width = width)
     } else {
@@ -69,7 +73,10 @@ pub(super) fn detect_multi_episode_range(file_path: &str) -> Option<(i32, i32)> 
 
 pub(super) fn detect_split_part_suffix(file_path: &str) -> Option<String> {
     let filename = basename(file_path);
-    let stem = filename.rsplit_once('.').map(|(name, _)| name).unwrap_or(&filename);
+    let stem = filename
+        .rsplit_once('.')
+        .map(|(name, _)| name)
+        .unwrap_or(&filename);
     let tail_token = stem
         .split(|c: char| matches!(c, ' ' | '.' | '_' | '-'))
         .filter(|segment| !segment.is_empty())
@@ -130,7 +137,11 @@ pub(super) fn append_split_part_suffix(
         return proposed.to_string();
     }
 
-    if !ext.is_empty() && proposed.to_ascii_lowercase().ends_with(&ext.to_ascii_lowercase()) {
+    if !ext.is_empty()
+        && proposed
+            .to_ascii_lowercase()
+            .ends_with(&ext.to_ascii_lowercase())
+    {
         let base = &proposed[..proposed.len() - ext.len()];
         return format!("{} - {}{}", base, split_part_suffix, ext);
     }
