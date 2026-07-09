@@ -22,13 +22,13 @@ import {
 import { generateServerId } from "../../utils/cache";
 import PreviewTemplate from "./PreviewTemplate";
 import { attachSubtitleOperations } from "./subtitleMapping";
+import {
+    collectUndoRefreshTargets,
+    dirnamePlexPath,
+    type RefreshOperation,
+    type RefreshPathMapping,
+} from "./plexRefresh";
 
-// Functions are now imported from separate modules
-
-
-// Plex refresh functionality temporarily disabled
-// TODO: Re-enable with improved approach that doesn't trigger full library scans
-// The backend infrastructure remains available for future implementation
 export default function PreviewContainer({server, library, onBack}: Props) {
     const { settings, updateSettings, settingsVersion } = useSettings();
     const { resolvedTheme, toggleTheme } = useTheme();
@@ -91,12 +91,17 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         operations_failed: number;
         rollback_log_path: string;
         errors: string[];
+        refreshWarnings: string[];
     } | null>(null);
     const [previewExportModal, setPreviewExportModal] = useState<{
         success: boolean;
         path?: string;
         error?: string;
     } | null>(null);
+    const [forcePlexScanInProgress, setForcePlexScanInProgress] = useState(false);
+    const [moviePathScanInProgressId, setMoviePathScanInProgressId] = useState<string | null>(null);
+    const [episodePathScanInProgressId, setEpisodePathScanInProgressId] = useState<string | null>(null);
+    const [showPathScanInProgressId, setShowPathScanInProgressId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
     const [statusFilter, setStatusFilter] = useState<string>("all"); // "all", "good", "warning", "error", "unmatched"
@@ -217,6 +222,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         operationsApplied: number;
         operationsFailed: number;
         rollbackLogPath: string;
+        refreshWarnings: string[];
         operations: {
             operation_type: string;
             original_path: string;
@@ -234,6 +240,234 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     function clearApplySummary() {
         setLastApplySummary(null);
         setCleanupResult(null);
+    }
+
+    function getPlexTokenForRefresh() {
+        const token = (() => {
+            try {
+                return localStorage.getItem("plexToken");
+            } catch {
+                return null;
+            }
+        })();
+
+        if (!token) {
+            alert("Plex token is missing. Log in on the Home screen before testing item refresh.");
+            return null;
+        }
+
+        return token;
+    }
+
+    async function triggerPathScan(path: string, inProgressSetter: (value: string | null) => void, inProgressId: string, label: string) {
+        const token = getPlexTokenForRefresh();
+        if (!token) return;
+
+        const sectionId = Number(library.key);
+        if (!Number.isFinite(sectionId)) {
+            alert(`Library key "${library.key}" is not numeric, so a section path scan cannot be triggered.`);
+            return;
+        }
+
+        inProgressSetter(inProgressId);
+        try {
+            const result = await invoke<string>("plex_refresh_library_section_with_path", {
+                server: server.address,
+                sectionId,
+                path,
+                token,
+            });
+            console.log("[Preview] Plex path scan test started:", { path, result, label });
+            alert(`${label}\n\nPlex path scan test sent for:\n${path}\n\nCheck whether Plex scans only this folder or the whole library.`);
+        } catch (error) {
+            console.error("[Preview] Plex path scan test failed:", error);
+            alert(`${label}\n\nPlex path scan test failed for:\n${path}\n\n${String(error)}`);
+        } finally {
+            inProgressSetter(null);
+        }
+    }
+
+    async function testMoviePathScan(row: PreviewRow) {
+        if (row.kind !== "movie") return;
+        const originalPlexPath = row.plexPath || row.filePath;
+        const path = dirnamePlexPath(originalPlexPath);
+        await triggerPathScan(path, setMoviePathScanInProgressId, row.id, "Temporary movie folder path scan test");
+    }
+
+    async function testEpisodePathScan(row: PreviewRow) {
+        if (row.kind !== "episode") return;
+        const originalPlexPath = row.plexPath || row.filePath;
+        const path = dirnamePlexPath(originalPlexPath);
+        await triggerPathScan(path, setEpisodePathScanInProgressId, row.id, "Temporary episode folder path scan test");
+    }
+
+    async function testShowPathScan(row: PreviewRow) {
+        if (row.kind !== "episode") return;
+        const episodeMeta = row.metadata as EpisodeItem | undefined;
+        const showTitle = currentShow?.title || episodeMeta?.showTitle || episodeMeta?.grandparentTitle || "Current Show";
+        const originalPlexPath = row.plexPath || row.filePath;
+        const episodeDir = dirnamePlexPath(originalPlexPath);
+        const showPath = dirnamePlexPath(episodeDir);
+        const showScanId = currentShow?.ratingKey ?? row.id;
+        await triggerPathScan(showPath, setShowPathScanInProgressId, showScanId, `Temporary show folder path scan test (${showTitle})`);
+    }
+
+    async function refreshPlexAfterRenames(renamedRows: PreviewRow[]): Promise<string[]> {
+        const warnings: string[] = [];
+        const token = getPlexTokenForRefresh();
+        if (!token) {
+            warnings.push("Automatic Plex path refresh skipped because Plex token is missing.");
+            return warnings;
+        }
+
+        const sectionId = Number(library.key);
+        if (!Number.isFinite(sectionId)) {
+            warnings.push(`Automatic Plex path refresh skipped because library key "${library.key}" is not numeric.`);
+            return warnings;
+        }
+
+        if (library.type === "movie") {
+            const paths = Array.from(
+                new Set(
+                    renamedRows
+                        .filter((row) => row.kind === "movie")
+                        .map((row) => dirnamePlexPath(row.plexPath || row.filePath))
+                        .filter(Boolean),
+                ),
+            );
+
+            for (const path of paths) {
+                try {
+                    await invoke<string>("plex_refresh_library_section_with_path", {
+                        server: server.address,
+                        sectionId,
+                        path,
+                        token,
+                    });
+                    console.log("[Preview] Automatic movie path refresh started:", { path });
+                } catch (error) {
+                    console.error("[Preview] Automatic movie path refresh failed:", { path, error });
+                    warnings.push(`Automatic movie path refresh failed for ${path}: ${String(error)}`);
+                }
+            }
+            return warnings;
+        }
+
+        if (library.type === "show") {
+            const episodeRows = renamedRows.filter((row) => row.kind === "episode");
+            if (episodeRows.length === 0) return warnings;
+
+            const useShowFolders = episodeRows.length > 2;
+            const paths = Array.from(
+                new Set(
+                    episodeRows
+                        .map((row) => {
+                            const episodeDir = dirnamePlexPath(row.plexPath || row.filePath);
+                            return useShowFolders ? dirnamePlexPath(episodeDir) : episodeDir;
+                        })
+                        .filter(Boolean),
+                ),
+            );
+
+            for (const path of paths) {
+                try {
+                    await invoke<string>("plex_refresh_library_section_with_path", {
+                        server: server.address,
+                        sectionId,
+                        path,
+                        token,
+                    });
+                    console.log("[Preview] Automatic TV path refresh started:", { path, mode: useShowFolders ? "show" : "episode" });
+                } catch (error) {
+                    console.error("[Preview] Automatic TV path refresh failed:", { path, error });
+                    warnings.push(`Automatic TV path refresh failed for ${path}: ${String(error)}`);
+                }
+            }
+        }
+
+        return warnings;
+    }
+
+    async function runAutomaticPlexPathRefresh(paths: string[], warningPrefix: string): Promise<string[]> {
+        const warnings: string[] = [];
+        const token = getPlexTokenForRefresh();
+        if (!token) {
+            warnings.push(`${warningPrefix} skipped because Plex token is missing.`);
+            return warnings;
+        }
+
+        const sectionId = Number(library.key);
+        if (!Number.isFinite(sectionId)) {
+            warnings.push(`${warningPrefix} skipped because library key "${library.key}" is not numeric.`);
+            return warnings;
+        }
+
+        for (const path of paths) {
+            try {
+                await invoke<string>("plex_refresh_library_section_with_path", {
+                    server: server.address,
+                    sectionId,
+                    path,
+                    token,
+                });
+                console.log("[Preview] Automatic Plex path refresh started:", { path, warningPrefix });
+            } catch (error) {
+                console.error("[Preview] Automatic Plex path refresh failed:", { path, error, warningPrefix });
+                warnings.push(`${warningPrefix} failed for ${path}: ${String(error)}`);
+            }
+        }
+
+        return warnings;
+    }
+
+    async function refreshPlexAfterUndo(operations: RefreshOperation[]): Promise<string[]> {
+        if (operations.length === 0) return [];
+
+        try {
+            const settings = await invoke<{ pathMappings?: RefreshPathMapping[] }>("get_settings");
+            const paths = collectUndoRefreshTargets(
+                library.type,
+                operations,
+                settings.pathMappings || [],
+                serverId,
+            );
+
+            if (paths.length === 0) {
+                return ["Automatic Plex path refresh after undo skipped because no Plex paths could be reconstructed from the rollback batch."];
+            }
+
+            return runAutomaticPlexPathRefresh(paths, "Automatic Plex path refresh after undo");
+        } catch (error) {
+            console.error("[Preview] Failed to load path mappings for undo refresh:", error);
+            return [`Automatic Plex path refresh after undo skipped because path mappings could not be loaded: ${String(error)}`];
+        }
+    }
+
+    async function forcePlexScan() {
+        const token = getPlexTokenForRefresh();
+        if (!token) return;
+
+        const sectionId = Number(library.key);
+        if (!Number.isFinite(sectionId)) {
+            alert(`Library key "${library.key}" is not numeric, so a Plex section scan cannot be triggered.`);
+            return;
+        }
+
+        setForcePlexScanInProgress(true);
+        try {
+            const result = await invoke<string>("plex_refresh_library_section", {
+                server: server.address,
+                sectionId,
+                token,
+            });
+            console.log("[Preview] Plex force scan started:", { sectionId, result });
+            alert(`Plex scan started for library "${library.title}".\n\nThis may trigger a broad rescan in Plex.`);
+        } catch (error) {
+            console.error("[Preview] Plex force scan failed:", error);
+            alert(`Failed to start Plex scan for library "${library.title}".\n\n${String(error)}`);
+        } finally {
+            setForcePlexScanInProgress(false);
+        }
     }
 
     // Season filtering for TV shows
@@ -1495,10 +1729,12 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 backup_path: string | null;
                 operation_id: string;
             }[] = [];
+            const renamedRows: PreviewRow[] = [];
 
             // Only operate on the current filtered set (season/search/status)
             for (const row of pageRows) {
                 if (selectedIds.has(row.id)) {
+                    renamedRows.push(row);
                     // Add video operation
                     operations.push({
                         operation_type: "rename",
@@ -1539,33 +1775,18 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 }
             });
 
+            let refreshWarnings: string[] = [];
+            if (result.operations_applied > 0) {
+                refreshWarnings = await refreshPlexAfterRenames(renamedRows);
+            }
+
             setLastApplySummary({
                 operationsApplied: result.operations_applied,
                 operationsFailed: result.operations_failed,
                 rollbackLogPath: result.rollback_log_path,
+                refreshWarnings,
                 operations,
             });
-
-            // Refresh Plex metadata after successful renames
-            // TEMPORARILY DISABLED: Path-based refresh triggers unwanted full library scans
-            // TODO: Re-enable once we have a better approach that doesn't cause full scans
-            if (result.success && result.operations_applied > 0) {
-                console.log("[Preview] Plex refresh temporarily disabled to avoid triggering full library scans");
-                console.log("[Preview] Rename operations completed successfully - files may appear as 'Unavailable' in Plex until manual refresh");
-
-                // Future: Re-enable with improved approach
-                // console.log("[Preview] Waiting 2 seconds before Plex refresh to ensure filesystem operations are committed...");
-                // await new Promise(resolve => setTimeout(resolve, 2000));
-                // try {
-                //     await refreshPlexMetadataAfterRenames(operations, server, library);
-                // } catch (refreshError) {
-                //     console.warn("[Preview] Failed to refresh Plex metadata:", refreshError);
-                //     if (String(refreshError).includes("401") || String(refreshError).includes("Unauthorized")) {
-                //         console.warn("[Preview] Plex refresh failed due to authentication. Please log in to Plex first.");
-                //         alert("⚠️ Plex Refresh Failed\n\nThe rename operation succeeded, but Plex couldn't be updated because you're not logged in.\n\nPlease go back to the Home screen and authenticate with Plex first for automatic refreshes to work.");
-                //     }
-                // }
-            }
 
             if (!result.success) {
                 // Log detailed errors to console
@@ -1650,12 +1871,17 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             const result = await invoke<any>("undo_last_rename");
 
             if (result.success) {
+                let refreshWarnings: string[] = [];
+                if (result.operations_applied > 0) {
+                    refreshWarnings = await refreshPlexAfterUndo(result.operations || []);
+                }
                 setUndoResultModal({
                     success: true,
                     operations_applied: result.operations_applied,
                     operations_failed: result.operations_failed,
                     rollback_log_path: result.rollback_log_path,
-                    errors: result.errors || []
+                    errors: result.errors || [],
+                    refreshWarnings,
                 });
                 // Reload the page to reflect changes
                 setReloadTick(t => t + 1);
@@ -1673,7 +1899,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     operations_applied: result.operations_applied,
                     operations_failed: result.operations_failed,
                     rollback_log_path: result.rollback_log_path,
-                    errors: result.errors || []
+                    errors: result.errors || [],
+                    refreshWarnings: [],
                 });
             }
         } catch (error) {
@@ -1683,7 +1910,8 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                 operations_applied: 0,
                 operations_failed: 0,
                 rollback_log_path: "",
-                errors: [String(error)]
+                errors: [String(error)],
+                refreshWarnings: [],
             });
         } finally {
             setLoading(false);
@@ -2101,6 +2329,14 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             onHandleMouseLeave={handleMouseLeave}
             onRefreshPathMappings={refreshPathMappings}
             onToggleTheme={toggleTheme}
+            onTestMoviePathScan={testMoviePathScan}
+            onTestEpisodePathScan={testEpisodePathScan}
+            onTestShowPathScan={testShowPathScan}
+            moviePathScanInProgressId={moviePathScanInProgressId}
+            episodePathScanInProgressId={episodePathScanInProgressId}
+            showPathScanInProgressId={showPathScanInProgressId}
+            onForcePlexScan={forcePlexScan}
+            forcePlexScanInProgress={forcePlexScanInProgress}
             onUpdateSettings={updateSettings}
             onSetReloadTick={(fn) => setReloadTick(fn)}
             settings={settings}

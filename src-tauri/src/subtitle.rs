@@ -812,6 +812,7 @@ where
         operations_failed,
         rollback_log_path: log_path.to_string_lossy().to_string(),
         errors,
+        operations: operations.to_vec(),
     })
 }
 
@@ -858,6 +859,7 @@ pub fn undo_rename_from_log_path(
         operations_failed,
         rollback_log_path: log_path.to_string_lossy().to_string(),
         errors,
+        operations,
     })
 }
 

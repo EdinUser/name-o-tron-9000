@@ -1063,4 +1063,72 @@ describe('ShowSelection Integration Tests', () => {
       expect(screen.getByText(/Error:/)).toBeInTheDocument();
     });
   });
+
+  it('rescans the show folder from the TV show list', async () => {
+    const alertMock = vi.fn();
+    vi.stubGlobal('alert', alertMock);
+
+    const numericLibrary: PlexLibrary = {
+      ...mockLibrary,
+      key: '2',
+    };
+
+    mockInvoke.mockImplementation((command: string, _args?: any) => {
+      switch (command) {
+        case 'get_settings':
+          return Promise.resolve({ pathMappings: mockMappings });
+        case 'fetch_tv_shows':
+          return Promise.resolve({ MediaContainer: { Directory: [mockShows[0]], totalSize: 1, size: 1, offset: 0 } });
+        case 'fetch_show_episodes':
+          return Promise.resolve(mockEpisodeData);
+        case 'fetch_plex_image':
+          return Promise.resolve('data:image/jpeg;base64,fake-image-data');
+        case 'generate_mappings_checksum_cmd':
+          return Promise.resolve('test-checksum');
+        case 'load_show_mapping_cache':
+          return Promise.resolve({
+            ...mockCache,
+            shows: {
+              show1: mockCache.shows.show1,
+            },
+          });
+        case 'save_show_mapping_cache':
+          return Promise.resolve();
+        case 'invalidate_show_mapping_cache':
+          return Promise.resolve();
+        case 'plex_refresh_library_section_with_path':
+          return Promise.resolve('ok');
+        default:
+          return Promise.reject(new Error(`Unknown command: ${command}`));
+      }
+    });
+
+    renderWithProviders(
+      <ShowSelectionContainer
+        server={mockServer}
+        library={numericLibrary}
+        onBack={mockOnBack}
+        onSelectShow={mockOnSelectShow}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByLabelText('Rescan Breaking Bad'));
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('plex_refresh_library_section_with_path', {
+        server: mockServer.address,
+        sectionId: 2,
+        path: '/media/TV Shows/Breaking Bad',
+        token: 'fake-token',
+      });
+    });
+
+    expect(alertMock).toHaveBeenCalledWith(
+      'Plex rescan started for:\nBreaking Bad\n\n/media/TV Shows/Breaking Bad'
+    );
+  });
 });

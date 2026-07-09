@@ -191,7 +191,7 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">Auto-normalized Multi-Episode:</span>{" "}
                   <code className="text-cyan-400">{"{showTitle} - S{season:02}E{episode:02} - {title}{ext}"}</code>
-                  <span className="text-neutral-300 ml-2">→ Abyssal Gate - S01E03-E04 - The Divide / No Return.mkv</span>
+                  <span className="text-neutral-300 ml-2">→ Abyssal Gate - S01E03-E04 - The Divide - No Return.mkv</span>
                 </div>
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">With Year:</span>{" "}

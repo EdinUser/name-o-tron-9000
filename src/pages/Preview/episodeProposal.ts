@@ -97,7 +97,8 @@ export async function computeMultiEpisodeProposal(
     if (endEpisode > startEpisode) {
         const episodeTitles = episodes.map(e => e.title).filter(Boolean);
         if (episodeTitles.length > 0) {
-            detectedTitle = episodeTitles.join(" / ");
+            // Use a filename-safe separator when combining titles for a single multi-episode file.
+            detectedTitle = episodeTitles.join(" - ");
         }
     }
 
@@ -255,9 +256,17 @@ export async function computeMultiEpisodeProposal(
         templateResult = `${showTitle} - S${String(detectedSeason || 0).padStart(2, "0")}${ctx.multiEpisodeRange} - ${detectedTitle}`;
     }
 
-    let proposed = templateResult;
-    if (!proposed.endsWith(ext)) proposed += ext;
-    proposed = appendSplitPartSuffix(proposed, ext, splitPartSuffix);
+    let proposedFileName = templateResult;
+    if (!proposedFileName.endsWith(ext)) proposedFileName += ext;
+    proposedFileName = appendSplitPartSuffix(proposedFileName, ext, splitPartSuffix);
+
+    const sanitizeResult = await sanitizeProposal(proposedFileName, settings);
+    const {ok, reason, sanitized} = sanitizeResult;
+    if (sanitized) {
+        proposedFileName = sanitized;
+    }
+
+    let proposed = proposedFileName;
 
     // Apply folder structure
     if (folderPrefix) {
@@ -294,12 +303,6 @@ export async function computeMultiEpisodeProposal(
         const nameWithoutExt = fileName.replace(/\.iso$/i, "");
         proposed = proposed.replace(fileName, `${nameWithoutExt} [ISO].iso`);
         flags.push("marked-iso");
-    }
-
-    const sanitizeResult = await sanitizeProposal(basename(proposed), settings);
-    const {ok, reason, sanitized} = sanitizeResult;
-    if (sanitized) {
-        proposed = proposed.replace(basename(proposed), sanitized);
     }
 
     // Compliance check: if current relative path matches proposed, treat as no-op
@@ -585,9 +588,17 @@ export async function computeEpisodeProposal(
         templateResult = `${e.showTitle} - S${String(detectedSeason || 0).padStart(2, "0")}E${String(detectedIndex || 0).padStart(2, "0")} - ${detectedTitle}`;
     }
 
-    let proposed = templateResult;
-    if (!proposed.endsWith(ext)) proposed += ext;
-    proposed = appendSplitPartSuffix(proposed, ext, splitPartSuffix);
+    let proposedFileName = templateResult;
+    if (!proposedFileName.endsWith(ext)) proposedFileName += ext;
+    proposedFileName = appendSplitPartSuffix(proposedFileName, ext, splitPartSuffix);
+
+    const sanitizeResult = await sanitizeProposal(proposedFileName, settings);
+    const {ok, reason, sanitized} = sanitizeResult;
+    if (sanitized) {
+        proposedFileName = sanitized;
+    }
+
+    let proposed = proposedFileName;
 
     // TV Series folder structure MUST always be enforced
     // The template cannot override the series folder requirement
@@ -627,13 +638,6 @@ export async function computeEpisodeProposal(
         const nameWithoutExt = fileName.replace(/\.iso$/i, "");
         proposed = proposed.replace(fileName, `${nameWithoutExt} [ISO].iso`);
         flags.push("marked-iso");
-    }
-
-    const sanitizeResult = await sanitizeProposal(basename(proposed), settings);
-    const {ok, reason, sanitized} = sanitizeResult;
-    if (sanitized) {
-        // Use the sanitized filename instead of the original
-        proposed = proposed.replace(basename(proposed), sanitized);
     }
 
     // Compliance check: if current relative path matches proposed, treat as no-op
