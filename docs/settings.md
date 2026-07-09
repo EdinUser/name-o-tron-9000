@@ -235,9 +235,11 @@ Throughout this document, settings options are marked with labels to help you un
 - **Open logs folder** ✓
   - Quickly open the directory containing rollback and error logs
 - **Export diagnostic bundle** ✓
-  - Generate an anonymized ZIP bundle containing settings summary and recent logs for bug reports
+  - Generate a support ZIP bundle containing redacted settings, recent rollback logs, recent preview snapshots, and an error log excerpt for bug reports
+  - Item names and proposed rename results are kept so rename/template issues remain debuggable
+  - Machine-local details such as Plex server addresses, server IDs, and filesystem roots are redacted
 - **Preview snapshots** ✓
-  - From the Preview screen, export an anonymized JSON snapshot of the current preview state to attach to issues
+  - From the Preview screen, export an environment-redacted JSON snapshot of the current preview state to attach to issues
 
 ---
 

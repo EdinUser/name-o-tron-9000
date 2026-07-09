@@ -2477,11 +2477,7 @@ pub async fn refresh_metadata_item(
         .join(",");
 
     for base_url in bases.iter() {
-        let mut url = format!(
-            "{}/library/metadata/{}/refresh",
-            base_url,
-            encoded_item_ids
-        );
+        let mut url = format!("{}/library/metadata/{}/refresh", base_url, encoded_item_ids);
         // Add markUpdated=1 to ensure Plex recognizes the file changes
         url.push_str("?markUpdated=1");
 

@@ -184,7 +184,7 @@ For detailed information about log storage, types, and export options, see [Roll
 **Quick reference:**
 - Logs location: `~/.nameotron/logs/` (OS-specific app data directory)
 - Export formats: TXT, CSV, JSON available (configurable in Settings → General)
-- Diagnostic bundles: From Settings → General you can export an anonymized ZIP bundle (settings + recent logs) to attach to bug reports
+- Diagnostic bundles: From Settings → General you can export a support ZIP bundle with redacted environment details plus recent rollback logs, recent preview snapshots, and error excerpts
 
 ## Settings & Configuration
 
@@ -203,7 +203,7 @@ For detailed information about log storage, types, and export options, see [Roll
 
 For debugging complex issues, you can also:
 - Export a **diagnostic bundle** (ZIP) from Settings → General
-- Export a **preview snapshot** from the Preview screen (captures current filters, settings, and rows in anonymized JSON)
+- Export a **preview snapshot** from the Preview screen (captures current filters, settings, and rows in environment-redacted JSON)
 
 ### **Can I customize the renaming templates?**
 Yes! Each media type has customizable templates:

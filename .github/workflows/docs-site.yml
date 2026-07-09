@@ -29,6 +29,7 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
@@ -52,6 +53,7 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
