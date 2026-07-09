@@ -717,3 +717,17 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - `node -c tests/mock-plex/mock-plex-server.cjs`
 - Follow-ups:
   - Real PMS validation is still required for any future change to refresh semantics because the mock refresh routes are observational only.
+
+- Summary: Fixed the self-hosted Linux GitHub Actions workspace cleanup failure by restoring ownership after the containerized CI job and by repairing workspace permissions before the Linux build workflow checks out code. This addresses the `EACCES` unlink failure on `.git/FETCH_HEAD` caused by root-owned files left behind in the shared runner workspace.
+- Files or areas: `.github/workflows/ci.yml`, `.github/workflows/main.yml`.
+- Verification:
+  - Workflow logic review only; not executed locally
+- Follow-ups:
+  - Re-run the `CI` and `Build Name-o-Tron 9000 App (Cross-Platform)` workflows on the Mint runner to confirm the workspace can now be cleaned across jobs.
+
+- Summary: Updated GitHub Actions majors to Node 24-capable releases and removed npm/Rust dependency cache writes from the post-merge build workflow so release builds stop emitting cache-scope warnings on GitHub-hosted runners. Artifact download/upload steps were upgraded as part of the same runtime migration.
+- Files or areas: `.github/workflows/ci.yml`, `.github/workflows/main.yml`, `.github/workflows/docs-site.yml`.
+- Verification:
+  - Workflow logic review only; not executed locally
+- Follow-ups:
+  - Re-run `Build Name-o-Tron 9000 App (Cross-Platform)` and confirm the Node 20 deprecation warnings and Windows cache warning are gone.

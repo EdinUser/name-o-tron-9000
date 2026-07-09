@@ -48,10 +48,10 @@ jobs:
             build-essential
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
@@ -84,6 +84,14 @@ jobs:
       - name: Run Rust integration tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --test integration_tests
 
+      - name: Restore workspace ownership for self-hosted runner
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          workspace_parent="$(dirname "$GITHUB_WORKSPACE")"
+          runner_owner="$(stat -c '%u:%g' "$workspace_parent")"
+          chown -R "$runner_owner" "$GITHUB_WORKSPACE"
+
   # Windows GitHub-hosted runner – kept as before
   test-windows:
     needs: validate-pr-route
@@ -93,10 +101,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
