@@ -5,6 +5,7 @@ import { useTheme } from "../../state/theme";
 import { useSettings } from "../../state/settings";
 import type { PlexLibrary, PlexServer } from "../../types/plex";
 import ShowSelectionTemplate from "./ShowSelectionTemplate";
+import { dirnamePlexPath } from "../Preview/plexRefresh";
 import {
   loadShowMappingCache,
   saveShowMappingCache,
@@ -107,6 +108,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   const [totalItems, setTotalItems] = useState<number | null>(null);
   const [queryState, setQueryState] = useState("");
   const [currentPage, setCurrentPage] = useState(initialPage || 1);
+  const [rescanningShowId, setRescanningShowId] = useState<string | null>(null);
 
   // Track active request id to avoid race-condition UI flicker
   // Bump this on every load() call to ignore stale responses
@@ -288,11 +290,14 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
   }, [mappings, serverId, library.roots, library.key, server.address, server.machineIdentifier]);
 
   async function load(reset = false) {
-    activeRequestIdRef.current += 1;
+    const requestId = activeRequestIdRef.current + 1;
+    activeRequestIdRef.current = requestId;
     inFlightCountRef.current += 1;
     setLoading(true);
     setError(null);
     try {
+      const isStale = () => requestId !== activeRequestIdRef.current;
+
       // Ensure serverId is valid before proceeding with cache operations
       if (!serverId || serverId === "" || serverId.includes("undefined")) {
         return;
@@ -314,6 +319,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
         size: paging.current.size,
         query: query.trim() || null,
       });
+      if (isStale()) return;
 
       const fetchedShows = resp?.MediaContainer?.Directory ?? [];
       const fetchedTotal = extractTotalCount(resp?.MediaContainer);
@@ -354,10 +360,12 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       // Generate current mappings checksum for cache validation
       debugShowSelection("[ShowSelection] Generating checksum for mappings");
       const currentMappingsChecksum = await generateMappingsChecksum(mappings, serverId);
+      if (isStale()) return;
 
       // Load existing cache
       debugShowSelection("[ShowSelection] Loading cache for server:", serverId, "library:", library.key);
       const cache = await loadShowMappingCache(serverId, library.key);
+      if (isStale()) return;
 
       // Check if cache is valid
       const cacheValid = isCacheValid(cache, currentMappingsChecksum);
@@ -387,6 +395,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
         setBuildingCache(true);
 
         for (const show of newShows) {
+          if (isStale()) return;
           const ratingKey = String(show.ratingKey ?? show.key ?? "");
           if (!ratingKey) continue;
 
@@ -399,6 +408,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
               start: 0,
               size: 10, // Check up to 10 episodes to determine if show is mapped
             });
+            if (isStale()) return;
 
             const { isMapped, location } = isShowMapped(episodeResp, mappings, serverId);
 
@@ -449,6 +459,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
         safeCache.lastUpdated = Date.now();
         safeCache.mappingsChecksum = currentMappingsChecksum;
         await saveShowMappingCache(serverId, library.key, safeCache);
+        if (isStale()) return;
         setBuildingCache(false);
       }
 
@@ -457,6 +468,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
       // Build final shows array with mapping status after cache is built
       const finalShows: TvShow[] = [];
       for (const show of fetchedShows) {
+        if (isStale()) return;
         const ratingKey = String(show.ratingKey ?? show.key ?? "");
         const title = String(show.title ?? "");
 
@@ -467,6 +479,7 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
 
         // Fetch cached poster for this show
         const cachedPosterUrl = await fetchCachedPoster(server.address, ratingKey, show.thumb);
+        if (isStale()) return;
 
         if (cachedShow) {
           // Show has been checked - use actual cached data
@@ -610,6 +623,50 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
     setCurrentPage(page);
   };
 
+  async function rescanShow(show: TvShow) {
+    if (!show.location) {
+      alert(`Plex rescan is unavailable for "${show.title}" because no mapped show path was found.`);
+      return;
+    }
+
+    const showPath = dirnamePlexPath(dirnamePlexPath(show.location));
+
+    let token: string | null = null;
+    try {
+      token = localStorage.getItem("plexToken");
+    } catch {
+      token = null;
+    }
+
+    if (!token) {
+      alert("Plex token is missing. Log in on the Home screen before triggering a show rescan.");
+      return;
+    }
+
+    const sectionId = Number(library.key);
+    if (!Number.isFinite(sectionId)) {
+      alert(`Library key "${library.key}" is not numeric, so a show rescan cannot be triggered.`);
+      return;
+    }
+
+    setRescanningShowId(show.ratingKey);
+    try {
+      const result = await invoke<string>("plex_refresh_library_section_with_path", {
+        server: server.address,
+        sectionId,
+        path: showPath,
+        token,
+      });
+      console.log("[ShowSelection] Plex show rescan started:", { show: show.title, path: showPath, result });
+      alert(`Plex rescan started for:\n${show.title}\n\n${showPath}`);
+    } catch (error) {
+      console.error("[ShowSelection] Plex show rescan failed:", { show: show.title, path: showPath, error });
+      alert(`Plex show rescan failed for:\n${show.title}\n\n${String(error)}`);
+    } finally {
+      setRescanningShowId(null);
+    }
+  }
+
   return (
     <ShowSelectionTemplate
       server={server}
@@ -633,8 +690,10 @@ export default function ShowSelectionContainer({ server, library, onBack, onSele
         setTotalItems(null);
         load(true);
       }}
+      onRescanShow={rescanShow}
       onPageChange={handlePageChange}
       onToggleTheme={toggleTheme}
+      rescanningShowId={rescanningShowId}
     />
   );
 }

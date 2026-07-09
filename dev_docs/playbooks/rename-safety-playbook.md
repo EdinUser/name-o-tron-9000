@@ -69,12 +69,21 @@ It is responsible for:
 - dispatching subtitle operations to `subtitle::apply_single_operation(...)`
 - dispatching video operations to `apply_single_video_operation(...)`
 - writing rollback logs for the full batch
+- triggering targeted Plex follow-up rescans from the frontend after successful filesystem work
 
 ### 3. Undo stage
 
 `undo_last_rename()` reads the most recent rollback log and reverses operations in reverse order.
 
 The log shape must remain compatible with `RenameOperation` deserialization even if extra metadata fields are present.
+
+On successful undo, the frontend must trigger the same class of targeted Plex follow-up rescans using the undone operations plus the saved path mappings:
+
+- movies: refresh the containing movie folder
+- TV with 1-2 renamed episodes undone: refresh the episode folder(s)
+- TV with more than 2 renamed episodes undone: refresh the show folder
+
+This is required. Without it, Plex can keep showing stale `Unavailable` items after filesystem rollback.
 
 ## Current Invariants
 
@@ -115,6 +124,17 @@ These are the behaviors we must not silently break.
 - Apply must fail clearly when the source file is missing.
 - Video operations and subtitle operations must both be recorded in the same rollback batch.
 - Rollback logs must be written for every apply run, even when some operations fail.
+- Successful apply runs must leave enough path information available for the frontend to trigger targeted Plex rescans without falling back to a full-library scan.
+- Successful undo runs must return the undone operations so the frontend can reconstruct targeted Plex rescans from the rollback batch.
+
+### Plex refresh invariants
+
+- Do not use Plex metadata refresh as the rename-reconciliation path for filesystem renames; it can leave items marked `Unavailable`.
+- Do not trigger full-library rescans automatically after normal rename or undo flows.
+- Automatic Plex follow-up rescans must use section path refreshes only.
+- Movies use per-movie folder rescans.
+- TV uses per-episode folder rescans for small batches and show-folder rescans when more than two episodes were changed.
+- Undo must mirror the same targeting rules after reversing filesystem operations.
 
 ### Path mapping invariants
 
@@ -170,6 +190,7 @@ At minimum, keep coverage for these cases:
 - preview/apply parity for representative movie and TV examples
 - rollback log compatibility for `undo_last_rename()`
 - path mapping resolution for exact and hostname-only server IDs
+- post-apply and post-undo Plex path refresh targeting for movies and TV
 
 ## Refactor Guardrails
 
@@ -223,6 +244,7 @@ These are known remaining gaps. They are not blockers for starting the refactor,
 
 - direct `undo_last_rename()` assertions against rollback logs produced by current apply flows
 - compatibility checks for rollback logs when successful and failed operations are mixed
+- frontend coverage proving that successful undo triggers targeted Plex section-path refresh calls instead of a broad library refresh
 
 ### Remaining rename/cleanup edge cases
 

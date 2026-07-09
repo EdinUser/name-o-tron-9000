@@ -24,6 +24,8 @@ pub struct ApplyResult {
     pub operations_failed: usize,
     pub rollback_log_path: String,
     pub errors: Vec<String>,
+    #[serde(default)]
+    pub operations: Vec<RenameOperation>,
 }
 
 #[derive(Debug, Deserialize)]

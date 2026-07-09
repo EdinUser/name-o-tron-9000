@@ -197,6 +197,8 @@ fn apply_movie_basic_rename_round_trip() {
     assert!(result.success);
     assert_eq!(result.operations_applied, 1);
     assert_eq!(result.operations_failed, 0);
+    assert_eq!(result.operations.len(), 1);
+    assert_eq!(result.operations[0].operation_id, "video_101");
 
     let source_path = Path::new(&scenario.fixture.libraries[0].items[0].resolved_local_path);
     let target_path = scenario
@@ -212,6 +214,8 @@ fn apply_movie_basic_rename_round_trip() {
 
     let undo = undo_operations_from_log_path(&log_path).expect("undo basic rename");
     assert!(undo.success);
+    assert_eq!(undo.operations.len(), 1);
+    assert_eq!(undo.operations[0].operation_id, "video_101");
     assert!(source_path.exists(), "source should be restored");
     assert!(!target_path.exists(), "target should be removed by undo");
 }

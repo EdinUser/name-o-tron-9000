@@ -82,6 +82,10 @@ The tracked server covers the current app/test surfaces:
 - `GET /library/collections/:id/items`
 - `GET /hubs/search`
 - Plex PIN auth test endpoints under `/api/v2/pins`
+- `POST /library/sections/:id/refresh`
+- `PUT /library/metadata/:id/refresh`
+- `GET /_debug/refresh-events`
+- `DELETE /_debug/refresh-events`
 
 Paging through `X-Plex-Container-Start` and `X-Plex-Container-Size` is supported for array-based responses.
 
@@ -109,6 +113,7 @@ The tracked bundle now includes examples for:
 ## Notes
 
 - Payloads are static in the current tracked bundle. The mock does not mutate state after apply/undo.
+- Refresh endpoints are request recorders only. They return success and log what the client asked Plex to refresh, but they do not emulate Plex filesystem rescans or change media availability state.
 - Thumbnail routes return a tiny placeholder PNG so image fetches do not hard-fail.
 - `_helpers/full_plex_examples/` remains the source reference for keeping payload shape realistic.
 - `_helpers/tests/*` should be treated as compatibility or local-only legacy helpers, not the primary tracked flow.
