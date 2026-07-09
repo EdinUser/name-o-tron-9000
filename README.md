@@ -33,7 +33,7 @@ It requires access to a Plex Media Server and its metadata.
 - **Rollback Support**: Complete rollback logging with one-click undo functionality for all operations (see [Rollback & Recovery](docs/features.md#rollback--recovery))
 - **Subtitle Handling**: Full subtitle detection, classification, renaming, and encoding conversion support
 - **Cross-Platform Path Mapping**: Robust path resolution for different operating systems and network configurations
- - **Diagnostics & Snapshots**: Export anonymized diagnostic bundles and preview snapshots to attach to bug reports
+- **Diagnostics & Snapshots**: Export support bundles and preview snapshots with machine/environment details redacted while keeping rename-relevant item names and proposals for bug reports
 
 ## Architecture
 
@@ -109,7 +109,7 @@ Complete documentation is available in the [`docs/`](./docs/) folder:
 During preview you can:
 - Filter by status, search, and use per-page “Select all” to quickly choose items
 - For TV libraries, filter episodes by season or view all seasons
-- Export an anonymized preview snapshot for troubleshooting
+- Export an environment-redacted preview snapshot for troubleshooting
 
 ## Configuration
 
