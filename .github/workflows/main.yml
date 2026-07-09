@@ -25,9 +25,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -e "$GITHUB_WORKSPACE" ]; then
-            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
+          if [ ! -e "$GITHUB_WORKSPACE" ]; then
+            exit 0
           fi
+
+          workspace_uid="$(stat -c '%u' "$GITHUB_WORKSPACE")"
+          workspace_gid="$(stat -c '%g' "$GITHUB_WORKSPACE")"
+          current_uid="$(id -u)"
+          current_gid="$(id -g)"
+
+          if [ "$workspace_uid" = "$current_uid" ] && [ "$workspace_gid" = "$current_gid" ]; then
+            echo "Workspace ownership already matches runner user."
+            exit 0
+          fi
+
+          if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
+            sudo chown -R "${current_uid}:${current_gid}" "$GITHUB_WORKSPACE"
+            exit 0
+          fi
+
+          echo "Workspace ownership differs (${workspace_uid}:${workspace_gid}), but passwordless sudo is unavailable."
+          echo "Continuing without ownership repair; checkout may still fail if stale root-owned files remain."
 
       - name: Checkout code
         uses: actions/checkout@v5
