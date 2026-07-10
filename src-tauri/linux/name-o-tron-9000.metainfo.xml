@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.lenivec.name-o-tron-9000</id>
+  <name>Name-o-Tron 9000</name>
+  <summary>Rename local media files using Plex metadata with safety checks and rollback.</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <developer_name>Kirilov.dev</developer_name>
+  <launchable type="desktop-id">name-o-tron-9000.desktop</launchable>
+  <description>
+    <p>Name-o-Tron 9000 is a cross-platform desktop app that renames local media files using Plex metadata.</p>
+    <p>It provides preview-first workflows, safety checks, rollback logging, subtitle handling, and path mapping tools.</p>
+  </description>
+  <categories>
+    <category>Utility</category>
+  </categories>
+  <url type="homepage">https://name-o-tron.kirilov.dev/</url>
+  <url type="bugtracker">https://github.com/EdinUser/name-o-tron-9000/issues</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main application window</caption>
+      <image>https://name-o-tron.kirilov.dev/img/og-image.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1" />
+  <provides>
+    <binary>name-o-tron-9000</binary>
+  </provides>
+  <releases>
+    <release version="0.2.0" date="2026-07-10" />
+  </releases>
+</component>

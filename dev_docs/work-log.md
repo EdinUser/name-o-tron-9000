@@ -845,7 +845,6 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 - Follow-ups:
   - Rebuild the RPM and validate the packaged metainfo file.
   - If needed, add screenshots back only after the hosted image returns a clean `200` and passes validation.
-
 - Summary: Hardened the GitHub-hosted Linux release build by adding an explicit workflow preflight for the Tauri Linux packaging assets and normalizing the custom desktop template to use Tauri-provided metadata. This makes the hosted Linux job fail fast when `tauri.conf.json` references repo files that were not committed.
 - Files or areas: `.github/workflows/main.yml`, `src-tauri/linux/name-o-tron-9000.desktop.hbs`, `src-tauri/linux/name-o-tron-9000.metainfo.xml`.
 - Verification:
