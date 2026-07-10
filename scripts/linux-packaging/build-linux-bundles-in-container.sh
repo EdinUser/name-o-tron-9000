@@ -4,6 +4,11 @@ set -euo pipefail
 repo_root="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "${repo_root}"
 
+export HOME="${HOME:-/tmp/nameotron-home}"
+export NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-${HOME}/.npm}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME}/.cache}"
+mkdir -p "${HOME}" "${NPM_CONFIG_CACHE}" "${XDG_CACHE_HOME}"
+
 bash scripts/install-linuxdeploy-wrapper.sh
 npm ci
 npm run test:types

@@ -14,6 +14,9 @@ docker run --rm \
   --user "$(id -u):$(id -g)" \
   -e REPO_ROOT=/workspace \
   -e TAURI_BUILD_VERSION="${app_version}" \
+  -e HOME=/tmp/nameotron-home \
+  -e NPM_CONFIG_CACHE=/tmp/nameotron-home/.npm \
+  -e XDG_CACHE_HOME=/tmp/nameotron-home/.cache \
   -v "${repo_root}:/workspace" \
   -w /workspace \
   "${image_tag}" \
