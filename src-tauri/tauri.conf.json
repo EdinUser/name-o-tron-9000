@@ -45,18 +45,20 @@
       "appimage": {
         "files": {
           "/usr/share/metainfo/com.lenivec.name-o-tron-9000.metainfo.xml": "linux/com.lenivec.name-o-tron-9000.metainfo.xml",
+          "/usr/share/metainfo/com.lenivec.name-o-tron-9000.appdata.xml": "linux/com.lenivec.name-o-tron-9000.metainfo.xml",
           "/usr/share/icons/hicolor/scalable/apps/name-o-tron-9000.svg": "icons/name-o-tron-9000.svg"
         }
       },
       "deb": {
-        "desktopTemplate": "linux/name-o-tron-9000.desktop.hbs",
+        "desktopTemplate": "linux/com.lenivec.name-o-tron-9000.desktop.hbs",
         "files": {
           "/usr/share/metainfo/com.lenivec.name-o-tron-9000.metainfo.xml": "linux/com.lenivec.name-o-tron-9000.metainfo.xml",
+          "/usr/share/metainfo/com.lenivec.name-o-tron-9000.appdata.xml": "linux/com.lenivec.name-o-tron-9000.metainfo.xml",
           "/usr/share/icons/hicolor/scalable/apps/name-o-tron-9000.svg": "icons/name-o-tron-9000.svg"
         }
       },
       "rpm": {
-        "desktopTemplate": "linux/name-o-tron-9000.desktop.hbs",
+        "desktopTemplate": "linux/com.lenivec.name-o-tron-9000.desktop.hbs",
         "files": {
           "/usr/share/metainfo/com.lenivec.name-o-tron-9000.metainfo.xml": "linux/com.lenivec.name-o-tron-9000.metainfo.xml",
           "/usr/share/icons/hicolor/scalable/apps/name-o-tron-9000.svg": "icons/name-o-tron-9000.svg"

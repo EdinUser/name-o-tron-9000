@@ -829,6 +829,23 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 
 ## 2026-07-10
 
+- Summary: Narrowed the RPM/Discover packaging path by removing the duplicate `.appdata.xml` install from the RPM bundle and aligning the AppStream component identity with the desktop file Tauri actually installs. This reduces conflicting metadata paths for KDE Discover while keeping the AppImage-specific AppStream alias in place for AppImage tooling.
+- Files or areas: `src-tauri/tauri.conf.json`, `src-tauri/linux/com.lenivec.name-o-tron-9000.metainfo.xml`.
+- Verification:
+  - Reviewed `node_modules/@tauri-apps/cli/config.schema.json` to confirm Tauri exposes no RPM `vendor`/`packager` fields in config
+  - Inspected the built RPM payload and confirmed it installs `name-o-tron-9000.desktop`
+- Follow-ups:
+  - Rebuild the RPM and re-check Discover's local-RPM preview.
+  - If Discover still shows fallback package naming, investigate whether the local-file preview ignores embedded AppStream and depends on RPM `Vendor` / `Packager` fields that Tauri does not expose.
+
+- Summary: Cleaned the AppStream source metadata by replacing the deprecated `developer_name` tag with a structured `developer` element and removing the screenshot block until a valid public image URL is available. This targets the remaining AppStream validation issues without changing the RPM build flow.
+- Files or areas: `src-tauri/linux/com.lenivec.name-o-tron-9000.metainfo.xml`.
+- Verification:
+  - Source-only edit; rebuild and `appstreamcli validate` still pending
+- Follow-ups:
+  - Rebuild the RPM and validate the packaged metainfo file.
+  - If needed, add screenshots back only after the hosted image returns a clean `200` and passes validation.
+
 - Summary: Hardened the GitHub-hosted Linux release build by adding an explicit workflow preflight for the Tauri Linux packaging assets and normalizing the custom desktop template to use Tauri-provided metadata. This makes the hosted Linux job fail fast when `tauri.conf.json` references repo files that were not committed.
 - Files or areas: `.github/workflows/main.yml`, `src-tauri/linux/name-o-tron-9000.desktop.hbs`, `src-tauri/linux/name-o-tron-9000.metainfo.xml`.
 - Verification:

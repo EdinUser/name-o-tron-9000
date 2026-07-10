@@ -24,9 +24,8 @@ if [[ ! -d "${appdir_path}" ]]; then
   exit "${tauri_status:-1}"
 fi
 
-if [[ ! -f "${appimage_output}" ]]; then
-  TAURI_BUILD_VERSION="${TAURI_BUILD_VERSION}" "${wrapper_bin}" --appdir "${appdir_path}" --output appimage
-fi
+rm -f "${appimage_output}"
+TAURI_BUILD_VERSION="${TAURI_BUILD_VERSION}" "${wrapper_bin}" --appdir "${appdir_path}" --output appimage
 
 test -f "${appimage_output}"
 find "${repo_root}/src-tauri/target/release/bundle/deb" -maxdepth 1 -type f -name '*.deb' | grep -q .
