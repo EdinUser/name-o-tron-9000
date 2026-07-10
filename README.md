@@ -62,7 +62,7 @@ Docs are hosted at https://name-o-tron.kirilov.dev/ (built from the `docs/` fold
 - **System dependencies**:
   - Windows: Microsoft Visual C++ Build Tools
   - macOS: Xcode Command Line Tools
-  - Linux: `build-essential`, `libwebkit2gtk-4.1-dev`
+  - Linux: `build-essential`, `pkg-config`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libjavascriptcoregtk-4.1-dev`, `libsoup-3.0-dev`, `libglib2.0-dev`, `libpango1.0-dev`, `libatk1.0-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`
 
 #### Quick Start
 
@@ -84,6 +84,12 @@ Docs are hosted at https://name-o-tron.kirilov.dev/ (built from the `docs/` fold
    ```bash
    npm run tauri build
    ```
+
+4. **Linux installer smoke test on your machine**:
+   ```bash
+   npm run bundle:linux
+   ```
+   Output lands under `src-tauri/target/release/bundle/` with `.AppImage`, `.deb`, and `.rpm` artifacts so you can install or run them locally before pushing to GitHub Actions.
 
 ## User Guide
 

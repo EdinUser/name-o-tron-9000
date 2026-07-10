@@ -17,6 +17,34 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 
 ## 2026-07-09
 
+- Summary: Fixed Fedora-local Linux packaging by overriding Tauri's cached AppImage tooling, added Linux AppStream metadata and a custom desktop template for package-manager presentation, and documented bundle metadata needed for local installer smoke tests.
+- Files or areas: `src-tauri/tauri.conf.json`, `src-tauri/linux/name-o-tron-9000.metainfo.xml`, `src-tauri/linux/name-o-tron-9000.desktop.hbs`, local `~/.cache/tauri/` linuxdeploy override.
+- Verification:
+  - `npx tauri build -v --bundles appimage`
+  - `npm run bundle:linux`
+  - `rpm -qip src-tauri/target/release/bundle/rpm/name-o-tron-9000-0.2.0-1.x86_64.rpm`
+- Follow-ups:
+  - Rebuild the Linux bundles after switching the local linuxdeploy override to no-op library stripping and confirm the generated AppImage no longer segfaults at loader startup on Fedora.
+  - Recheck Discover with the rebuilt RPM/DEB to confirm the AppStream metadata removes the unknown author / missing icon presentation.
+
+- Summary: Investigated Linux packaging/runtime failures, confirmed local Fedora AppImage builds fail inside `linuxdeploy` because its bundled `strip` cannot process RELR-based shared libraries, and added the Linux WebKitGTK DMABUF workaround to reduce blank-window/helper-process crashes in shipped builds.
+- Files or areas: `src-tauri/src/lib.rs`, local AppImage bundle output under `src-tauri/target/debug/bundle/appimage/`.
+- Verification:
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `env APPIMAGE_EXTRACT_AND_RUN=1 ~/.cache/tauri/linuxdeploy-x86_64.AppImage --appdir src-tauri/target/debug/bundle/appimage/name-o-tron-9000.AppDir --output appimage`
+- Follow-ups:
+  - Rebuild the GitHub Linux artifacts and retest the AppImage on Fedora to see whether disabling the DMABUF renderer removes the white-screen/WebKit helper crash.
+  - If AppImage runtime failures persist, inspect whether the generated GTK AppRun hook or bundled WebKitGTK library set from `ubuntu-latest` is conflicting with Fedora host graphics/runtime expectations.
+
+- Summary: Replaced placeholder Linux bundle metadata with real app metadata and added a local Linux installer build path so AppImage, `.deb`, and `.rpm` artifacts can be smoke-tested before GitHub release runs.
+- Files or areas: `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `package.json`, `README.md`, `dev_docs/appendix_build.md`.
+- Verification:
+  - `npm run test:types`
+  - `npm run tauri build -- --bundles appimage --debug`
+- Follow-ups:
+  - Rebuild the Linux artifacts locally on Fedora and verify whether the AppImage white-screen reproduces outside GitHub Actions.
+  - If the AppImage still aborts in `WebKitWebProcess`, inspect the generated `.desktop` file and the unpacked AppImage runtime contents to determine whether the issue is metadata-only or an AppImage runtime compatibility problem.
+
 - Summary: Added a user-facing `0.2.0` release summary to the MkDocs downloads/releases page so the website reflects the recent Plex refresh, template workflow, diagnostics, and large-library UX improvements.
 - Files or areas: `docs/releases.md`.
 - Verification:

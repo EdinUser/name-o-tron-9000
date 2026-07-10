@@ -38,6 +38,7 @@ npm run tauri dev
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run tauri build` - Build cross-platform packages
+- `npm run bundle:linux` - Build Linux AppImage, `.deb`, and `.rpm` installers locally
 - `npm run mock:plex` - Start mock Plex server with test data
 - `npm run mock:setup` - Rebuild the tracked local `./test_media` tree and sample path mappings
 - `npm run mock:verify` - Verify the tracked mock server endpoints and generated media tree
@@ -56,7 +57,7 @@ npm run tauri dev
 - **System Dependencies**:
   - **Windows**: Microsoft Visual C++ Build Tools, WebView2 runtime
   - **macOS**: Xcode Command Line Tools (install via `xcode-select --install`)
-  - **Linux**: `build-essential`, `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`
+  - **Linux**: `build-essential`, `pkg-config`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libjavascriptcoregtk-4.1-dev`, `libsoup-3.0-dev`, `libglib2.0-dev`, `libpango1.0-dev`, `libatk1.0-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`
 
 #### Build Steps
 1. **Clone and setup**:
@@ -82,6 +83,12 @@ You do not need to restart `npm run mock:plex` after `npm run mock:setup` unless
    ```bash
    npm run tauri build
    ```
+
+4. **Local Linux installer build**:
+   ```bash
+   npm run bundle:linux
+   ```
+   This produces local `.AppImage`, `.deb`, and `.rpm` outputs under `src-tauri/target/release/bundle/` so release packaging can be smoke-tested before a GitHub Actions run.
 
 #### Cross-Platform Builds
 ```bash
