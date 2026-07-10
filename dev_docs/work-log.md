@@ -15,6 +15,31 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 
 ## 2026-07-04
 
+## 2026-07-09
+
+- Summary: Added a user-facing `0.2.0` release summary to the MkDocs downloads/releases page so the website reflects the recent Plex refresh, template workflow, diagnostics, and large-library UX improvements.
+- Files or areas: `docs/releases.md`.
+- Verification:
+  - `sed -n '1,80p' docs/releases.md`
+- Follow-ups:
+  - After the next release workflow run updates `release.json`, confirm the website shows both the new version metadata and the `0.2.0` summary text together.
+
+- Summary: Moved the Linux release build job from the self-hosted Mint runner to `ubuntu-latest` so packaging artifacts come from a stable GitHub-hosted environment instead of the more drift-prone local machine.
+- Files or areas: `.github/workflows/main.yml`.
+- Verification:
+  - workflow logic review only; not executed locally
+- Follow-ups:
+  - Re-run the release workflow and verify AppImage packaging succeeds on the hosted runner before relying on the new `v0.2.0` build artifacts.
+
+- Summary: Realigned all release version sources to `0.2.0` after the Linux build exposed that Tauri bundle metadata was still pinned to `0.1.0` and the current branch manifests had drifted back to `0.1.2`.
+- Files or areas: `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`.
+- Verification:
+  - `sed -n '1,12p' package.json`
+  - `sed -n '1,12p' src-tauri/Cargo.toml`
+  - `sed -n '1,12p' src-tauri/tauri.conf.json`
+- Follow-ups:
+  - If the Linux AppImage build still fails after the version sources are aligned, capture the full `linuxdeploy` stderr because the stale version explains the wrong artifact names but not the AppImage execution failure itself.
+
 - Summary: Initial repo audit completed and contributor playbook structure added to make future work traceable.
 - Files or areas: `docs/`, `dev_docs/`, `AGENTS.md`, `src/`, `src-tauri/src/`, verification scripts in `package.json` and `src-tauri/Cargo.toml`.
 - Verification:
