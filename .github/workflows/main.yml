@@ -64,6 +64,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify Linux bundle assets
+        run: |
+          set -euo pipefail
+          test -f src-tauri/linux/name-o-tron-9000.desktop.hbs
+          test -f src-tauri/linux/name-o-tron-9000.metainfo.xml
+
       - name: Make linuxdeploy binaries executable
         run: |
           # Make downloaded AppImages executable (they're downloaded during build)
@@ -214,6 +220,19 @@ jobs:
         with:
           name: release-metadata
           path: release.json
+
+      - name: Create remote release directories
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 10222
+          script: |
+            set -euo pipefail
+            VERSION="${{ steps.app-version.outputs.version }}"
+            mkdir -p "/var/www/name-o-tron.kirilov.dev/web/downloads/${VERSION}"
+            mkdir -p "/var/www/name-o-tron.kirilov.dev/web/${VERSION}"
 
       # Test SSH connectivity to VPS
       - name: Test SSH connectivity
