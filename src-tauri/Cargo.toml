@@ -3,6 +3,7 @@ name = "name-o-tron-9000"
 version = "0.2.0"
 description = "Rename local media files using Plex metadata with preview, safety checks, and rollback."
 authors = ["Kirilov.dev"]
+license = "Apache-2.0"
 edition = "2021"
 homepage = "https://name-o-tron.kirilov.dev/"
 repository = "https://github.com/EdinUser/name-o-tron-9000"

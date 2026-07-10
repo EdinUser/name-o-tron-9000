@@ -2,9 +2,11 @@
 <component type="desktop-application">
   <id>com.lenivec.name-o-tron-9000</id>
   <name>Name-o-Tron 9000</name>
-  <summary>Rename local media files using Plex metadata with safety checks and rollback.</summary>
+  <summary>Rename local media files using Plex metadata with safety checks and rollback</summary>
   <metadata_license>CC0-1.0</metadata_license>
-  <developer_name>Kirilov.dev</developer_name>
+  <developer id="dev.kirilov.name-o-tron-9000">
+    <name>Kirilov.dev</name>
+  </developer>
   <launchable type="desktop-id">name-o-tron-9000.desktop</launchable>
   <description>
     <p>Name-o-Tron 9000 is a cross-platform desktop app that renames local media files using Plex metadata.</p>

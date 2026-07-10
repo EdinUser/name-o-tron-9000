@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "bundle:linux": "tauri build --bundles appimage,deb,rpm",
+    "bundle:linux": "bash scripts/build-linux-bundles.sh",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:icons": "node scripts/generate-icons.js",

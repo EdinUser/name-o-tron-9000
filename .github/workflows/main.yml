@@ -2,18 +2,16 @@ name: Build Name-o-Tron 9000 App (Cross-Platform)
 
 on:
   workflow_dispatch:
-  pull_request:
+  push:
     branches:
       - main
-    types:
-      - closed
 
 jobs:
   # =====================================================
   # LINUX BUILD (GitHub-hosted)
   # =====================================================
   build-linux:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'develop') }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -23,73 +21,17 @@ jobs:
         uses: actions/checkout@v5
         with:
           clean: true
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.ref }}
-
-      - name: Read version from package.json
-        id: app-version
-        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            build-essential \
-            pkg-config \
-            curl \
-            git \
-            xdg-utils \
-            libfuse2 \
-            ca-certificates \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libjavascriptcoregtk-4.1-dev \
-            libsoup-3.0-dev \
-            libglib2.0-dev \
-            libpango1.0-dev \
-            libatk1.0-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Verify Linux bundle assets
         run: |
           set -euo pipefail
           test -f src-tauri/linux/name-o-tron-9000.desktop.hbs
-          test -f src-tauri/linux/name-o-tron-9000.metainfo.xml
+          test -f src-tauri/linux/com.lenivec.name-o-tron-9000.metainfo.xml
 
-      - name: Make linuxdeploy binaries executable
+      - name: Build Linux installers in shared container
         run: |
-          # Make downloaded AppImages executable (they're downloaded during build)
-          find src-tauri/target/release/bundle/appimage -name "*.AppImage" -type f -exec chmod +x {} \; 2>/dev/null || true
-
-      - name: Install additional linuxdeploy dependencies
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            fuse3 \
-            libfuse2 \
-            squashfs-tools \
-            libglib2.0-0 \
-            libgdk-pixbuf2.0-0 \
-            libcairo-gobject2 \
-            libpango-1.0-0 \
-            libatk1.0-0 \
-            libcairo2 \
-            libgtk-3-0 \
-            libgdk-pixbuf2.0-0
+          set -euo pipefail
+          bash scripts/build-linux-bundles.sh
 
       # Tests are run in CI on PRs to develop and main; skipping here for post-merge build speed.
       # - name: Run tests
@@ -97,16 +39,6 @@ jobs:
       #     npm run test:types
       #     npm test
       #     npm run test:rust
-
-      - name: Build Tauri App (Linux)
-        uses: tauri-apps/tauri-action@v0
-        env:
-          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
-          APPIMAGE_EXTRACT_AND_RUN: "1"
-          TAURI_BUILD_VERSION: ${{ steps.app-version.outputs.version }}
-        with:
-          releaseDraft: false
-          prerelease: false
 
       - name: Upload Linux installers
         uses: actions/upload-artifact@v7
@@ -119,7 +51,7 @@ jobs:
   # WINDOWS BUILD (GitHub-hosted)
   # =====================================================
   build-windows:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'develop') }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: windows-latest
     permissions:
       contents: write
@@ -127,8 +59,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -177,15 +107,13 @@ jobs:
   # DEPLOY
   # =====================================================
   deploy:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'develop') }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.ref }}
 
       - name: Read version from package.json
         id: app-version

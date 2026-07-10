@@ -17,6 +17,34 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 
 ## 2026-07-09
 
+- Summary: Unified Linux packaging behind a repo-owned containerized build path so local and GitHub AppImage/RPM/DEB builds run through the same Docker image, while the linuxdeploy wrapper installer now force-refreshes cache state every build.
+- Files or areas: `.github/workflows/main.yml`, `package.json`, `scripts/build-linux-bundles.sh`, `scripts/linux-packaging/`, `scripts/install-linuxdeploy-wrapper.sh`.
+- Verification:
+  - shell syntax review pending targeted script validation
+- Follow-ups:
+  - Build Linux artifacts through the shared script locally and on GitHub, then compare checksums and runtime behavior against the downloaded artifacts.
+
+- Summary: Moved Linux packaging tools off the user home cache and into Tauri's repo-local tools directory so the wrapper runs as part of the build environment instead of patching `~/.cache/tauri`.
+- Files or areas: `src-tauri/tauri.conf.json`, `scripts/install-linuxdeploy-wrapper.sh`, `scripts/linuxdeploy/linuxdeploy-wrapper.sh`.
+- Verification:
+  - shell syntax review only
+- Follow-ups:
+  - Confirm `src-tauri/target/.tauri/` is the exact tools path Tauri uses with `useLocalToolsDir = true` during the next Linux bundle run.
+
+- Summary: Stopped trying to inject the wrapper into Tauri's own linuxdeploy tool slot and now use the repo-owned wrapper only as the final AppImage packaging step after Tauri generates the AppDir, while Tauri still produces the DEB and RPM.
+- Files or areas: `scripts/linux-packaging/build-linux-bundles-in-container.sh`, `scripts/install-linuxdeploy-wrapper.sh`, `src-tauri/tauri.conf.json`.
+- Verification:
+  - direct wrapper run inside the Ubuntu builder container completed successfully and produced `name-o-tron-9000_0.2.0_amd64.AppImage`
+- Follow-ups:
+  - rerun the full shared Linux bundle script and compare the rebuilt downloaded AppImage/RPM/DEB artifacts against local outputs.
+
+- Summary: Moved the Linux AppImage `linuxdeploy` wrapper out of local `~/.cache/tauri` state and into tracked repo scripts so GitHub Linux builds can use the same wrapper behavior as local Fedora builds.
+- Files or areas: `.github/workflows/main.yml`, `scripts/install-linuxdeploy-wrapper.sh`, `scripts/linuxdeploy/`.
+- Verification:
+  - workflow logic review only; not executed locally
+- Follow-ups:
+  - Run the Linux release workflow and compare the rebuilt downloaded AppImage against the local Fedora build for size, bundled libraries, and runtime behavior on Fedora/Arch.
+
 - Summary: Fixed Fedora-local Linux packaging by overriding Tauri's cached AppImage tooling, added Linux AppStream metadata and a custom desktop template for package-manager presentation, and documented bundle metadata needed for local installer smoke tests.
 - Files or areas: `src-tauri/tauri.conf.json`, `src-tauri/linux/name-o-tron-9000.metainfo.xml`, `src-tauri/linux/name-o-tron-9000.desktop.hbs`, local `~/.cache/tauri/` linuxdeploy override.
 - Verification:
@@ -816,3 +844,11 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - Workflow logic review against the deploy/upload section
 - Follow-ups:
   - Re-run the release workflow and confirm the Linux/Windows installers land under `/downloads/<version>/` and `release.json` lands under both `/<version>/` and `/`.
+
+- Summary: Switched release builds to run on `push` to `main` and added a dedicated fast-forward-only `develop -> main` promotion workflow so releases can advance `main` without PR merge commits or “merge main back into develop” churn. This keeps `develop` as the source branch while making `main` a promoted release pointer.
+- Files or areas: `.github/workflows/main.yml`, `.github/workflows/promote-main.yml`.
+- Verification:
+  - Workflow logic review against the `main` release trigger and promotion-path checks
+- Follow-ups:
+  - Run `Promote develop to main` from the `develop` branch and confirm it fast-forwards `main`.
+  - Confirm the resulting `push` to `main` triggers `Build Name-o-Tron 9000 App (Cross-Platform)` and uploads the generated installers.
