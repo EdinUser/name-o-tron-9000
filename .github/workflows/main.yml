@@ -10,43 +10,15 @@ on:
 
 jobs:
   # =====================================================
-  # LINUX BUILD (runs on YOUR MINT MACHINE)
+  # LINUX BUILD (GitHub-hosted)
   # =====================================================
   build-linux:
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'develop') }}
-    runs-on: [self-hosted, linux, mint]
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-    env:
-      SKIP_APT_INSTALL: "true"
 
     steps:
-      - name: Repair workspace permissions
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -e "$GITHUB_WORKSPACE" ]; then
-            exit 0
-          fi
-
-          workspace_uid="$(stat -c '%u' "$GITHUB_WORKSPACE")"
-          workspace_gid="$(stat -c '%g' "$GITHUB_WORKSPACE")"
-          current_uid="$(id -u)"
-          current_gid="$(id -g)"
-
-          if [ "$workspace_uid" = "$current_uid" ] && [ "$workspace_gid" = "$current_gid" ]; then
-            echo "Workspace ownership already matches runner user."
-            exit 0
-          fi
-
-          if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
-            sudo chown -R "${current_uid}:${current_gid}" "$GITHUB_WORKSPACE"
-            exit 0
-          fi
-
-          echo "Workspace ownership differs (${workspace_uid}:${workspace_gid}), but passwordless sudo is unavailable."
-          echo "Continuing without ownership repair; checkout may still fail if stale root-owned files remain."
-
       - name: Checkout code
         uses: actions/checkout@v5
         with:
@@ -58,7 +30,6 @@ jobs:
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Install Linux dependencies
-        if: ${{ env.SKIP_APT_INSTALL != 'true' }}
         run: |
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -99,10 +70,9 @@ jobs:
           find src-tauri/target/release/bundle/appimage -name "*.AppImage" -type f -exec chmod +x {} \; 2>/dev/null || true
 
       - name: Install additional linuxdeploy dependencies
-        if: ${{ env.SKIP_APT_INSTALL != 'true' }}
         run: |
-          sudo -n apt-get update
-          sudo -n DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
             fuse3 \
             libfuse2 \
             squashfs-tools \
