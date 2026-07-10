@@ -798,3 +798,21 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - Workflow logic review only; not executed locally
 - Follow-ups:
   - Re-run `Build Name-o-Tron 9000 App (Cross-Platform)` and confirm the Node 20 deprecation warnings and Windows cache warning are gone.
+
+## 2026-07-10
+
+- Summary: Hardened the GitHub-hosted Linux release build by adding an explicit workflow preflight for the Tauri Linux packaging assets and normalizing the custom desktop template to use Tauri-provided metadata. This makes the hosted Linux job fail fast when `tauri.conf.json` references repo files that were not committed.
+- Files or areas: `.github/workflows/main.yml`, `src-tauri/linux/name-o-tron-9000.desktop.hbs`, `src-tauri/linux/name-o-tron-9000.metainfo.xml`.
+- Verification:
+  - `git status --short src-tauri/linux .github/workflows/main.yml`
+  - Reviewed the failing GitHub log against the tracked Linux workflow and Tauri bundle config
+- Follow-ups:
+  - Commit the `src-tauri/linux/` files so the GitHub-hosted runner can actually package with the custom desktop metadata.
+  - Re-run `Build Name-o-Tron 9000 App (Cross-Platform)` and confirm the `.deb` step gets past desktop file creation.
+
+- Summary: Updated the deploy job to create the remote versioned installer and metadata directories before `scp`, so artifact publication no longer depends on the VPS path already existing.
+- Files or areas: `.github/workflows/main.yml`.
+- Verification:
+  - Workflow logic review against the deploy/upload section
+- Follow-ups:
+  - Re-run the release workflow and confirm the Linux/Windows installers land under `/downloads/<version>/` and `release.json` lands under both `/<version>/` and `/`.
