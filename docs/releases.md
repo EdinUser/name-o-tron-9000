@@ -11,6 +11,15 @@ The latest installers are published on the server and described by `release.json
 _Release info unavailable. The site will update after the next release run._
 {% endif %}
 
+## What's New in 0.2.0
+
+- **Safer Plex follow-up refreshes**: Rename and undo flows now trigger scoped Plex rescans for affected movie folders, episode folders, or show folders instead of relying on an automatic full-library scan.
+- **Better large-library browsing**: Preview and TV flows are more responsive with improved pagination, search fallback to Plex when local filtering finds nothing, and more stable loading behavior for larger show libraries.
+- **Template workflow improvements**: The Preview template field now keeps recent per-library template history and lets you promote useful entries to saved favorites for faster reuse.
+- **Support bundles for troubleshooting**: Settings → General can now export a support ZIP bundle with redacted environment details plus recent rollback logs, preview snapshots, and error excerpts to help diagnose problems.
+- **Preview snapshots for bug reports**: The Preview screen can export an environment-redacted snapshot of the current state, including active filters and visible rows.
+- **Expanded subtitle and rollback coverage**: Subtitle operations and rollback behavior are documented and better integrated into the overall rename workflow.
+
 ## Installers
 
 ### Linux
@@ -30,4 +39,3 @@ No Linux installers listed.
 {% else %}
 No Windows installers listed.
 {% endif %}
-
