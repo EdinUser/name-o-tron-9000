@@ -1,7 +1,7 @@
 {
   "MediaContainer": {
-    "size": 8,
-    "totalSize": 8,
+    "size": 30,
+    "totalSize": 30,
     "offset": 0,
     "Metadata": [
       {
@@ -277,6 +277,674 @@
                 "id": 7008,
                 "key": "/library/parts/7008/file.mkv",
                 "file": "/mount/server/HDD1/Movies/Editions/The.Lord.of.the.Rings.The.Two.Towers.2002.Extended.Edition.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "109",
+        "key": "/library/metadata/109",
+        "guid": "plex://movie/carry-on-1",
+        "type": "movie",
+        "title": "Carry On 1",
+        "year": 1971,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/109/thumb",
+        "art": "/library/metadata/109/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5009,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7009,
+                "key": "/library/parts/7009/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 1/Carry.On.1.1971.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "110",
+        "key": "/library/metadata/110",
+        "guid": "plex://movie/carry-on-2",
+        "type": "movie",
+        "title": "Carry On 2",
+        "year": 1972,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/110/thumb",
+        "art": "/library/metadata/110/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5010,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7010,
+                "key": "/library/parts/7010/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 2/Carry.On.2.1972.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "111",
+        "key": "/library/metadata/111",
+        "guid": "plex://movie/carry-on-3",
+        "type": "movie",
+        "title": "Carry On 3",
+        "year": 1973,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/111/thumb",
+        "art": "/library/metadata/111/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5011,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7011,
+                "key": "/library/parts/7011/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 3/Carry.On.3.1973.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "112",
+        "key": "/library/metadata/112",
+        "guid": "plex://movie/carry-on-4",
+        "type": "movie",
+        "title": "Carry On 4",
+        "year": 1974,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/112/thumb",
+        "art": "/library/metadata/112/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5012,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7012,
+                "key": "/library/parts/7012/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 4/Carry.On.4.1974.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "113",
+        "key": "/library/metadata/113",
+        "guid": "plex://movie/carry-on-5",
+        "type": "movie",
+        "title": "Carry On 5",
+        "year": 1975,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/113/thumb",
+        "art": "/library/metadata/113/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5013,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7013,
+                "key": "/library/parts/7013/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 5/Carry.On.5.1975.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "114",
+        "key": "/library/metadata/114",
+        "guid": "plex://movie/carry-on-6",
+        "type": "movie",
+        "title": "Carry On 6",
+        "year": 1976,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/114/thumb",
+        "art": "/library/metadata/114/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5014,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7014,
+                "key": "/library/parts/7014/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 6/Carry.On.6.1976.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "115",
+        "key": "/library/metadata/115",
+        "guid": "plex://movie/carry-on-7",
+        "type": "movie",
+        "title": "Carry On 7",
+        "year": 1977,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/115/thumb",
+        "art": "/library/metadata/115/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5015,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7015,
+                "key": "/library/parts/7015/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 7/Carry.On.7.1977.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "116",
+        "key": "/library/metadata/116",
+        "guid": "plex://movie/carry-on-8",
+        "type": "movie",
+        "title": "Carry On 8",
+        "year": 1978,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/116/thumb",
+        "art": "/library/metadata/116/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5016,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7016,
+                "key": "/library/parts/7016/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 8/Carry.On.8.1978.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "117",
+        "key": "/library/metadata/117",
+        "guid": "plex://movie/carry-on-9",
+        "type": "movie",
+        "title": "Carry On 9",
+        "year": 1979,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/117/thumb",
+        "art": "/library/metadata/117/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5017,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7017,
+                "key": "/library/parts/7017/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 9/Carry.On.9.1979.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "118",
+        "key": "/library/metadata/118",
+        "guid": "plex://movie/carry-on-10",
+        "type": "movie",
+        "title": "Carry On 10",
+        "year": 1980,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/118/thumb",
+        "art": "/library/metadata/118/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5018,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7018,
+                "key": "/library/parts/7018/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 10/Carry.On.10.1980.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "119",
+        "key": "/library/metadata/119",
+        "guid": "plex://movie/carry-on-11",
+        "type": "movie",
+        "title": "Carry On 11",
+        "year": 1981,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/119/thumb",
+        "art": "/library/metadata/119/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5019,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7019,
+                "key": "/library/parts/7019/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 11/Carry.On.11.1981.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "120",
+        "key": "/library/metadata/120",
+        "guid": "plex://movie/carry-on-12",
+        "type": "movie",
+        "title": "Carry On 12",
+        "year": 1982,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/120/thumb",
+        "art": "/library/metadata/120/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5020,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7020,
+                "key": "/library/parts/7020/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 12/Carry.On.12.1982.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "121",
+        "key": "/library/metadata/121",
+        "guid": "plex://movie/carry-on-13",
+        "type": "movie",
+        "title": "Carry On 13",
+        "year": 1983,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/121/thumb",
+        "art": "/library/metadata/121/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5021,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7021,
+                "key": "/library/parts/7021/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 13/Carry.On.13.1983.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "122",
+        "key": "/library/metadata/122",
+        "guid": "plex://movie/carry-on-14",
+        "type": "movie",
+        "title": "Carry On 14",
+        "year": 1984,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/122/thumb",
+        "art": "/library/metadata/122/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5022,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7022,
+                "key": "/library/parts/7022/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 14/Carry.On.14.1984.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "123",
+        "key": "/library/metadata/123",
+        "guid": "plex://movie/carry-on-15",
+        "type": "movie",
+        "title": "Carry On 15",
+        "year": 1985,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/123/thumb",
+        "art": "/library/metadata/123/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5023,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7023,
+                "key": "/library/parts/7023/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 15/Carry.On.15.1985.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "124",
+        "key": "/library/metadata/124",
+        "guid": "plex://movie/carry-on-16",
+        "type": "movie",
+        "title": "Carry On 16",
+        "year": 1986,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/124/thumb",
+        "art": "/library/metadata/124/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5024,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7024,
+                "key": "/library/parts/7024/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 16/Carry.On.16.1986.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "125",
+        "key": "/library/metadata/125",
+        "guid": "plex://movie/carry-on-17",
+        "type": "movie",
+        "title": "Carry On 17",
+        "year": 1987,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/125/thumb",
+        "art": "/library/metadata/125/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5025,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7025,
+                "key": "/library/parts/7025/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 17/Carry.On.17.1987.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "126",
+        "key": "/library/metadata/126",
+        "guid": "plex://movie/carry-on-18",
+        "type": "movie",
+        "title": "Carry On 18",
+        "year": 1988,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/126/thumb",
+        "art": "/library/metadata/126/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5026,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7026,
+                "key": "/library/parts/7026/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 18/Carry.On.18.1988.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "127",
+        "key": "/library/metadata/127",
+        "guid": "plex://movie/carry-on-19",
+        "type": "movie",
+        "title": "Carry On 19",
+        "year": 1989,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/127/thumb",
+        "art": "/library/metadata/127/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5027,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7027,
+                "key": "/library/parts/7027/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 19/Carry.On.19.1989.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "128",
+        "key": "/library/metadata/128",
+        "guid": "plex://movie/carry-on-20",
+        "type": "movie",
+        "title": "Carry On 20",
+        "year": 1990,
+        "summary": "Pagination fixture entry for remote search and browsing coverage.",
+        "thumb": "/library/metadata/128/thumb",
+        "art": "/library/metadata/128/art",
+        "Genre": [{ "tag": "Comedy" }],
+        "Collection": [{ "tag": "Carry On Collection" }],
+        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Media": [
+          {
+            "id": 5028,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7028,
+                "key": "/library/parts/7028/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Carry On/Carry On 20/Carry.On.20.1990.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "129",
+        "key": "/library/metadata/129",
+        "guid": "imdb://tt1160419",
+        "Guid": [
+          { "id": "imdb://tt1160419" },
+          { "id": "tmdb://438631" }
+        ],
+        "type": "movie",
+        "title": "Dune",
+        "year": 2021,
+        "summary": "A plain modern movie fixture used to broaden year and studio distribution.",
+        "thumb": "/library/metadata/129/thumb",
+        "art": "/library/metadata/129/art",
+        "Genre": [{ "tag": "Science Fiction" }, { "tag": "Adventure" }],
+        "Collection": [{ "tag": "Dune Collection" }],
+        "Studio": [{ "tag": "Legendary Pictures" }],
+        "Media": [
+          {
+            "id": 5029,
+            "container": "mkv",
+            "videoCodec": "h265",
+            "audioCodec": "eac3",
+            "Part": [
+              {
+                "id": 7029,
+                "key": "/library/parts/7029/file.mkv",
+                "file": "/mount/server/HDD1/Movies/New/Dune.2021.2160p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "130",
+        "key": "/library/metadata/130",
+        "guid": "imdb://tt0113277",
+        "Guid": [
+          { "id": "imdb://tt0113277" },
+          { "id": "tmdb://949" }
+        ],
+        "type": "movie",
+        "title": "Heat",
+        "year": 1995,
+        "summary": "A plain catalog movie fixture used to broaden genre and studio distribution.",
+        "thumb": "/library/metadata/130/thumb",
+        "art": "/library/metadata/130/art",
+        "Genre": [{ "tag": "Crime" }, { "tag": "Drama" }],
+        "Collection": [{ "tag": "Michael Mann Collection" }],
+        "Studio": [{ "tag": "Warner Bros." }],
+        "Media": [
+          {
+            "id": 5030,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "dts",
+            "Part": [
+              {
+                "id": 7030,
+                "key": "/library/parts/7030/file.mkv",
+                "file": "/mount/server/HDD1/Movies/Catalog/Heat.1995.1080p.BluRay.x264.mkv",
                 "size": 1
               }
             ]

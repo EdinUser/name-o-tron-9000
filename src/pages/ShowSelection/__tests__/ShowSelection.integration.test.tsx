@@ -6,6 +6,11 @@ import ShowSelectionContainer from '../ShowSelectionContainer';
 import { SettingsProvider } from '../../../state/settings';
 import { ThemeProvider } from '../../../state/theme';
 import type { PlexServer, PlexLibrary } from '../../../types/plex';
+import {
+  buildMockShowEpisodesResponse,
+  buildShowSelectionShows,
+  getMockEpisodesForShow,
+} from '../../../testUtils/mockPlexFixtures';
 
 // Mock the Tauri invoke function
 vi.mock('@tauri-apps/api/core', () => ({
@@ -61,46 +66,26 @@ const mockLibrary: PlexLibrary = {
   key: 'tv-library',
   title: 'TV Shows',
   type: 'show',
-  roots: ['/media/TV Shows'],
+  roots: ['/share/plex/Series'],
 };
 
-const mockShows = [
-  {
-    ratingKey: 'show1',
-    title: 'Breaking Bad',
-    thumb: '/library/metadata/show1/thumb/123',
-    year: '2008',
-    Genre: [{ tag: 'Drama' }],
-    studio: 'AMC',
-    childCount: 5,
-  },
-  {
-    ratingKey: 'show2',
-    title: 'The Office',
-    thumb: '/library/metadata/show2/thumb/456',
-    year: '2005',
-    Genre: [{ tag: 'Comedy' }],
-    studio: 'NBC',
-    childCount: 9,
-  },
-];
-
-const mockEpisodeData = {
-  MediaContainer: {
-    Metadata: [{
-      Media: [{
-        Part: [{
-          file: '/media/TV Shows/Breaking Bad/Season 1/Breaking Bad - S01E01 - Pilot.mkv'
-        }]
-      }]
-    }]
-  }
-};
+const mockShows = buildShowSelectionShows(2);
+const primaryShow = mockShows[0];
+const secondaryShow = mockShows[1];
+const primaryShowTitle = primaryShow.title;
+const secondaryShowTitle = secondaryShow.title;
+const primaryShowKey = primaryShow.ratingKey;
+const secondaryShowKey = secondaryShow.ratingKey;
+const primaryShowPosterUrl = `${mockServer.address}${primaryShow.thumb}`;
+const secondaryShowPosterUrl = `${mockServer.address}${secondaryShow.thumb}`;
+const primaryShowEpisodes = getMockEpisodesForShow(primaryShowKey);
+const primaryShowLocation = primaryShowEpisodes[0]?.Media?.[0]?.Part?.[0]?.file ?? '';
+const primaryShowFolder = primaryShowLocation.split('/').slice(0, 5).join('/');
 
 const mockMappings = [
   {
     server_id: 'test-server-id',
-    plex_root: '/media/TV Shows',
+    plex_root: '/share/plex/Series',
     local_root: '/mnt/tv-shows',
   }
 ];
@@ -109,27 +94,27 @@ const mockCache = {
   lastUpdated: Date.now(),
   mappingsChecksum: 'test-checksum', // Matches default checksum for valid cache test
   shows: {
-    'show1': {
+    [primaryShowKey]: {
       isMapped: true,
-      location: '/media/TV Shows/Breaking Bad/Season 1/Breaking Bad - S01E01 - Pilot.mkv',
+      location: primaryShowLocation,
       lastChecked: Date.now(),
-      posterUrl: 'http://192.168.1.100:32400/library/metadata/show1/thumb/123',
-      year: 2008,
-      genre: 'Drama',
-      studio: 'AMC',
-      creators: ['Vince Gilligan'],
-      yearsRunning: '2008-2013',
+      posterUrl: primaryShowPosterUrl,
+      year: Number(primaryShow.year),
+      genre: primaryShow.Genre?.[0]?.tag ?? '',
+      studio: primaryShow.studio,
+      creators: ['Fixture Creator'],
+      yearsRunning: String(primaryShow.year),
     },
-    'show2': {
+    [secondaryShowKey]: {
       isMapped: false,
       location: '',
       lastChecked: Date.now(),
-      posterUrl: 'http://192.168.1.100:32400/library/metadata/show2/thumb/456',
-      year: 2005,
-      genre: 'Comedy',
-      studio: 'NBC',
-      creators: ['Greg Daniels'],
-      yearsRunning: '2005-2013',
+      posterUrl: secondaryShowPosterUrl,
+      year: Number(secondaryShow.year),
+      genre: secondaryShow.Genre?.[0]?.tag ?? '',
+      studio: secondaryShow.studio,
+      creators: ['Fixture Creator'],
+      yearsRunning: String(secondaryShow.year),
     },
   },
 };
@@ -183,7 +168,7 @@ describe('ShowSelection Integration Tests', () => {
         case 'fetch_tv_shows':
           return Promise.resolve({ MediaContainer: { Directory: mockShows } });
         case 'fetch_show_episodes':
-          return Promise.resolve(mockEpisodeData);
+          return Promise.resolve(buildMockShowEpisodesResponse(_args?.showRatingKey ?? primaryShowKey));
         case 'fetch_plex_image':
           return Promise.resolve('data:image/jpeg;base64,fake-image-data');
         case 'generate_mappings_checksum_cmd':
@@ -216,8 +201,8 @@ describe('ShowSelection Integration Tests', () => {
 
     // Wait for shows to load (loading state might be very brief due to cached data)
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
-      expect(screen.getByText('The Office')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
+      expect(screen.getByText(secondaryShowTitle)).toBeInTheDocument();
     });
 
     // Check that mapping status is displayed
@@ -230,7 +215,7 @@ describe('ShowSelection Integration Tests', () => {
       mappings: expect.arrayContaining([
         expect.objectContaining({
           serverId: 'test-server-id',
-          plexRoot: '/media/TV Shows',
+          plexRoot: '/share/plex/Series',
           localRoot: '/mnt/tv-shows',
           platform: null
         })
@@ -252,7 +237,7 @@ describe('ShowSelection Integration Tests', () => {
         case 'fetch_tv_shows':
           return Promise.resolve({ MediaContainer: { Directory: [mockShows[0]], totalSize: 1, size: 1, offset: 0 } });
         case 'fetch_show_episodes':
-          return Promise.resolve(mockEpisodeData);
+          return Promise.resolve(buildMockShowEpisodesResponse(_args?.showRatingKey ?? primaryShowKey));
         case 'fetch_plex_image':
           return Promise.reject(new Error('poster fetch failed'));
         case 'generate_mappings_checksum_cmd':
@@ -278,7 +263,7 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
     });
 
     await waitFor(() => {
@@ -296,7 +281,7 @@ describe('ShowSelection Integration Tests', () => {
         case 'fetch_tv_shows':
           return Promise.resolve({ MediaContainer: { Directory: mockShows } });
         case 'fetch_show_episodes':
-          return Promise.resolve(mockEpisodeData);
+          return Promise.resolve(buildMockShowEpisodesResponse(_args?.showRatingKey ?? primaryShowKey));
         case 'fetch_plex_image':
           return Promise.resolve('data:image/jpeg;base64,fake-image-data');
         case 'generate_mappings_checksum_cmd':
@@ -323,7 +308,7 @@ describe('ShowSelection Integration Tests', () => {
 
     // Wait for shows to load
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
     });
 
     // Verify cache building API calls were made
@@ -331,8 +316,8 @@ describe('ShowSelection Integration Tests', () => {
     expect(mockInvoke).toHaveBeenCalledWith('save_show_mapping_cache', expect.any(Object));
 
     // Shows should be loaded successfully
-    expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
-    expect(screen.getByText('The Office')).toBeInTheDocument();
+    expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
+    expect(screen.getByText(secondaryShowTitle)).toBeInTheDocument();
   });
 
   it('does NOT persist base64 posters in saved cache (no cachedPosterUrl)', async () => {
@@ -346,7 +331,7 @@ describe('ShowSelection Integration Tests', () => {
         case 'fetch_tv_shows':
           return Promise.resolve({ MediaContainer: { Directory: mockShows } });
         case 'fetch_show_episodes':
-          return Promise.resolve(mockEpisodeData);
+          return Promise.resolve(buildMockShowEpisodesResponse(args?.showRatingKey ?? primaryShowKey));
         case 'fetch_plex_image':
           // UI fetches posters for visible items; backend returns base64, but it must NOT be persisted
           return Promise.resolve('data:image/jpeg;base64,fake-image-data');
@@ -372,7 +357,7 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
     });
 
     // Ensure we saved cache at least once
@@ -401,7 +386,7 @@ describe('ShowSelection Integration Tests', () => {
           return Promise.resolve({ MediaContainer: { Directory: mockShows } });
         case 'fetch_show_episodes':
           // Return episode for newly cached shows
-          return Promise.resolve(mockEpisodeData);
+          return Promise.resolve(buildMockShowEpisodesResponse(_args?.showRatingKey ?? primaryShowKey));
         case 'fetch_plex_image':
           posterFetchCount += 1;
           return Promise.resolve('data:image/jpeg;base64,fake-image-data');
@@ -426,8 +411,8 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
-      expect(screen.getByText('The Office')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
+      expect(screen.getByText(secondaryShowTitle)).toBeInTheDocument();
     });
 
     // We only rendered two shows; verify we fetched two posters
@@ -436,7 +421,7 @@ describe('ShowSelection Integration Tests', () => {
 
   it('persists and restores search query', async () => {
     // Mock initial search query in sessionStorage
-    sessionStorageMock.getItem.mockReturnValue('Breaking');
+    sessionStorageMock.getItem.mockReturnValue('Abyssal');
 
     renderWithProviders(
       <ShowSelectionContainer
@@ -448,26 +433,26 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('Breaking')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Abyssal')).toBeInTheDocument();
     });
 
     // Type in search box
     const searchInput = screen.getByPlaceholderText('Quick search…');
     await userEvent.clear(searchInput);
-    await userEvent.type(searchInput, 'Office');
+    await userEvent.type(searchInput, 'Northwind');
 
     // Verify search query is persisted
     await waitFor(() => {
       expect(sessionStorageMock.setItem).toHaveBeenCalledWith(
         `showSearch-${mockServer.address}-${mockLibrary.key}`,
-        'Office'
+        'Northwind'
       );
     });
   });
 
   it('clears search when X button is clicked', async () => {
     // Mock initial search query
-    sessionStorageMock.getItem.mockReturnValue('Breaking');
+    sessionStorageMock.getItem.mockReturnValue('Abyssal');
 
     renderWithProviders(
       <ShowSelectionContainer
@@ -479,7 +464,7 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('Breaking')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Abyssal')).toBeInTheDocument();
       expect(screen.getByLabelText('Clear search')).toBeInTheDocument();
     });
 
@@ -507,7 +492,7 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
     });
 
     // Verify that the component loaded successfully with cache operations
@@ -536,7 +521,7 @@ describe('ShowSelection Integration Tests', () => {
         case 'fetch_tv_shows':
           return Promise.resolve({ MediaContainer: { Directory: mockShows } });
         case 'fetch_show_episodes':
-          return Promise.resolve(mockEpisodeData);
+          return Promise.resolve(buildMockShowEpisodesResponse(_args?.showRatingKey ?? primaryShowKey));
         case 'fetch_plex_image':
           return Promise.resolve('data:image/jpeg;base64,fake-image-data');
         case 'generate_mappings_checksum_cmd':
@@ -563,7 +548,7 @@ describe('ShowSelection Integration Tests', () => {
 
     // Wait for shows to load
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
     });
 
     // Should rebuild cache due to checksum mismatch (verify API calls)
@@ -571,8 +556,8 @@ describe('ShowSelection Integration Tests', () => {
     expect(mockInvoke).toHaveBeenCalledWith('save_show_mapping_cache', expect.any(Object));
 
     // Shows should be loaded successfully
-    expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
-    expect(screen.getByText('The Office')).toBeInTheDocument();
+    expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
+    expect(screen.getByText(secondaryShowTitle)).toBeInTheDocument();
   });
 
   it('shows correct show metadata from cache', async () => {
@@ -586,17 +571,17 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
-      expect(screen.getByText('The Office')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
+      expect(screen.getByText(secondaryShowTitle)).toBeInTheDocument();
     });
 
     // Check that metadata is displayed correctly
-    expect(screen.getByText('Drama')).toBeInTheDocument();
-    expect(screen.getByText('Comedy')).toBeInTheDocument();
-    expect(screen.getByText('AMC')).toBeInTheDocument();
-    expect(screen.getByText('NBC')).toBeInTheDocument();
-    expect(screen.getByText('(2008-2013)')).toBeInTheDocument();
-    expect(screen.getByText('(2005-2013)')).toBeInTheDocument();
+    expect(screen.getByText(primaryShow.Genre?.[0]?.tag ?? '')).toBeInTheDocument();
+    expect(screen.getByText(secondaryShow.Genre?.[0]?.tag ?? '')).toBeInTheDocument();
+    expect(screen.getByText(primaryShow.studio)).toBeInTheDocument();
+    expect(screen.getByText(secondaryShow.studio)).toBeInTheDocument();
+    expect(screen.getByText(`(${String(primaryShow.year)})`)).toBeInTheDocument();
+    expect(screen.getByText(`(${String(secondaryShow.year)})`)).toBeInTheDocument();
   });
 
   it('handles show selection correctly', async () => {
@@ -610,25 +595,25 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
     });
 
-    // Click on Breaking Bad show
-    await userEvent.click(screen.getByText('Breaking Bad'));
+    // Click on the first tracked mock-fixture show
+    await userEvent.click(screen.getByText(primaryShowTitle));
 
     // The callback receives the full show object with metadata and current page
     expect(mockOnSelectShow).toHaveBeenCalledWith({
-      ratingKey: 'show1',
-      title: 'Breaking Bad',
-      posterUrl: 'http://192.168.1.100:32400/library/metadata/show1/thumb/123',
+      ratingKey: primaryShowKey,
+      title: primaryShowTitle,
+      posterUrl: primaryShowPosterUrl,
       cachedPosterUrl: 'data:image/jpeg;base64,fake-image-data',
-      year: 2008,
-      genre: 'Drama',
-      studio: 'AMC',
-      creators: ['Vince Gilligan'],
-      yearsRunning: '2008-2013',
+      year: Number(primaryShow.year),
+      genre: primaryShow.Genre?.[0]?.tag ?? '',
+      studio: primaryShow.studio,
+      creators: ['Fixture Creator'],
+      yearsRunning: String(primaryShow.year),
       isMapped: true,
-      location: '/media/TV Shows/Breaking Bad/Season 1/Breaking Bad - S01E01 - Pilot.mkv',
+      location: primaryShowLocation,
       mappingStatus: 'checked',
     }, 1); // currentPage defaults to 1
   });
@@ -644,7 +629,7 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
     });
 
     // Should call fetch_tv_shows with correct pagination
@@ -660,24 +645,9 @@ describe('ShowSelection Integration Tests', () => {
 
   it('loads the next backend page from pagination controls without showing Load more', async () => {
     let savedCache: any = null;
-    const pageOneShows = Array.from({ length: 20 }, (_, index) => ({
-      ratingKey: `show-${index + 1}`,
-      title: `Show ${index + 1}`,
-      thumb: `/library/metadata/show-${index + 1}/thumb/123`,
-      year: '2000',
-      Genre: [{ tag: 'Drama' }],
-      studio: 'Studio',
-      childCount: 1,
-    }));
-    const pageTwoShows = Array.from({ length: 5 }, (_, index) => ({
-      ratingKey: `show-${index + 21}`,
-      title: `Show ${index + 21}`,
-      thumb: `/library/metadata/show-${index + 21}/thumb/123`,
-      year: '2001',
-      Genre: [{ tag: 'Comedy' }],
-      studio: 'Studio',
-      childCount: 1,
-    }));
+    const allTrackedShows = buildShowSelectionShows(24);
+    const pageOneShows = allTrackedShows.slice(0, 20);
+    const pageTwoShows = allTrackedShows.slice(20);
 
     mockInvoke.mockImplementation((command: string, args?: any) => {
       switch (command) {
@@ -692,7 +662,7 @@ describe('ShowSelection Integration Tests', () => {
           }
           return Promise.resolve({ MediaContainer: { Directory: [], totalSize: 25, size: 0, offset: args?.start ?? 0 } });
         case 'fetch_show_episodes':
-          return Promise.resolve(mockEpisodeData);
+          return Promise.resolve(buildMockShowEpisodesResponse(args?.showRatingKey ?? primaryShowKey));
         case 'fetch_plex_image':
           return Promise.resolve('data:image/jpeg;base64,fake-image-data');
         case 'generate_mappings_checksum_cmd':
@@ -720,7 +690,7 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Show 1')).toBeInTheDocument();
+      expect(screen.getByText(pageOneShows[0].title)).toBeInTheDocument();
       expect(screen.getByText('Page 1 / 2')).toBeInTheDocument();
     });
     await waitFor(() => {
@@ -742,7 +712,7 @@ describe('ShowSelection Integration Tests', () => {
     await waitFor(() => {
       expect(screen.queryByText('Loading shows…')).not.toBeInTheDocument();
       expect(screen.getByText('Page 2 / 2')).toBeInTheDocument();
-      expect(screen.getByText('Show 21')).toBeInTheDocument();
+      expect(screen.getByText(pageTwoShows[0].title)).toBeInTheDocument();
     }, { timeout: 5000 });
   }, 10000);
 
@@ -801,7 +771,7 @@ describe('ShowSelection Integration Tests', () => {
       },
     };
 
-    mockInvoke.mockImplementation((command: string) => {
+    mockInvoke.mockImplementation((command: string, args?: any) => {
       switch (command) {
         case 'get_settings':
           return Promise.resolve({ pathMappings: mockMappings });
@@ -819,7 +789,7 @@ describe('ShowSelection Integration Tests', () => {
             }
           });
         case 'fetch_show_episodes':
-          return Promise.resolve(mockEpisodeData);
+          return Promise.resolve(buildMockShowEpisodesResponse(args?.showRatingKey ?? primaryShowKey));
         case 'fetch_plex_image':
           return Promise.resolve('data:image/jpeg;base64,fake-image-data');
         case 'generate_mappings_checksum_cmd':
@@ -867,17 +837,9 @@ describe('ShowSelection Integration Tests', () => {
   });
 
   it('uses fallback total-count fields when Plex omits totalSize', async () => {
-    const showsPage = Array.from({ length: 20 }, (_, index) => ({
-      ratingKey: `fallback-show-${index + 1}`,
-      title: `Fallback Show ${index + 1}`,
-      thumb: `/library/metadata/fallback-show-${index + 1}/thumb/123`,
-      year: '2000',
-      Genre: [{ tag: 'Drama' }],
-      studio: 'Studio',
-      childCount: 1,
-    }));
+    const showsPage = buildShowSelectionShows(20);
 
-    mockInvoke.mockImplementation((command: string) => {
+    mockInvoke.mockImplementation((command: string, args?: any) => {
       switch (command) {
         case 'get_settings':
           return Promise.resolve({ pathMappings: mockMappings });
@@ -891,7 +853,7 @@ describe('ShowSelection Integration Tests', () => {
             }
           });
         case 'fetch_show_episodes':
-          return Promise.resolve(mockEpisodeData);
+          return Promise.resolve(buildMockShowEpisodesResponse(args?.showRatingKey ?? primaryShowKey));
         case 'fetch_plex_image':
           return Promise.resolve('data:image/jpeg;base64,fake-image-data');
         case 'generate_mappings_checksum_cmd':
@@ -917,21 +879,13 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Fallback Show 1')).toBeInTheDocument();
+      expect(screen.getByText(showsPage[0].title)).toBeInTheDocument();
       expect(screen.getByText('Page 1 / 5')).toBeInTheDocument();
     });
   });
 
   it('keeps fetching TV pages when Plex omits totals and caps each response', async () => {
-    const allShows = Array.from({ length: 40 }, (_, index) => ({
-      ratingKey: `capped-show-${index + 1}`,
-      title: `Capped Show ${index + 1}`,
-      thumb: `/library/metadata/capped-show-${index + 1}/thumb/123`,
-      year: '2000',
-      Genre: [{ tag: 'Drama' }],
-      studio: 'Studio',
-      childCount: 1,
-    }));
+    const allShows = buildShowSelectionShows(24);
     const cachedShows = Object.fromEntries(
       allShows.map((show) => [
         show.ratingKey,
@@ -940,11 +894,11 @@ describe('ShowSelection Integration Tests', () => {
           location: `/media/TV Shows/${show.title}/Season 1/${show.title} - S01E01.mkv`,
           lastChecked: Date.now(),
           posterUrl: `http://192.168.1.100:32400${show.thumb}`,
-          year: 2000,
-          genre: 'Drama',
-          studio: 'Studio',
+          year: Number(show.year),
+          genre: show.Genre?.[0]?.tag ?? '',
+          studio: show.studio,
           creators: ['Creator'],
-          yearsRunning: '2000-2001',
+          yearsRunning: String(show.year),
         }
       ])
     );
@@ -965,7 +919,7 @@ describe('ShowSelection Integration Tests', () => {
           });
         }
         case 'fetch_show_episodes':
-          return Promise.resolve(mockEpisodeData);
+          return Promise.resolve(buildMockShowEpisodesResponse(args?.showRatingKey ?? primaryShowKey));
         case 'fetch_plex_image':
           return Promise.resolve('data:image/jpeg;base64,fake-image-data');
         case 'generate_mappings_checksum_cmd':
@@ -995,7 +949,7 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Capped Show 1')).toBeInTheDocument();
+      expect(screen.getByText(allShows[0].title)).toBeInTheDocument();
       expect(screen.getByText('Page 1 / 2')).toBeInTheDocument();
     }, { timeout: 3000 });
 
@@ -1019,12 +973,12 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
     });
 
     // Type in search box
     const searchInput = screen.getByPlaceholderText('Quick search…');
-    await userEvent.type(searchInput, 'Office');
+    await userEvent.type(searchInput, 'Northwind');
 
     // Should call fetch_tv_shows with search query after debounce
     await waitFor(() => {
@@ -1034,7 +988,7 @@ describe('ShowSelection Integration Tests', () => {
         token: 'fake-token',
         start: 0,
         size: 20,
-        query: 'Office',
+        query: 'Northwind',
       });
     }, { timeout: 1000 });
   });
@@ -1080,7 +1034,7 @@ describe('ShowSelection Integration Tests', () => {
         case 'fetch_tv_shows':
           return Promise.resolve({ MediaContainer: { Directory: [mockShows[0]], totalSize: 1, size: 1, offset: 0 } });
         case 'fetch_show_episodes':
-          return Promise.resolve(mockEpisodeData);
+          return Promise.resolve(buildMockShowEpisodesResponse(_args?.showRatingKey ?? primaryShowKey));
         case 'fetch_plex_image':
           return Promise.resolve('data:image/jpeg;base64,fake-image-data');
         case 'generate_mappings_checksum_cmd':
@@ -1089,7 +1043,7 @@ describe('ShowSelection Integration Tests', () => {
           return Promise.resolve({
             ...mockCache,
             shows: {
-              show1: mockCache.shows.show1,
+              [primaryShowKey]: mockCache.shows[primaryShowKey],
             },
           });
         case 'save_show_mapping_cache':
@@ -1113,22 +1067,22 @@ describe('ShowSelection Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+      expect(screen.getByText(primaryShowTitle)).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByLabelText('Rescan Breaking Bad'));
+    await userEvent.click(screen.getByLabelText(`Rescan ${primaryShowTitle}`));
 
     await waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith('plex_refresh_library_section_with_path', {
         server: mockServer.address,
         sectionId: 2,
-        path: '/media/TV Shows/Breaking Bad',
+        path: primaryShowFolder,
         token: 'fake-token',
       });
     });
 
     expect(alertMock).toHaveBeenCalledWith(
-      'Plex rescan started for:\nBreaking Bad\n\n/media/TV Shows/Breaking Bad'
+      `Plex rescan started for:\n${primaryShowTitle}\n\n${primaryShowFolder}`
     );
   });
 });

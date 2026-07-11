@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { computeMovieProposal } from "../movieProposal";
 import type { MovieItem } from "../types";
+import { buildMovieProposalItem } from "../../../testUtils/mockPlexFixtures";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string, args: any) => {
@@ -60,18 +61,11 @@ describe("Preview proposals – mapping and safety flags", () => {
   });
 
   it("treats items under a library root as mapped (no unmatched flag)", async () => {
-    const movie: MovieItem = {
-      type: "movie",
-      ratingKey: "rk1",
-      title: "Inception",
-      year: 2010,
-      file: "/media/Movies/Inception (2010).mkv",
-      plexPath: "/media/Movies/Inception (2010).mkv",
-    };
+    const movie: MovieItem = buildMovieProposalItem("101") as MovieItem;
 
     const settings = { ...baseSettings };
     const libraryFolder = "/mnt/Movies";
-    const libraryRoots = ["/media/Movies"];
+    const libraryRoots = ["/mount/server/HDD1/Movies"];
 
     const row = await computeMovieProposal(
       movie,
@@ -90,18 +84,16 @@ describe("Preview proposals – mapping and safety flags", () => {
   });
 
   it("marks items outside library roots as unmatched", async () => {
+    const trackedMovie = buildMovieProposalItem("101");
     const movie: MovieItem = {
-      type: "movie",
-      ratingKey: "rk2",
-      title: "Inception",
-      year: 2010,
-      file: "/other/Movies/Inception (2010).mkv",
-      plexPath: "/other/Movies/Inception (2010).mkv",
+      ...(trackedMovie as MovieItem),
+      file: trackedMovie.file.replace("/mount/server/HDD1/Movies", "/other/Movies"),
+      plexPath: trackedMovie.plexPath.replace("/mount/server/HDD1/Movies", "/other/Movies"),
     };
 
     const settings = { ...baseSettings };
     const libraryFolder = "/mnt/Movies";
-    const libraryRoots = ["/media/Movies"];
+    const libraryRoots = ["/mount/server/HDD1/Movies"];
 
     const row = await computeMovieProposal(
       movie,

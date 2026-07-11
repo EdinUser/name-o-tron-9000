@@ -8,30 +8,47 @@ It is the supported replacement for the older `_helpers/tests/mock-plex-server.c
 
 ```bash
 npm install
-npm run mock:setup
-npm run mock:plex
+npm run mock:reset
+npm run mock:start
 npm run mock:verify
+npm run mock:stop
 npm run tauri dev
 ```
 
 What those do:
 
 - `npm run mock:setup-media`
-  - rebuilds a local `./test_media` tree aligned to the tracked mock fixtures
+  - rebuilds only the local `./test_media` tree aligned to the tracked mock fixtures
 - `npm run mock:write-mappings`
-  - writes a sample path-mappings JSON file to `tests/mock-plex/generated/mock-path-mappings.json`
+  - writes only a sample path-mappings JSON file to `tests/mock-plex/generated/mock-path-mappings.json`
 - `npm run mock:setup`
-  - runs both setup steps above
+  - rebuilds media and writes mappings
+- `npm run mock:reset`
+  - rebuilds media and writes mappings; this is the preferred reset entrypoint for local work and automated tests
 - `npm run mock:plex`
-  - starts the tracked server on `http://localhost:32400`
+  - starts the tracked server in the foreground on `http://127.0.0.1:32400`
+- `npm run mock:start`
+  - starts the tracked server in the background, waits for readiness, and writes lifecycle state under `tests/mock-plex/generated/`
+- `npm run mock:status`
+  - reports whether the background mock server is running
+- `npm run mock:stop`
+  - stops the background mock server and removes its state file
 - `npm run mock:verify`
   - checks the key endpoints and local media files
 
 Reset workflow for local testing:
 
 - use the app's `Undo Last Rename` for a quick rollback of the most recent apply run
-- use `npm run mock:setup` for a full reset of the generated `./test_media` tree
-- you do not need to restart `npm run mock:plex` after `mock:setup` unless you changed server code or fixture payloads
+- use `npm run mock:reset` for a full reset of the generated `./test_media` tree and mappings
+- you do not need to restart `npm run mock:plex` or `npm run mock:start` after `mock:setup` unless you changed server code or fixture payloads
+
+Lifecycle notes:
+
+- the server now accepts `MOCK_PLEX_HOST` and `MOCK_PLEX_PORT`
+- `npm run mock:start` defaults to `127.0.0.1:32400`
+- `npm run mock:verify` still defaults to `http://localhost:32400`; pass `--base-url` explicitly when using a non-default port
+- `npm run mock:reset` and `npm run mock:verify` are now Node-based and intended to be Windows-friendly
+- the older shell scripts in `tests/mock-plex/bin/*.sh` remain as compatibility helpers, not the preferred automation path
 
 ## Layout
 

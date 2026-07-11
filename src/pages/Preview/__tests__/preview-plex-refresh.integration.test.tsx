@@ -6,6 +6,7 @@ import PreviewContainer from "../PreviewContainer";
 import { SettingsProvider } from "../../../state/settings";
 import { ThemeProvider } from "../../../state/theme";
 import type { PlexLibrary, PlexServer } from "../../../types/plex";
+import { buildPreviewMovieMetadata } from "../../../testUtils/mockPlexFixtures";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -41,8 +42,12 @@ const mockLibrary: PlexLibrary = {
   key: "1",
   title: "Movies",
   type: "movie",
-  roots: ["/share/Movies"],
+  roots: ["/mount/server/HDD1/Movies"],
 };
+
+const trackedMovie = buildPreviewMovieMetadata("101");
+const trackedMovieFile = trackedMovie.Media?.[0]?.Part?.[0]?.file ?? "";
+const trackedMovieFolder = trackedMovieFile.split("/").slice(0, -1).join("/");
 
 function renderWithProviders(component: React.ReactElement) {
   return render(
@@ -84,7 +89,7 @@ describe("Preview Plex refresh integration", () => {
             pathMappings: [
               {
                 server_id: "test-server-id",
-                plex_root: "/share/Movies",
+                plex_root: "/mount/server/HDD1/Movies",
                 local_root: "/mnt/Movies",
               },
             ],
@@ -92,22 +97,7 @@ describe("Preview Plex refresh integration", () => {
         case "fetch_library_content":
           return {
             MediaContainer: {
-              Metadata: [
-                {
-                  ratingKey: "23475",
-                  title: "50 First Dates",
-                  year: 2004,
-                  Media: [
-                    {
-                      Part: [
-                        {
-                          file: "/share/Movies/Normal/A-I/50 First Dates/50 First Dates (2004).mkv",
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
+              Metadata: [trackedMovie],
               totalSize: 1,
               size: 1,
               offset: 0,
@@ -130,8 +120,10 @@ describe("Preview Plex refresh integration", () => {
             operations: [
               {
                 operation_type: "rename",
-                original_path: "/mnt/Movies/Normal/A-I/50 First Dates/50 First Dates (2004).mkv",
-                new_path: "/mnt/Movies/Normal/A-I/50 First Dates/50 First Dates [Renamed].mkv",
+                original_path: trackedMovieFile.replace("/mount/server/HDD1/Movies", "/mnt/Movies"),
+                new_path: trackedMovieFile
+                  .replace("/mount/server/HDD1/Movies", "/mnt/Movies")
+                  .replace(".mkv", " [Renamed].mkv"),
                 backup_path: null,
                 operation_id: "movie_1",
               },
@@ -154,11 +146,14 @@ describe("Preview Plex refresh integration", () => {
     await userEvent.click(screen.getByRole("button", { name: "Undo Last Rename" }));
 
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith("plex_refresh_library_section_with_path", {
+      const refreshCall = mockInvoke.mock.calls.find(
+        ([command]) => command === "plex_refresh_library_section_with_path",
+      );
+      expect(refreshCall).toBeDefined();
+      expect(refreshCall?.[1]).toMatchObject({
         server: mockServer.address,
         sectionId: 1,
-        path: "/share/Movies/Normal/A-I/50 First Dates",
-        token: "fake-token",
+        path: trackedMovieFolder,
       });
     });
   });

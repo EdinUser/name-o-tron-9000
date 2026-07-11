@@ -829,6 +829,61 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 
 ## 2026-07-10
 
+- Summary: Converted the Preview mapping/safety test to use a tracked movie fixture for the mapped and unmatched path cases while leaving the synthetic long-path toggle case in place, so the file now mixes real fixture shape where it matters with focused synthetic input where fixtures add no value.
+- Files or areas: `src/pages/Preview/__tests__/preview-proposals-unmatched-and-safety.test.ts`.
+- Verification:
+  - `npm test -- src/pages/Preview/__tests__/preview-proposals-unmatched-and-safety.test.ts` passed.
+- Follow-ups:
+  - Continue the fixture-backed Preview wave until the remaining conversions start being blocked by missing tracked datasets rather than by test helper shape.
+
+- Summary: Converted the Preview undo-refresh integration test to tracked movie fixture data so the refresh target path now comes from the same mock Plex movie metadata used elsewhere in the harness instead of from a hand-built movie record.
+- Files or areas: `src/testUtils/mockPlexFixtures.ts`, `src/pages/Preview/__tests__/preview-plex-refresh.integration.test.tsx`.
+- Verification:
+  - `npm test -- src/pages/Preview/__tests__/preview-plex-refresh.integration.test.tsx` passed.
+- Follow-ups:
+  - Continue the fixture-backed Preview wave before moving to dataset expansion for pagination-heavy scenarios.
+
+- Summary: Extended the frontend mock-fixture helper to cover tracked library fixtures and converted the Library Selection tests to use `libraries.json` roots instead of hand-built library entries.
+- Files or areas: `src/testUtils/mockPlexFixtures.ts`, `src/pages/__tests__/LibrarySelection.test.tsx`.
+- Verification:
+  - `npm test -- src/pages/__tests__/LibrarySelection.test.tsx` passed.
+- Follow-ups:
+  - Continue the fixture-backed wave with remaining non-pagination Preview and Home-adjacent tests that still hand-assemble Plex-shaped data.
+
+- Summary: Added a frontend mock-fixture helper layer and used it to convert the first real fixture-backed test slice: Show Selection integration tests now derive TV show and episode data from the tracked mock Plex fixtures, and movie backend folder tests now use tracked movie fixtures for provider-tag proposal coverage.
+- Files or areas: `src/testUtils/mockPlexFixtures.ts`, `src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx`, `src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts`.
+- Verification:
+  - `npm test -- src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed.
+  - `npm test -- src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed.
+- Follow-ups:
+  - Keep the next enrichment wave focused on fixture-backed tests that benefit from tracked payload shape without needing live mock-server orchestration.
+  - Pagination-heavy tests still need larger tracked fixture catalogs before a live mock-backed conversion is worthwhile.
+
+- Summary: Finished the mock harness portability slice by replacing bash-only reset and verify flows with Node-based scripts, adding a preferred `mock:reset` entrypoint, and making the mock setup path usable from Windows-oriented automation as well as Linux.
+- Files or areas: `tests/mock-plex/bin/mock-shared.mjs`, `tests/mock-plex/bin/mock-reset.mjs`, `tests/mock-plex/bin/mock-verify.mjs`, `tests/mock-plex/README.md`, `package.json`.
+- Verification:
+  - `node --check tests/mock-plex/bin/mock-shared.mjs` passed.
+  - `node --check tests/mock-plex/bin/mock-reset.mjs` passed.
+  - `node --check tests/mock-plex/bin/mock-verify.mjs` passed.
+  - `npm run mock:reset` passed.
+  - `node --check tests/mock-plex/bin/mock-harness.mjs` passed after the readiness fallback adjustment.
+  - `npm run mock:start` created the expected state/log output, but detached child persistence could not be fully proven in this sandbox because the background process was reaped immediately after script exit.
+  - `npm run mock:stop` handled the resulting stale state cleanly.
+- Follow-ups:
+  - The shell helpers can remain as compatibility scripts for now, but new automation should target the Node entrypoints.
+  - Later orchestration should thread the chosen mock base URL into reset, verify, and test commands for non-default ports.
+  - Full `mock:verify` should be exercised on a normal local machine or in CI where loopback HTTP and detached child persistence are not sandbox-restricted.
+
+- Summary: Added a cross-platform Node lifecycle harness for the tracked mock Plex server, made the server bind host/port configurable via env, and exposed `mock:start` / `mock:stop` / `mock:status` package scripts so future mock-backed tests can depend on a stable start/stop flow instead of ad hoc backgrounding.
+- Files or areas: `tests/mock-plex/mock-plex-server.cjs`, `tests/mock-plex/bin/mock-harness.mjs`, `tests/mock-plex/README.md`, `package.json`.
+- Verification:
+  - `node --check tests/mock-plex/mock-plex-server.cjs` passed.
+  - `node --check tests/mock-plex/bin/mock-harness.mjs` passed.
+  - `npm run mock:status` reported the expected non-running state before start.
+- Follow-ups:
+  - Mock media setup is still shell-based, so Windows-ready mock-backed suites still need a cross-platform reset/setup path.
+  - `mock:verify` still defaults to `localhost:32400`; later orchestration should thread a chosen base URL through setup, verify, and test commands.
+
 - Summary: Narrowed the RPM/Discover packaging path by removing the duplicate `.appdata.xml` install from the RPM bundle and aligning the AppStream component identity with the desktop file Tauri actually installs. This reduces conflicting metadata paths for KDE Discover while keeping the AppImage-specific AppStream alias in place for AppImage tooling.
 - Files or areas: `src-tauri/tauri.conf.json`, `src-tauri/linux/com.lenivec.name-o-tron-9000.metainfo.xml`.
 - Verification:
@@ -868,3 +923,45 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 - Follow-ups:
   - Run `Promote develop to main` from the `develop` branch and confirm it fast-forwards `main`.
   - Confirm the resulting `push` to `main` triggers `Build Name-o-Tron 9000 App (Cross-Platform)` and uploads the generated installers.
+
+- Summary: Expanded the tracked mock Plex movie HTTP fixtures so frontend-facing mock-server tests can move from synthetic pagination rows to realistic movie browsing and remote-search payloads. The existing edge-case movies remain stable, and the new slice adds enough volume for page 2/page 3 movie scenarios plus a 20-result movie search hub.
+- Files or areas: `tests/mock-plex/fixtures/movies_all.json`, `tests/mock-plex/fixtures/search_movies.json`.
+- Verification:
+  - `node -e "..."` JSON parse/count check confirmed `movies_all.json` now exposes 30 items and `search_movies.json` now exposes 20 hub results.
+  - `npm test -- src/pages/Preview/__tests__/preview-proposals-unmatched-and-safety.test.ts src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts src/pages/Preview/__tests__/preview-plex-refresh.integration.test.tsx` passed.
+- Follow-ups:
+  - Convert `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` from synthetic `makeLibraryMovie` / `makeSearchMovie` arrays to the expanded tracked fixtures.
+  - Expand `shows_all.json` and `search_tv.json` next so TV paging can move onto the same live mock-data path.
+
+- Summary: Moved the movie-side pagination regression coverage onto tracked mock Plex fixtures instead of synthetic in-test movie/search row builders. The spec now slices `movies_all.json` and `search_movies.json` through shared test helpers, while the TV pagination cases remain synthetic until the TV fixture set is expanded.
+- Files or areas: `src/testUtils/mockPlexFixtures.ts`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`.
+- Verification:
+  - `npm test -- src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` passed.
+- Follow-ups:
+  - Expand `shows_all.json` and `search_tv.json`, then convert the TV-side pagination/search tests to the tracked mock dataset as well.
+
+- Summary: Expanded the tracked TV HTTP fixtures from 4 to 24 shows and from 8 to 16 TV search hits, then moved the show-list pagination regressions onto tracked `shows_all.json` slices instead of synthetic show arrays. This keeps the keyed legacy TV fixtures intact while making the tracked dataset large enough for real page-2 behavior in `ShowSelection`.
+- Files or areas: `tests/mock-plex/fixtures/shows_all.json`, `tests/mock-plex/fixtures/search_tv.json`, `src/testUtils/mockPlexFixtures.ts`, `src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx`.
+- Verification:
+  - `node -e "..."` JSON parse/count check confirmed `shows_all.json` now exposes 24 items and `search_tv.json` now exposes 16 hub results.
+  - `npm test -- src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` passed.
+- Follow-ups:
+  - Convert TV remote-search coverage to `getMockSearchTv(...)` once a targeted tracked-fixture TV search regression is added.
+  - Decide whether to expand `tv_all_leaves.json` next so preview episode paging can move off the synthetic 50-episode batches.
+
+- Summary: Expanded the tracked TV episode fixture so `Abyssal Gate` season 1 now spans 50 episodes, added season-filtered TV helper accessors, and moved the Preview episode-pagination regression onto that tracked dataset instead of synthetic 30/20 episode batches.
+- Files or areas: `tests/mock-plex/fixtures/tv_all_leaves.json`, `tests/mock-plex/fixtures/show_200_all_leaves.json`, `src/testUtils/mockPlexFixtures.ts`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`.
+- Verification:
+  - `node -e "..."` JSON parse/count check confirmed `tv_all_leaves.json` now exposes 67 total episodes, with show `200` exposing 53 total and 50 in season 1.
+  - `npm test -- src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed.
+- Follow-ups:
+  - If we later want direct fixture parity for the legacy standalone `show_200_children.json`, it should be refreshed to reflect the expanded season counts as well.
+  - TV remote-search regressions can now switch to `getMockSearchTv(...)` without needing additional HTTP fixture growth first.
+
+- Summary: Finished the tracked TV search regression pass by aligning Preview's TV mock library roots with the mock Plex fixture paths, swapping ShowSelection's search assertions onto tracked show titles, and adding a Preview TV remote-search case that exercises `getMockSearchTv(...)` instead of synthetic rows.
+- Files or areas: `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`, `src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx`.
+- Verification:
+  - `npm test -- src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` passed.
+  - `npm test -- src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed.
+- Follow-ups:
+  - The remaining gap is broader behavior coverage around rename/apply flows; current mock-backed search and pagination coverage now uses tracked fixture data on both movie and TV paths.

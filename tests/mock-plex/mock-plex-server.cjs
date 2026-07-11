@@ -3,7 +3,8 @@ const fs = require("fs");
 const path = require("path");
 
 const app = express();
-const PORT = 32400;
+const HOST = process.env.MOCK_PLEX_HOST || "127.0.0.1";
+const PORT = Number.parseInt(process.env.MOCK_PLEX_PORT || "32400", 10);
 const FIXTURES_DIR = path.join(__dirname, "fixtures");
 
 const activePins = new Map();
@@ -519,6 +520,6 @@ app.use((req, res) => {
   res.status(404).json({ error: "Unknown endpoint", path: req.path });
 });
 
-app.listen(PORT, () => {
-  console.log(`Mock Plex server running at http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Mock Plex server running at http://${HOST}:${PORT}`);
 });
