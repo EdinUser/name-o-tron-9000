@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { computeMovieProposal } from "../movieProposal";
 import type { MovieItem } from "../types";
+import { buildMovieProposalItem } from "../../../testUtils/mockPlexFixtures";
 
 // Mock Tauri invoke used by sanitizeProposal
 vi.mock("@tauri-apps/api/core", () => ({
@@ -186,15 +187,7 @@ describe("Movie backend folder integration", () => {
   });
 
   it("renders Plex-style imdb token placeholders when the mock metadata exposes an imdb guid", async () => {
-    const movie: MovieItem = {
-      type: "movie",
-      ratingKey: "rk-imdb",
-      title: "Interstellar",
-      year: 2014,
-      file: "/media/Movies/Interstellar.2014.1080p.BluRay.x264.mkv",
-      plexPath: "/media/Movies/Interstellar.2014.1080p.BluRay.x264.mkv",
-      guid: "imdb://tt0816692",
-    } as any;
+    const movie: MovieItem = buildMovieProposalItem("101") as any;
 
     const settings = JSON.parse(JSON.stringify(baseSettings));
     settings.movies.ids = "preserve";
@@ -208,22 +201,14 @@ describe("Movie backend folder integration", () => {
       "",
       settings,
       "/mnt/Movies",
-      ["/media/Movies"],
+      ["/mount/server/HDD1/Movies"],
     );
 
-    expect(row.proposed).toBe("Interstellar {imdb-tt0816692}.mkv");
+    expect(row.proposed).toBe("Incoming/Interstellar {imdb-tt0816692}.mkv");
   });
 
   it("renders plexIds as a space-separated list of available Plex-style provider tags", async () => {
-    const movie: MovieItem = {
-      type: "movie",
-      ratingKey: "rk-plexids",
-      title: "Dune",
-      year: 2021,
-      file: "/media/Movies/Dune.2021.2160p.WEB-DL.mkv",
-      plexPath: "/media/Movies/Dune.2021.2160p.WEB-DL.mkv",
-      guid: "imdb://tt1160419",
-    } as any;
+    const movie: MovieItem = buildMovieProposalItem("101") as any;
 
     const settings = JSON.parse(JSON.stringify(baseSettings));
     settings.movies.ids = "auto_append_all";
@@ -237,9 +222,9 @@ describe("Movie backend folder integration", () => {
       "",
       settings,
       "/mnt/Movies",
-      ["/media/Movies"],
+      ["/mount/server/HDD1/Movies"],
     );
 
-    expect(row.proposed).toBe("Dune (2021) {imdb-tt1160419}.mkv");
+    expect(row.proposed).toBe("Incoming/Interstellar (2014) {imdb-tt0816692}.mkv");
   });
 });

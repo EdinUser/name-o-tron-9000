@@ -5,6 +5,13 @@ import { invoke } from "@tauri-apps/api/core";
 import PreviewContainer from "../PreviewContainer";
 import { SettingsProvider } from "../../../state/settings";
 import { ThemeProvider } from "../../../state/theme";
+import {
+  buildMockShowSeasonDirectories,
+  getMockEpisodesForShowSeason,
+  getMockMovies,
+  getMockSearchMovies,
+  getMockSearchTv,
+} from "../../../testUtils/mockPlexFixtures";
 import type { PlexLibrary, PlexServer } from "../../../types/plex";
 import { generateServerId } from "../../../utils/cache";
 
@@ -49,8 +56,11 @@ const mockShowLibrary: PlexLibrary = {
   key: "2",
   title: "TV Shows",
   type: "show",
-  roots: ["/media/TV"],
+  roots: ["/share/plex/Series"],
 };
+
+const firstTrackedMoviePath =
+  getMockMovies(1)[0]?.Media?.[0]?.Part?.[0]?.file ?? "";
 
 function renderWithProviders(component: React.ReactElement) {
   return render(
@@ -58,43 +68,6 @@ function renderWithProviders(component: React.ReactElement) {
       <ThemeProvider>{component}</ThemeProvider>
     </SettingsProvider>,
   );
-}
-
-function makeLibraryMovie(index: number) {
-  return {
-    ratingKey: `library-${index}`,
-    title: `Library Movie ${index}`,
-    year: 2000 + index,
-    thumb: `/library/metadata/library-${index}/thumb`,
-    Media: [{ Part: [{ file: `/media/Movies/Library Movie ${index} (${2000 + index}).mkv` }] }],
-  };
-}
-
-function makeSearchMovie(index: number) {
-  return {
-    ratingKey: `carry-${index}`,
-    key: `/library/metadata/carry-${index}`,
-    title: `Carry On ${index}`,
-    year: 1970 + index,
-    Media: [{ Part: [{ file: `/media/Movies/Carry On ${index}/Carry On ${index} (${1970 + index}).mkv` }] }],
-    Genre: [{ tag: "Comedy" }],
-    studio: "Studio",
-  };
-}
-
-function makeSeasonEpisode(index: number) {
-  return {
-    ratingKey: `episode-${index}`,
-    key: `/library/metadata/episode-${index}`,
-    type: "episode",
-    title: `Episode ${index}`,
-    grandparentTitle: "Abyssal Gate",
-    parentTitle: "Season 01",
-    parentIndex: 1,
-    index,
-    year: 2023,
-    Media: [{ Part: [{ file: `/media/TV/Abyssal Gate/Season 01/Abyssal Gate - S01E${String(index).padStart(2, "0")} - Episode ${index}.mkv` }] }],
-  };
 }
 
 describe("Preview movie search pagination regressions", () => {
@@ -123,16 +96,25 @@ describe("Preview movie search pagination regressions", () => {
   });
 
   it("keeps remote movie search results paginated after moving to page 2", async () => {
-    const initialLibraryRows = Array.from({ length: 11 }, (_, index) => makeLibraryMovie(index + 1));
-    const secondLibraryRows = Array.from({ length: 9 }, (_, index) => makeLibraryMovie(index + 12));
-    const searchRows = Array.from({ length: 12 }, (_, index) => makeSearchMovie(index + 1));
+    const movieEntries = getMockMovies();
+    const initialLibraryRows = movieEntries.slice(0, 11);
+    const secondLibraryRows = movieEntries.slice(11, 20);
+    const searchRows = getMockSearchMovies(12);
 
     let searchCallCount = 0;
 
     mockInvoke.mockImplementation(async (command: string, args?: any) => {
       switch (command) {
         case "get_settings":
-          return { pathMappings: [{ server_id: "test-server-id", plex_root: "/media/Movies", local_root: "/mnt/Movies" }] };
+          return {
+            pathMappings: [
+              {
+                server_id: "test-server-id",
+                plex_root: "/mount/server/HDD1/Movies",
+                local_root: "/mnt/Movies",
+              },
+            ],
+          };
         case "fetch_library_content":
           if (args?.start === 0) {
             return {
@@ -215,13 +197,21 @@ describe("Preview movie search pagination regressions", () => {
   });
 
   it("reloads movies from the first page instead of reusing stale pagination offsets", async () => {
-    const initialLibraryRows = Array.from({ length: 3 }, (_, index) => makeLibraryMovie(index + 1));
+    const initialLibraryRows = getMockMovies(3);
     const fetchStarts: number[] = [];
 
     mockInvoke.mockImplementation(async (command: string, args?: any) => {
       switch (command) {
         case "get_settings":
-          return { pathMappings: [{ server_id: "test-server-id", plex_root: "/media/Movies", local_root: "/mnt/Movies" }] };
+          return {
+            pathMappings: [
+              {
+                server_id: "test-server-id",
+                plex_root: "/mount/server/HDD1/Movies",
+                local_root: "/mnt/Movies",
+              },
+            ],
+          };
         case "fetch_library_content":
           fetchStarts.push(Number(args?.start ?? 0));
           if (args?.start === 0) {
@@ -265,7 +255,7 @@ describe("Preview movie search pagination regressions", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Library Movie 1 (2001).mkv")).toBeInTheDocument();
+      expect(screen.getByText(firstTrackedMoviePath)).toBeInTheDocument();
     });
 
     const fetchCountBeforeReload = fetchStarts.length;
@@ -273,7 +263,7 @@ describe("Preview movie search pagination regressions", () => {
     await userEvent.click(screen.getByRole("button", { name: "Reload" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Library Movie 1 (2001).mkv")).toBeInTheDocument();
+      expect(screen.getByText(firstTrackedMoviePath)).toBeInTheDocument();
       expect(screen.queryByText("No items to preview.")).not.toBeInTheDocument();
     });
 
@@ -301,15 +291,24 @@ describe("Preview movie search pagination regressions", () => {
       return null;
     });
 
-    const page1Rows = Array.from({ length: 10 }, (_, index) => makeLibraryMovie(index + 1));
-    const page2Rows = Array.from({ length: 10 }, (_, index) => makeLibraryMovie(index + 11));
-    const page3Rows = Array.from({ length: 5 }, (_, index) => makeLibraryMovie(index + 21));
+    const movieEntries = getMockMovies();
+    const page1Rows = movieEntries.slice(0, 10);
+    const page2Rows = movieEntries.slice(10, 20);
+    const page3Rows = movieEntries.slice(20, 25);
     const fetchImageCalls: string[] = [];
 
     mockInvoke.mockImplementation(async (command: string, args?: any) => {
       switch (command) {
         case "get_settings":
-          return { pathMappings: [{ server_id: "test-server-id", plex_root: "/media/Movies", local_root: "/mnt/Movies" }] };
+          return {
+            pathMappings: [
+              {
+                server_id: "test-server-id",
+                plex_root: "/mount/server/HDD1/Movies",
+                local_root: "/mnt/Movies",
+              },
+            ],
+          };
         case "fetch_library_content":
           if (args?.start === 0) {
             return {
@@ -389,10 +388,10 @@ describe("Preview movie search pagination regressions", () => {
     });
 
     await waitFor(() => {
-      expect(fetchImageCalls).toContain("/library/metadata/library-21/thumb");
+      expect(fetchImageCalls).toContain(page3Rows[0]?.thumb);
     });
 
-    expect(screen.getByAltText("Library Movie 21 poster")).toBeInTheDocument();
+    expect(screen.getByAltText(`${page3Rows[0]?.title} poster`)).toBeInTheDocument();
   });
 
   it("loads more TV season episodes when page 2 needs more rows", async () => {
@@ -416,28 +415,30 @@ describe("Preview movie search pagination regressions", () => {
       return null;
     });
 
-    const firstSeasonBatch = Array.from({ length: 30 }, (_, index) => makeSeasonEpisode(index + 1));
-    const secondSeasonBatch = Array.from({ length: 20 }, (_, index) => makeSeasonEpisode(index + 31));
+    const seasonDirectories = buildMockShowSeasonDirectories("200");
+    const seasonOneEpisodes = getMockEpisodesForShowSeason("200", 1);
+    const firstSeasonBatch = seasonOneEpisodes.slice(0, 30);
+    const secondSeasonBatch = seasonOneEpisodes.slice(30);
     const fetchStarts: number[] = [];
 
-    (window as any).__initialShow = { ratingKey: "show-1", title: "Abyssal Gate" };
+    (window as any).__initialShow = { ratingKey: "200", title: "Abyssal Gate" };
 
     mockInvoke.mockImplementation(async (command: string, args?: any) => {
       switch (command) {
         case "get_settings":
-          return { pathMappings: [{ server_id: "test-server-id", plex_root: "/media/TV", local_root: "/mnt/TV" }] };
+          return {
+            pathMappings: [
+              {
+                server_id: "test-server-id",
+                plex_root: "/share/plex/Series",
+                local_root: "/mnt/TV",
+              },
+            ],
+          };
         case "fetch_show_seasons":
           return {
             MediaContainer: {
-              Metadata: [
-                {
-                  ratingKey: "season-1",
-                  key: "/library/metadata/season-1/children",
-                  index: 1,
-                  title: "Season 01",
-                  leafCount: 50,
-                },
-              ],
+              Metadata: seasonDirectories,
             },
           };
         case "fetch_plex_metadata":
@@ -446,7 +447,7 @@ describe("Preview movie search pagination regressions", () => {
             return {
               MediaContainer: {
                 Metadata: firstSeasonBatch,
-                totalSize: 50,
+                totalSize: seasonOneEpisodes.length,
                 size: firstSeasonBatch.length,
                 offset: 0,
               },
@@ -456,7 +457,7 @@ describe("Preview movie search pagination regressions", () => {
             return {
               MediaContainer: {
                 Metadata: secondSeasonBatch,
-                totalSize: 50,
+                totalSize: seasonOneEpisodes.length,
                 size: secondSeasonBatch.length,
                 offset: 30,
               },
@@ -465,7 +466,7 @@ describe("Preview movie search pagination regressions", () => {
           return {
             MediaContainer: {
               Metadata: [],
-              totalSize: 50,
+              totalSize: seasonOneEpisodes.length,
               size: 0,
               offset: args?.start ?? 0,
             },
@@ -493,21 +494,107 @@ describe("Preview movie search pagination regressions", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("30 results • Page 1 / 2")).toBeInTheDocument();
+      expect(screen.queryByText("No items to preview.")).not.toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
     });
 
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
 
     await waitFor(() => {
-      expect(screen.getByText("50 results • Page 2 / 2")).toBeInTheDocument();
+      expect(screen.getByText(/Page 2 \/ 2/)).toBeInTheDocument();
     });
 
     await waitFor(() => {
       expect(screen.queryByText("Loading more episodes…")).not.toBeInTheDocument();
-      expect(screen.getAllByText(/Episode 50\.mkv/).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Abyssal_Gate\.S01E50\.mkv/).length).toBeGreaterThan(0);
     });
 
     expect(fetchStarts).toEqual([0, 30]);
+    delete (window as any).__initialShow;
+  });
+
+  it("uses tracked TV remote search results when a show query has no local matches", async () => {
+    const seasonDirectories = buildMockShowSeasonDirectories("200");
+    const seasonOneEpisodes = getMockEpisodesForShowSeason("200", 1).slice(0, 20);
+    const tvSearchRows = getMockSearchTv();
+    let searchCallCount = 0;
+
+    (window as any).__initialShow = { ratingKey: "200", title: "Abyssal Gate" };
+
+    mockInvoke.mockImplementation(async (command: string, args?: any) => {
+      switch (command) {
+        case "get_settings":
+          return {
+            pathMappings: [
+              {
+                server_id: "test-server-id",
+                plex_root: "/share/plex/Series",
+                local_root: "/mnt/TV",
+              },
+            ],
+          };
+        case "fetch_show_seasons":
+          return {
+            MediaContainer: {
+              Metadata: seasonDirectories,
+            },
+          };
+        case "fetch_plex_metadata":
+          return {
+            MediaContainer: {
+              Metadata: seasonOneEpisodes,
+              totalSize: seasonOneEpisodes.length,
+              size: seasonOneEpisodes.length,
+              offset: Number(args?.start ?? 0),
+            },
+          };
+        case "sanitize_filename_cmd":
+          return args?.filename;
+        case "preview_video_renames":
+          return {
+            video_operations: [],
+            subtitle_operations: [],
+            warnings: [],
+            blocking_errors: [],
+          };
+        case "fetch_plex_image":
+          return "data:image/jpeg;base64,ZmFrZQ==";
+        case "search_content":
+          searchCallCount += 1;
+          return {
+            MediaContainer: {
+              Hub: [{ Metadata: tvSearchRows }],
+            },
+          };
+        default:
+          throw new Error(`Unexpected invoke: ${command}`);
+      }
+    });
+
+    renderWithProviders(
+      <PreviewContainer
+        server={mockServer}
+        library={mockShowLibrary}
+        onBack={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Season 01 (50 episodes)")).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByPlaceholderText("Search files...");
+    await userEvent.type(searchInput, "dock");
+
+    await waitFor(() => {
+      expect(screen.queryByText("No items to preview.")).not.toBeInTheDocument();
+      expect(screen.getAllByText(/First Dock/).length).toBeGreaterThan(0);
+    });
+
+    expect(searchCallCount).toBe(1);
     delete (window as any).__initialShow;
   });
 
@@ -547,11 +634,19 @@ describe("Preview movie search pagination regressions", () => {
     mockInvoke.mockImplementation(async (command: string, args?: any) => {
       switch (command) {
         case "get_settings":
-          return { pathMappings: [{ server_id: "test-server-id", plex_root: "/media/Movies", local_root: "/mnt/Movies" }] };
+          return {
+            pathMappings: [
+              {
+                server_id: "test-server-id",
+                plex_root: "/mount/server/HDD1/Movies",
+                local_root: "/mnt/Movies",
+              },
+            ],
+          };
         case "fetch_library_content":
           return {
             MediaContainer: {
-              Metadata: [makeLibraryMovie(1)],
+              Metadata: getMockMovies(1),
               totalSize: 1,
               size: 1,
               offset: 0,
@@ -580,7 +675,7 @@ describe("Preview movie search pagination regressions", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Library Movie 1 (2001).mkv")).toBeInTheDocument();
+      expect(screen.getByText(firstTrackedMoviePath)).toBeInTheDocument();
     });
 
     const templateInput = screen.getByPlaceholderText("Movie template");
@@ -641,11 +736,19 @@ describe("Preview movie search pagination regressions", () => {
     mockInvoke.mockImplementation(async (command: string, args?: any) => {
       switch (command) {
         case "get_settings":
-          return { pathMappings: [{ server_id: "test-server-id", plex_root: "/media/Movies", local_root: "/mnt/Movies" }] };
+          return {
+            pathMappings: [
+              {
+                server_id: "test-server-id",
+                plex_root: "/mount/server/HDD1/Movies",
+                local_root: "/mnt/Movies",
+              },
+            ],
+          };
         case "fetch_library_content":
           return {
             MediaContainer: {
-              Metadata: [makeLibraryMovie(1)],
+              Metadata: getMockMovies(1),
               totalSize: 1,
               size: 1,
               offset: 0,
@@ -674,7 +777,7 @@ describe("Preview movie search pagination regressions", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Library Movie 1 (2001).mkv")).toBeInTheDocument();
+      expect(screen.getByText(firstTrackedMoviePath)).toBeInTheDocument();
     });
 
     const templateInput = screen.getByPlaceholderText("Movie template");
@@ -744,11 +847,19 @@ describe("Preview movie search pagination regressions", () => {
     mockInvoke.mockImplementation(async (command: string, args?: any) => {
       switch (command) {
         case "get_settings":
-          return { pathMappings: [{ server_id: "test-server-id", plex_root: "/media/Movies", local_root: "/mnt/Movies" }] };
+          return {
+            pathMappings: [
+              {
+                server_id: "test-server-id",
+                plex_root: "/mount/server/HDD1/Movies",
+                local_root: "/mnt/Movies",
+              },
+            ],
+          };
         case "fetch_library_content":
           return {
             MediaContainer: {
-              Metadata: [makeLibraryMovie(1)],
+              Metadata: getMockMovies(1),
               totalSize: 1,
               size: 1,
               offset: 0,
@@ -777,7 +888,7 @@ describe("Preview movie search pagination regressions", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Library Movie 1 (2001).mkv")).toBeInTheDocument();
+      expect(screen.getByText(firstTrackedMoviePath)).toBeInTheDocument();
     });
 
     const templateInput = screen.getByPlaceholderText("Movie template");

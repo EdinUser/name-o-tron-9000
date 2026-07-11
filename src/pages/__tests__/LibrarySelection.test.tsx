@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core'
 import LibrarySelectionContainer from '../LibrarySelection/LibrarySelectionContainer'
 import { renderWithProviders } from '../../test/setup'
 import type { PlexServer, PlexLibrary } from '../../types/plex'
+import { buildMockLibraries } from '../../testUtils/mockPlexFixtures'
 
 // Mock the invoke function
 vi.mock('@tauri-apps/api/core', () => ({
@@ -22,26 +23,7 @@ Object.defineProperty(window, '__goto_settings', {
   writable: true,
 })
 
-const mockLibraries: PlexLibrary[] = [
-  {
-    key: '1',
-    type: 'movie',
-    title: 'Movies',
-    roots: ['/media/Movies']
-  },
-  {
-    key: '2',
-    type: 'show',
-    title: 'TV Shows',
-    roots: ['/media/TV Shows', '/media/TV Shows 2']
-  },
-  {
-    key: '3',
-    type: 'artist',
-    title: 'Music',
-    roots: ['/media/Music']
-  }
-]
+const mockLibraries: PlexLibrary[] = buildMockLibraries() as PlexLibrary[]
 
 const mockServer: PlexServer = {
   name: 'Test Plex Server',
@@ -148,7 +130,7 @@ describe('LibrarySelectionContainer', () => {
           pathMappings: [
             {
               server_id: 'test-server-id',
-              plex_root: '/media/Movies',
+              plex_root: '/mount/server/HDD1/Movies',
               local_root: '/mnt/movies'
             }
           ]
@@ -193,7 +175,7 @@ describe('LibrarySelectionContainer', () => {
           pathMappings: [
             {
               server_id: 'test-server-id',
-              plex_root: '/media/Movies',
+              plex_root: '/mount/server/HDD1/Movies',
               local_root: '/mnt/movies'
             }
           ]
@@ -311,7 +293,7 @@ describe('LibrarySelectionContainer', () => {
 
     await waitFor(() => {
       expect(screen.getByText('movie — Section 1 — 1 root(s)')).toBeInTheDocument() // Movies
-      expect(screen.getByText('show — Section 2 — 2 root(s)')).toBeInTheDocument() // TV Shows
+      expect(screen.getByText('show — Section 2 — 1 root(s)')).toBeInTheDocument() // TV Shows
     })
   })
 })

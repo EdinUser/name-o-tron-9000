@@ -173,6 +173,174 @@
                 ]
               }
             ]
+          },
+          {
+            "ratingKey": "2041",
+            "key": "/library/metadata/2041",
+            "guid": "tvdb://724041",
+            "type": "episode",
+            "title": "First Dock",
+            "grandparentTitle": "Atlas Terminal",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 1,
+            "thumb": "/library/metadata/2041/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Atlas_Terminal/Season 01/Atlas_Terminal.S01E01.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2051",
+            "key": "/library/metadata/2051",
+            "guid": "tvdb://725051",
+            "type": "episode",
+            "title": "The Lantern",
+            "grandparentTitle": "Briarwood Station",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 1,
+            "thumb": "/library/metadata/2051/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Briarwood_Station/Season 01/Briarwood_Station.S01E01.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2061",
+            "key": "/library/metadata/2061",
+            "guid": "tvdb://726061",
+            "type": "episode",
+            "title": "Cold Signal",
+            "grandparentTitle": "Cinder Bay",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 1,
+            "thumb": "/library/metadata/2061/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Cinder_Bay/Season 01/Cinder_Bay.S01E01.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2071",
+            "key": "/library/metadata/2071",
+            "guid": "tvdb://727071",
+            "type": "episode",
+            "title": "Dead Channel",
+            "grandparentTitle": "Drift Signal",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 1,
+            "thumb": "/library/metadata/2071/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Drift_Signal/Season 01/Drift_Signal.S01E01.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2081",
+            "key": "/library/metadata/2081",
+            "guid": "tvdb://728081",
+            "type": "episode",
+            "title": "Eastbound",
+            "grandparentTitle": "Eastwall",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 1,
+            "thumb": "/library/metadata/2081/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Eastwall/Season 01/Eastwall.S01E01.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2091",
+            "key": "/library/metadata/2091",
+            "guid": "tvdb://729091",
+            "type": "episode",
+            "title": "Foxfire",
+            "grandparentTitle": "Foxfire Academy",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 1,
+            "thumb": "/library/metadata/2091/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Foxfire_Academy/Season 01/Foxfire_Academy.S01E01.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2101",
+            "key": "/library/metadata/2101",
+            "guid": "tvdb://730101",
+            "type": "episode",
+            "title": "Salt Line",
+            "grandparentTitle": "Glass Harbor",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 1,
+            "thumb": "/library/metadata/2101/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Glass_Harbor/Season 01/Glass_Harbor.S01E01.mkv"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "ratingKey": "2111",
+            "key": "/library/metadata/2111",
+            "guid": "tvdb://731111",
+            "type": "episode",
+            "title": "Greenline",
+            "grandparentTitle": "Highwater Code",
+            "parentTitle": "Season 01",
+            "parentIndex": 1,
+            "index": 1,
+            "thumb": "/library/metadata/2111/thumb",
+            "Media": [
+              {
+                "Part": [
+                  {
+                    "file": "/share/plex/Series/Highwater_Code/Season 01/Highwater_Code.S01E01.mkv"
+                  }
+                ]
+              }
+            ]
           }
         ]
       }
