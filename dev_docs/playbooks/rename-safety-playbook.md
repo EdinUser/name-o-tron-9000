@@ -66,6 +66,7 @@ It is responsible for:
 - resolving original and target paths
 - treating already-local paths as local
 - treating unresolved `new_path` values as relative to the resolved library root when possible
+- discovering matching subtitle files for selected video operations and appending missing subtitle operations before filesystem work
 - dispatching subtitle operations to `subtitle::apply_single_operation(...)`
 - dispatching video operations to `apply_single_video_operation(...)`
 - writing rollback logs for the full batch
@@ -91,7 +92,8 @@ These are the behaviors we must not silently break.
 
 ### Proposal invariants
 
-- Movie proposals must honor the configured template, then append the original extension if the template omitted it.
+- Templates define the visible path/name stem only. `{ext}` is deprecated and must be stripped if present.
+- Movie, episode, and music proposals must append the original real file extension internally after rendering and trimming the template stem.
 - Episode proposals must honor season-folder rules, including `Season 00` vs `Specials`.
 - Edition tokens detected from filenames must be inserted before the file extension when not already present in the rendered output.
 - Multi-episode detection must only affect output when `tv.normalizeMultiEpisode` is enabled.
@@ -112,6 +114,8 @@ These are the behaviors we must not silently break.
 ### Subtitle invariants
 
 - Subtitle rename output must follow the final video basename, not the original subtitle basename.
+- Movie subtitle moves must follow the final video folder. When a movie is moved into a newly created movie folder, matching subtitles must move into that folder too.
+- Subtitle handling must not depend solely on frontend-attached subtitle operations. `apply_video_renames(...)` must discover matching subtitles from selected videos and add missing subtitle operations before applying the batch.
 - Movie subtitle handling currently supports `forcedSdhHandling` adjustments on generated names.
 - Subtitle convert operations must create a backup when `backup_path` is provided and write UTF-8 BOM output under the current implementation.
 - Subtitle preview logic is more limited than the settings surface implies:
@@ -121,8 +125,10 @@ These are the behaviors we must not silently break.
 ### Apply invariants
 
 - Apply must create missing parent directories for target video paths.
+- Apply must create missing parent directories for target subtitle paths.
 - Apply must fail clearly when the source file is missing.
 - Video operations and subtitle operations must both be recorded in the same rollback batch.
+- Video-only apply payloads must still move matching subtitles when subtitles are present beside the original video and no explicit subtitle operation was supplied.
 - Rollback logs must be written for every apply run, even when some operations fail.
 - Successful apply runs must leave enough path information available for the frontend to trigger targeted Plex rescans without falling back to a full-library scan.
 - Successful undo runs must return the undone operations so the frontend can reconstruct targeted Plex rescans from the rollback batch.
@@ -151,6 +157,7 @@ Known gaps or partial implementations in current backend code:
 - movie collection mode `if2plus` is intentionally conservative today
 - subtitle conversion is simplified for non-UTF-8 inputs
 - subtitle discovery/classification does not currently exercise every configured subtitle-handling branch
+- apply-time subtitle fallback currently covers basename-matching subtitles beside the original video; non-matching and subfolder subtitle layouts still need separate explicit support
 - some settings imply more advanced behavior than the current code fully enforces
 
 When refactoring, preserve the real current behavior first. Improve behavior in a separate change with tests and doc updates.
@@ -172,9 +179,11 @@ At minimum, keep coverage for these cases:
 - conservative behavior for collection mode `if2plus`
 - folder-structure grouping
 - edition insertion before extension
+- deprecated `{ext}` tokens are stripped, the rendered stem is trimmed, and the real extension is appended internally
 - apply-time rename creates parent directories
 - apply-time rename fails on missing source
 - destination computation preserves existing grouping under library roots
+- apply-time video rename discovers and moves matching subtitles even when the frontend apply payload contains only the video operation
 
 ### `subtitle.rs`
 
@@ -184,10 +193,12 @@ At minimum, keep coverage for these cases:
 - basic subtitle rename generation
 - movie SDH/forced normalization behavior
 - convert operation backup/output behavior
+- rename/move operations create missing target parent directories
 
 ### Cross-module checks
 
 - preview/apply parity for representative movie and TV examples
+- frontend apply payloads may include subtitle operations, but backend apply must remain correct if they are absent
 - rollback log compatibility for `undo_last_rename()`
 - path mapping resolution for exact and hostname-only server IDs
 - post-apply and post-undo Plex path refresh targeting for movies and TV
@@ -250,6 +261,7 @@ These are known remaining gaps. They are not blockers for starting the refactor,
 
 - cleanup behavior at mapped-root boundaries and maximum upward walk depth
 - mixed batches where path-mapped relative targets, subtitle operations, and partial failures happen together
+- mixed batches where frontend omits subtitle operations and backend discovers them during apply
 - stronger conflict-policy coverage once overwrite/skip/suffix behavior is made explicit in the video path
 
 ### Consolidation follow-up

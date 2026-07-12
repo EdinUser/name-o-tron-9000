@@ -11,8 +11,6 @@ const TEMPLATE_FIELDS: TemplateField[] = [
   // Basic fields available in both movies and episodes
   { name: "title", description: "The main title of the movie/episode", example: "Inception", availableIn: "both" },
   { name: "year", description: "Release year (movies) or air year (episodes)", example: "2010", availableIn: "both" },
-  { name: "ext", description: "File extension (e.g., .mkv, .mp4)", example: ".mkv", availableIn: "both" },
-
   // Movie-specific fields
   { name: "edition", description: "Edition name (processed based on settings - use actual Plex tokens like {edition-extended})", example: "{edition-extended}", availableIn: "movies" },
   { name: "editionToken", description: "The raw Plex edition token (e.g., '{edition-extended}')", example: "{edition-extended}", availableIn: "movies" },
@@ -138,7 +136,7 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
           <div className="space-y-2 text-sm mb-4">
             <div className="bg-neutral-800 rounded p-2">
               <span className="text-neutral-400">Optional Year:</span>{" "}
-              <code className="text-cyan-400">{"{title}[ ({year})]{ext}"}</code>
+              <code className="text-cyan-400">{"{title}[ ({year})]"}</code>
               <div className="text-neutral-300 ml-2 mt-1">
                 → Inception (2010).mkv <span className="text-neutral-400">(with year)</span><br/>
                 → Inception.mkv <span className="text-neutral-400">(without year)</span>
@@ -146,7 +144,7 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
             </div>
             <div className="bg-neutral-800 rounded p-2">
               <span className="text-neutral-400">Nested Optional:</span>{" "}
-              <code className="text-cyan-400">{"{title}[ ({year}[ - {edition}])]{ext}"}</code>
+              <code className="text-cyan-400">{"{title}[ ({year}[ - {edition}])]"}</code>
               <div className="text-neutral-300 ml-2 mt-1">
                 → Inception (2010 - Extended).mkv <span className="text-neutral-400">(all present)</span><br/>
                 → Inception (2010).mkv <span className="text-neutral-400">(year only)</span><br/>
@@ -161,22 +159,22 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
               <>
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">Movies:</span>{" "}
-                  <code className="text-cyan-400">{"{title}[ ({year})]{ext}"}</code>
+                  <code className="text-cyan-400">{"{title}[ ({year})]"}</code>
                   <span className="text-neutral-300 ml-2">→ Inception (2010).mkv</span>
                 </div>
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">With Edition:</span>{" "}
-                  <code className="text-cyan-400">{"{title}[ ({year})]{edition}{ext}"}</code>
+                  <code className="text-cyan-400">{"{title}[ ({year})]{edition}"}</code>
                   <span className="text-neutral-300 ml-2">→ Inception (2010) Extended.mkv</span>
                 </div>
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">With Collection:</span>{" "}
-                  <code className="text-cyan-400">{"{title}[ ({year})][ ({collection})]{ext}"}</code>
+                  <code className="text-cyan-400">{"{title}[ ({year})][ ({collection})]"}</code>
                   <span className="text-neutral-300 ml-2">→ Inception (2010) (Trilogy).mkv</span>
                 </div>
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">With Plex IDs:</span>{" "}
-                  <code className="text-cyan-400">{"{title}[ ({year})][ {plexIds}]{ext}"}</code>
+                  <code className="text-cyan-400">{"{title}[ ({year})][ {plexIds}]"}</code>
                   <span className="text-neutral-300 ml-2">{"→ Inception (2010) {imdb-tt1375666}.mkv"}</span>
                 </div>
               </>
@@ -185,17 +183,17 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
               <>
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">Episodes:</span>{" "}
-                  <code className="text-cyan-400">{"{showTitle} - S{season:02}E{episode:02} - {title}{ext}"}</code>
+                  <code className="text-cyan-400">{"{showTitle} - S{season:02}E{episode:02} - {title}"}</code>
                   <span className="text-neutral-300 ml-2">→ Breaking Bad - S05E12 - Rabid Dog.mkv</span>
                 </div>
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">Auto-normalized Multi-Episode:</span>{" "}
-                  <code className="text-cyan-400">{"{showTitle} - S{season:02}E{episode:02} - {title}{ext}"}</code>
+                  <code className="text-cyan-400">{"{showTitle} - S{season:02}E{episode:02} - {title}"}</code>
                   <span className="text-neutral-300 ml-2">→ Abyssal Gate - S01E03-E04 - The Divide - No Return.mkv</span>
                 </div>
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">With Year:</span>{" "}
-                  <code className="text-cyan-400">{"{showTitle} - S{season:02}E{episode:02}[ ({year})] - {title}{ext}"}</code>
+                  <code className="text-cyan-400">{"{showTitle} - S{season:02}E{episode:02}[ ({year})] - {title}"}</code>
                   <span className="text-neutral-300 ml-2">→ Breaking Bad - S05E12 (2013) - Rabid Dog.mkv</span>
                 </div>
               </>
@@ -204,17 +202,17 @@ export default function TemplateHelpModal({ libraryType, onClose }: Props) {
               <>
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">Music:</span>{" "}
-                  <code className="text-cyan-400">{"{artist}/{album}/{trackNumber:02} - {track}{ext}"}</code>
+                  <code className="text-cyan-400">{"{artist}/{album}/{trackNumber:02} - {track}"}</code>
                   <span className="text-neutral-300 ml-2">→ The Beatles/Abbey Road/01 - Come Together.mp3</span>
                 </div>
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">Simple:</span>{" "}
-                  <code className="text-cyan-400">{"{trackNumber:02} - {track}{ext}"}</code>
+                  <code className="text-cyan-400">{"{trackNumber:02} - {track}"}</code>
                   <span className="text-neutral-300 ml-2">→ 01 - Come Together.mp3</span>
                 </div>
                 <div className="bg-neutral-800 rounded p-2">
                   <span className="text-neutral-400">With Disc:</span>{" "}
-                  <code className="text-cyan-400">{"{artist}/{album}[/Disc {disc}]/{trackNumber:02} - {track}{ext}"}</code>
+                  <code className="text-cyan-400">{"{artist}/{album}[/Disc {disc}]/{trackNumber:02} - {track}"}</code>
                   <span className="text-neutral-300 ml-2">→ The Beatles/Abbey Road/Disc 2/01 - Come Together.mp3</span>
                 </div>
               </>

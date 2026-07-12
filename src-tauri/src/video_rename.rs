@@ -20,13 +20,11 @@ mod types;
 #[cfg(test)]
 use apply::apply_single_video_operation;
 use apply::{
-    apply_mixed_operations_with_log_path, cleanup_empty_folders_with_mappings,
-    resolve_video_operations_for_apply,
+    add_missing_subtitle_operations, apply_mixed_operations_with_log_path,
+    cleanup_empty_folders_with_mappings, resolve_video_operations_for_apply,
 };
 use common::{basename, extname, normalize_unicode};
-use destinations::compute_movie_destinations_impl;
-#[cfg(test)]
-use destinations::compute_relative_dirs;
+use destinations::{compute_movie_destinations_impl, compute_relative_dirs};
 use editions::detect_edition_from_path;
 use episodes::compute_episode_proposal;
 use movies::compute_movie_proposal;
@@ -34,7 +32,9 @@ use organize::{
     apply_chronological_prefix, format_collection_folder_name, get_organized_path, safe_folder_name,
 };
 use sanitize::sanitize_and_validate_path;
-use template::{render_template, TemplateContext};
+use template::{
+    finalize_rendered_stem, render_template, strip_deprecated_ext_token, TemplateContext,
+};
 pub use types::{
     CleanupEmptyFoldersRequest, CleanupEmptyFoldersResult, EpisodeItem, MovieDestinationItem,
     MovieDestinationRequest, MovieDestinationResponseItem, MovieItem, MusicItem,
@@ -605,16 +605,17 @@ pub async fn preview_video_renames(
     let movie_template: String = templates_opt
         .and_then(|t| t.get("movie"))
         .and_then(|v| v.as_str())
-        .unwrap_or("{title}[ ({year})]{ext}")
+        .unwrap_or("{title}[ ({year})]")
         .to_string();
     let episode_template: String = templates_opt
         .and_then(|t| t.get("episode"))
         .and_then(|v| v.as_str())
-        .unwrap_or("{showTitle} - S{season:02}E{episode:02} - {title}{ext}")
+        .unwrap_or("{showTitle} - S{season:02}E{episode:02} - {title}")
         .to_string();
 
     // Process each file in the scope
     for file_path in &request.scope {
+        let mut movie_subtitle_folder_name: Option<String> = None;
         // Heuristic: determine library type from path segments
         let lowercase = file_path.to_lowercase();
         let looks_tv = lowercase.contains("/season ")
@@ -648,8 +649,47 @@ pub async fn preview_video_renames(
                 tvdb_id: None,
             };
 
+            let local_roots: Vec<String> = mappings
+                .iter()
+                .map(|mapping| mapping.local_root.clone())
+                .collect();
+            let relative_dirs = compute_relative_dirs(file_path, &local_roots);
+            let own_folder_per_movie = movie_settings
+                .get("ownFolderPerMovie")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            let own_folder_within_shared_folder = movie_settings
+                .get("ownFolderWithinSharedFolder")
+                .and_then(|v| v.as_str())
+                .unwrap_or("add_movie_folder");
+            let file_stem = Path::new(file_path)
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            let has_dedicated_leaf_folder = relative_dirs
+                .last()
+                .map(|leaf| {
+                    let normalized_leaf = safe_folder_name(leaf).to_lowercase();
+                    normalized_leaf == safe_folder_name(&movie.title).to_lowercase()
+                        || normalized_leaf == safe_folder_name(&file_stem).to_lowercase()
+                })
+                .unwrap_or(false);
+
+            if own_folder_per_movie
+                && own_folder_within_shared_folder == "add_movie_folder"
+                && !has_dedicated_leaf_folder
+            {
+                movie_subtitle_folder_name = Some(safe_folder_name(&movie.title));
+            }
+
             // Try to compute a movie proposal, but do not abort subtitle processing on failure
-            if let Ok(movie_op) = compute_movie_proposal(&movie, &movie_template, movie_settings) {
+            if let Ok(movie_op) = compute_movie_proposal(
+                &movie,
+                &movie_template,
+                movie_settings,
+                Some(&relative_dirs),
+            ) {
                 // Convert to shared RenameOperation
                 let operation = RenameOperation {
                     operation_type: movie_op.operation_type,
@@ -810,8 +850,21 @@ pub async fn preview_video_renames(
                 crate::subtitle::SubtitleClassification::Unknown => new_basename,
             };
 
-            let new_path = Path::new(&subtitle.original_path)
-                .with_file_name(format!("{}.{}", new_filename, current_extension))
+            let subtitle_target_parent =
+                if let Some(folder_name) = movie_subtitle_folder_name.as_ref() {
+                    Path::new(&subtitle.original_path)
+                        .parent()
+                        .unwrap_or_else(|| Path::new(&subtitle.original_path))
+                        .join(folder_name)
+                } else {
+                    Path::new(&subtitle.original_path)
+                        .parent()
+                        .unwrap_or_else(|| Path::new(&subtitle.original_path))
+                        .to_path_buf()
+                };
+
+            let new_path = subtitle_target_parent
+                .join(format!("{}.{}", new_filename, current_extension))
                 .to_string_lossy()
                 .to_string();
 
@@ -872,6 +925,7 @@ pub async fn apply_video_renames(
                 msg
             })?;
 
+    let operations = add_missing_subtitle_operations(&operations);
     let log_path = crate::subtitle::rollback_log_path();
 
     apply_mixed_operations_with_log_path(&operations, &log_path)
@@ -884,6 +938,7 @@ pub fn apply_operations_with_mappings_to_log_path(
     log_path: &Path,
 ) -> Result<ApplyResult, String> {
     let operations = resolve_video_operations_for_apply(operations, mappings, server_id)?;
+    let operations = add_missing_subtitle_operations(&operations);
     apply_mixed_operations_with_log_path(&operations, log_path)
 }
 

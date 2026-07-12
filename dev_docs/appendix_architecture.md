@@ -188,8 +188,8 @@ src-tauri/src/
     }
   },
   "templates": {
-    "movie": "{title}[ ({year})]{ext}",
-    "tv": "{showTitle} - S{season:02}E{episode:02} - {title}{ext}"
+    "movie": "{title}[ ({year})]",
+    "tv": "{showTitle} - S{season:02}E{episode:02} - {title}"
   }
 }
 ```

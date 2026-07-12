@@ -52,6 +52,11 @@ These are worth cleaning up, but they are not the same as a failing suite:
 - Prefer narrow tests for parsing, status logic, and state transforms.
 - Add integration-style tests when a change spans page state and backend payloads.
 - For rename behavior, cover both frontend proposal generation and Rust apply-time behavior when the rule crosses the boundary.
+- For template changes, include a regression where a legacy `{ext}` token is present. The expected behavior is that `{ext}` is ignored, the rendered stem is trimmed, and the original real extension is appended internally.
+- For movie-folder changes, include subtitle cases. At minimum, cover a movie moved into a new child folder with a matching `.eng.srt` beside the source video.
+- For subtitle apply behavior, cover both paths:
+- frontend integration that proves explicit subtitle operations can be sent in `apply_video_renames`
+- Rust apply-time coverage where the frontend sends only the video operation and the backend discovers/moves the matching subtitle itself
 - For Plex rename reconciliation, cover three levels when possible:
 - pure helper tests for path-target selection
 - frontend integration tests that assert the correct `plex_refresh_library_section_with_path` calls after apply or undo

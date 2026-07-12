@@ -1,8 +1,10 @@
 use super::{
     apply_chronological_prefix, basename, detect_edition_from_path, extname,
-    format_collection_folder_name, get_organized_path, normalize_unicode, render_template,
-    safe_folder_name, sanitize_and_validate_path, MovieItem, RenameOperation, TemplateContext,
+    finalize_rendered_stem, format_collection_folder_name, get_organized_path, normalize_unicode,
+    render_template, safe_folder_name, sanitize_and_validate_path, strip_deprecated_ext_token,
+    MovieItem, RenameOperation, TemplateContext,
 };
+use std::path::Path;
 
 fn format_plex_id_token(provider: &str, id: Option<&str>) -> String {
     match id {
@@ -15,6 +17,7 @@ pub(super) fn compute_movie_proposal(
     movie: &MovieItem,
     template: &str,
     settings: &serde_json::Value,
+    current_relative_dirs: Option<&[String]>,
 ) -> Result<RenameOperation, String> {
     let mut context = TemplateContext::new();
     let ext = extname(&movie.file);
@@ -52,8 +55,6 @@ pub(super) fn compute_movie_proposal(
         "thetvdb".to_string(),
         movie.tvdb_id.clone().unwrap_or_default(),
     );
-    context.insert("ext".to_string(), ext.clone());
-
     let mut processed_ids = Vec::new();
     if let Some(imdb) = &movie.imdb_id {
         processed_ids.push(format!("{{imdb-{}}}", imdb));
@@ -68,10 +69,10 @@ pub(super) fn compute_movie_proposal(
     context.insert("ids".to_string(), plex_ids.clone());
     context.insert("plexIds".to_string(), plex_ids);
 
-    let mut proposed = render_template(template, &context);
-    if !proposed.ends_with(&ext) {
-        proposed.push_str(&ext);
-    }
+    let mut proposed = finalize_rendered_stem(&render_template(
+        &strip_deprecated_ext_token(template),
+        &context,
+    ));
 
     let edition_display = detect_edition_from_path(&movie.file)
         .map(|(_, title)| title)
@@ -88,20 +89,36 @@ pub(super) fn compute_movie_proposal(
             } else {
                 format!(" {}", edition_display)
             };
-            if let Some(dot_pos) = proposed.rfind(&ext) {
-                proposed = format!(
-                    "{}{}{}",
-                    &proposed[..dot_pos],
-                    injection,
-                    &proposed[dot_pos..]
-                );
-            } else {
-                proposed.push_str(&injection);
-            }
+            proposed = finalize_rendered_stem(&format!("{}{}", proposed, injection));
         }
     }
 
+    proposed.push_str(&ext);
+
     let movie_settings = settings.get("movies").ok_or("Missing movie settings")?;
+
+    let own_folder_per_movie = movie_settings
+        .get("ownFolderPerMovie")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let own_folder_within_shared_folder = movie_settings
+        .get("ownFolderWithinSharedFolder")
+        .and_then(|v| v.as_str())
+        .unwrap_or("add_movie_folder");
+    let current_dirs = current_relative_dirs.unwrap_or(&[]);
+    let file_stem = Path::new(&movie.file)
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    let has_dedicated_leaf_folder = current_dirs
+        .last()
+        .map(|leaf| {
+            let normalized_leaf = safe_folder_name(leaf).to_lowercase();
+            normalized_leaf == safe_folder_name(&movie.title).to_lowercase()
+                || normalized_leaf == safe_folder_name(&file_stem).to_lowercase()
+        })
+        .unwrap_or(false);
 
     let collections_enabled = movie_settings
         .get("collections")
@@ -141,12 +158,17 @@ pub(super) fn compute_movie_proposal(
 
     match folder_structure {
         "none" => {
-            let own_folder_per_movie = movie_settings
-                .get("ownFolderPerMovie")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
-
-            if own_folder_per_movie && !proposed.contains('/') {
+            if !current_dirs.is_empty() {
+                let mut segments = current_dirs.to_vec();
+                if own_folder_per_movie
+                    && own_folder_within_shared_folder == "add_movie_folder"
+                    && !has_dedicated_leaf_folder
+                {
+                    segments.push(safe_folder_name(&movie.title));
+                }
+                segments.push(proposed);
+                proposed = segments.join("/");
+            } else if own_folder_per_movie && !proposed.contains('/') {
                 let folder_name = safe_folder_name(&movie.title);
                 proposed = format!("{}/{}", folder_name, proposed);
             }
@@ -175,11 +197,6 @@ pub(super) fn compute_movie_proposal(
 
                 proposed = format!("{}/{}", prefixed_path, proposed);
             } else {
-                let own_folder_per_movie = movie_settings
-                    .get("ownFolderPerMovie")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(true);
-
                 if own_folder_per_movie && !proposed.contains('/') {
                     let folder_name = safe_folder_name(&movie.title);
                     proposed = format!("{}/{}", folder_name, proposed);
@@ -187,11 +204,6 @@ pub(super) fn compute_movie_proposal(
             }
         }
         _ => {
-            let own_folder_per_movie = movie_settings
-                .get("ownFolderPerMovie")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
-
             if own_folder_per_movie && !proposed.contains('/') {
                 let folder_name = safe_folder_name(&movie.title);
                 proposed = format!("{}/{}", folder_name, proposed);

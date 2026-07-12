@@ -61,6 +61,7 @@ export type MovieSettings = {
   alphaArticleHandling: "ignore" | "include";
   folderStructureBehavior: "preserve_existing" | "reorganize_all" | "intelligent";
   ownFolderPerMovie: boolean;
+  ownFolderWithinSharedFolder: "add_movie_folder" | "keep_shared_folder";
   editions: {
     mode: "preserve" | "expand" | "both" | "none";
     createFromFilenames: boolean;
@@ -114,21 +115,21 @@ export type MiscSettings = {
 
 export type TemplateSettings = {
   /**
-   * Template for Movie path (relative). Use placeholders like {title}, {year}, {ext}.
-   * Example: "{title}[ ({year})]{ext}" or "{title}[ ({year})]/{title}[ ({year})]{ext}"
+   * Template for Movie path stem (relative). The real file extension is preserved automatically.
+   * Example: "{title}[ ({year})]" or "{title}[ ({year})]/{title}[ ({year})]"
    */
   movie: string;
   /**
    * Template for Episode path (relative).
-   * Supported placeholders include {showTitle}, {season}, {episode}, {title}, {ext}.
+   * Supported placeholders include {showTitle}, {season}, {episode}, {title}.
    * Multi-episode files are automatically normalized to Plex-style E01-E02 output.
-   * Example: "{showTitle} - S{season:02}E{episode:02} - {title}{ext}"
+   * Example: "{showTitle} - S{season:02}E{episode:02} - {title}"
    */
   episode: string;
   /**
    * Template for Music track path (relative).
-   * Supported placeholders include {artist}, {album}, {track}, {trackNumber}, {disc}, {ext}.
-   * Example: "{artist}/{album}/{trackNumber:02} - {track}{ext}"
+   * Supported placeholders include {artist}, {album}, {track}, {trackNumber}, {disc}.
+   * Example: "{artist}/{album}/{trackNumber:02} - {track}"
    */
   music: string;
 };
@@ -209,6 +210,7 @@ const defaultSettings: Settings = {
     alphaArticleHandling: "ignore",
     folderStructureBehavior: "intelligent",
     ownFolderPerMovie: true,
+    ownFolderWithinSharedFolder: "add_movie_folder",
     editions: {
       mode: "preserve",
       createFromFilenames: true,
@@ -282,9 +284,9 @@ const defaultSettings: Settings = {
     },
   },
   templates: {
-    movie: "{title}[ ({year})]{ext}",
-    episode: "{showTitle} - S{season:02}E{episode:02} - {title}{ext}",
-    music: "{artist}/{album}/{trackNumber:02} - {track}{ext}",
+    movie: "{title}[ ({year})]",
+    episode: "{showTitle} - S{season:02}E{episode:02} - {title}",
+    music: "{artist}/{album}/{trackNumber:02} - {track}",
   },
   templateHistory: {},
   templateFavorites: {},
@@ -338,6 +340,50 @@ export function cleanupOldManualFixes(settings: Settings): Settings {
   };
 }
 
+function normalizeTemplateValue(template: string): string {
+  return String(template || "")
+    .replace(/\{ext\}/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function normalizeTemplateBuckets(
+  buckets: Record<string, Record<string, string[]>> | undefined,
+): Record<string, Record<string, string[]>> {
+  if (!buckets) return {};
+
+  return Object.fromEntries(
+    Object.entries(buckets).map(([serverId, libraries]) => [
+      serverId,
+      Object.fromEntries(
+        Object.entries(libraries || {}).map(([libraryId, entries]) => [
+          libraryId,
+          Array.from(
+            new Set(
+              (entries || [])
+                .map(normalizeTemplateValue)
+                .filter(Boolean),
+            ),
+          ),
+        ]),
+      ),
+    ]),
+  );
+}
+
+function normalizeSettingsTemplates(settings: Settings): Settings {
+  return {
+    ...settings,
+    templates: {
+      movie: normalizeTemplateValue(settings.templates.movie),
+      episode: normalizeTemplateValue(settings.templates.episode),
+      music: normalizeTemplateValue(settings.templates.music),
+    },
+    templateHistory: normalizeTemplateBuckets(settings.templateHistory),
+    templateFavorites: normalizeTemplateBuckets(settings.templateFavorites),
+  };
+}
+
 export function getTemplateHistoryEntries(
   settings: Settings,
   serverId: string,
@@ -360,7 +406,7 @@ export function addTemplateHistoryEntry(
   libraryId: string,
   template: string,
 ): Settings {
-  const normalized = template.trim();
+  const normalized = normalizeTemplateValue(template);
   if (!normalized) {
     return settings;
   }
@@ -398,7 +444,7 @@ export function addTemplateFavoriteEntry(
   libraryId: string,
   template: string,
 ): Settings {
-  const normalized = template.trim();
+  const normalized = normalizeTemplateValue(template);
   if (!normalized) {
     return settings;
   }
@@ -436,9 +482,10 @@ export function removeTemplateFavoriteEntry(
   libraryId: string,
   template: string,
 ): Settings {
+  const normalized = normalizeTemplateValue(template);
   const existingServerFavorites = settings.templateFavorites?.[serverId] || {};
   const existingEntries = existingServerFavorites[libraryId] || [];
-  const nextEntries = existingEntries.filter((entry) => entry !== template);
+  const nextEntries = existingEntries.filter((entry) => entry !== normalized);
 
   if (nextEntries.length === existingEntries.length) {
     return settings;
@@ -471,7 +518,7 @@ export function loadSettings(): Settings {
     }
 
     const parsed = JSON.parse(raw);
-    const merged = deepMerge(defaultSettings, parsed);
+    const merged = normalizeSettingsTemplates(deepMerge(defaultSettings, parsed));
     debugSettings("Loaded settings from localStorage:", merged);
     return merged;
   } catch (error) {
@@ -481,10 +528,11 @@ export function loadSettings(): Settings {
 }
 
 export function saveSettings(s: Settings) {
-  debugSettings("Saving settings:", s);
+  const normalizedSettings = normalizeSettingsTemplates(s);
+  debugSettings("Saving settings:", normalizedSettings);
   // Keep local cache for synchronous reads in UI flows
   try {
-    localStorage.setItem(KEY, JSON.stringify(s));
+    localStorage.setItem(KEY, JSON.stringify(normalizedSettings));
     debugSettings("Settings saved to localStorage");
   } catch (error) {
     console.error("Failed to save settings to localStorage:", error);
@@ -495,7 +543,7 @@ export function saveSettings(s: Settings) {
   }
   void import("@tauri-apps/api/core").then(async ({ invoke }) => {
     try {
-      await invoke("save_settings", { settings: { ui: s } });
+      await invoke("save_settings", { settings: { ui: normalizedSettings } });
       debugSettings("Settings saved to Tauri backend");
     } catch (error) {
       console.error("Failed to save settings to Tauri backend:", error);

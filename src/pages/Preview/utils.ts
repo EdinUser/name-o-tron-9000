@@ -128,6 +128,16 @@ export function safeFolderName(name: string) {
     return name.replace(/[\\/:*?"<>|]/g, "_");
 }
 
+export function stripDeprecatedExtTokenFromTemplate(template: string) {
+    return String(template || "").replace(/\{ext\}/g, "");
+}
+
+export function finalizeRenderedStem(stem: string) {
+    return String(stem || "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+}
+
 // Apply collection naming style from settings
 export function formatCollectionFolderName(rawName: string, settings: any): string {
     const style = settings.movies?.collections?.naming || "original";

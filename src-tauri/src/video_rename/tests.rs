@@ -307,7 +307,7 @@ fn movie_own_folder_setting_changes_output_path() {
     let mut with_folder = base_settings.clone();
     with_folder["movies"]["ownFolderPerMovie"] = json!(true);
 
-    let op_with_folder = compute_movie_proposal(&movie, "{title}{ext}", &with_folder)
+    let op_with_folder = compute_movie_proposal(&movie, "{title}{ext}", &with_folder, None)
         .expect("movie proposal with own folder");
 
     assert!(op_with_folder.new_path.starts_with("Inception_"));
@@ -315,7 +315,7 @@ fn movie_own_folder_setting_changes_output_path() {
     let mut without_folder = base_settings.clone();
     without_folder["movies"]["ownFolderPerMovie"] = json!(false);
 
-    let op_without_folder = compute_movie_proposal(&movie, "{title}{ext}", &without_folder)
+    let op_without_folder = compute_movie_proposal(&movie, "{title}{ext}", &without_folder, None)
         .expect("movie proposal without own folder");
 
     assert_eq!(op_without_folder.new_path, "Inception.mkv");
@@ -359,7 +359,7 @@ fn movie_collections_setting_adds_collection_folder() {
         }
     });
 
-    let op = compute_movie_proposal(&movie, "{title}{ext}", &settings)
+    let op = compute_movie_proposal(&movie, "{title}{ext}", &settings, None)
         .expect("movie proposal with collection folder");
 
     assert!(op.new_path.starts_with("Nolan Collection_"));
@@ -404,7 +404,7 @@ fn movie_collections_if2plus_currently_excludes_collection_folder() {
         }
     });
 
-    let op = compute_movie_proposal(&movie, "{title}{ext}", &settings)
+    let op = compute_movie_proposal(&movie, "{title}{ext}", &settings, None)
         .expect("movie proposal without collection folder for if2plus mode");
 
     assert!(!op.new_path.starts_with("Nolan Collection_"));
@@ -443,7 +443,7 @@ fn movie_folder_structure_alpha_groups_by_initial_letter() {
         }
     });
 
-    let op = compute_movie_proposal(&movie, "{title}{ext}", &settings)
+    let op = compute_movie_proposal(&movie, "{title}{ext}", &settings, None)
         .expect("movie proposal with alpha folder structure");
 
     assert!(op.new_path.starts_with("A_"));
@@ -483,7 +483,7 @@ fn movie_folder_structure_year_decade_groups_by_decade() {
         }
     });
 
-    let op = compute_movie_proposal(&movie, "{title}{ext}", &settings)
+    let op = compute_movie_proposal(&movie, "{title}{ext}", &settings, None)
         .expect("movie proposal with year_decade folder structure");
 
     assert!(op.new_path.starts_with("2000-2009_"));
@@ -523,7 +523,7 @@ fn movie_edition_tokens_are_injected_before_extension() {
         }
     });
 
-    let op = compute_movie_proposal(&movie, "{title}[ ({year})]{ext}", &settings)
+    let op = compute_movie_proposal(&movie, "{title}[ ({year})]{ext}", &settings, None)
         .expect("movie proposal with edition token");
 
     assert_eq!(op.new_path, "Blade Runner (1982) IMAX Edition.mkv");
@@ -562,7 +562,7 @@ fn movie_template_imdb_token_renders_as_plex_tag() {
         }
     });
 
-    let op = compute_movie_proposal(&movie, "{title} {imdbToken}{ext}", &settings)
+    let op = compute_movie_proposal(&movie, "{title} {imdbToken}{ext}", &settings, None)
         .expect("movie proposal with imdb token");
 
     assert_eq!(op.new_path, "Interstellar {imdb-tt0816692}.mkv");
@@ -601,10 +601,127 @@ fn movie_template_plex_ids_renders_available_provider_tags() {
         }
     });
 
-    let op = compute_movie_proposal(&movie, "{title}[ {plexIds}]{ext}", &settings)
+    let op = compute_movie_proposal(&movie, "{title}[ {plexIds}]{ext}", &settings, None)
         .expect("movie proposal with plex ids");
 
     assert_eq!(op.new_path, "Dune {imdb-tt1160419} {tmdb-438631}.mkv");
+}
+
+#[test]
+fn movie_template_ignores_deprecated_ext_token_and_trims_stem() {
+    let movie = MovieItem {
+        rating_key: "m8b".to_string(),
+        title: "One Piece 3D- Straw Hat Chase".to_string(),
+        year: Some(2011),
+        file: "One Piece 3D- Straw Hat Chase (2011) .mkv".to_string(),
+        genre: vec![],
+        collection: None,
+        edition_title: None,
+        guids: vec![],
+        imdb_id: None,
+        tmdb_id: None,
+        tvdb_id: None,
+    };
+
+    let settings = json!({
+        "movies": {
+            "folderStructure": "none",
+            "ownFolderPerMovie": false
+        },
+        "general": {
+            "safety": {
+                "pathLengthCheck": true,
+                "reservedNamesCheck": true,
+                "permissionsCheck": true
+            },
+            "encoding": {
+                "highlightNonLatin": false
+            }
+        }
+    });
+
+    let op = compute_movie_proposal(&movie, "{title}[ ({year})] {ext} ", &settings, None)
+        .expect("movie proposal trims stem before appending real extension");
+
+    assert_eq!(op.new_path, "One Piece 3D- Straw Hat Chase (2011).mkv");
+}
+
+#[test]
+fn movie_proposal_respects_shared_folder_setting_in_backend_preview_path() {
+    let movie = MovieItem {
+        rating_key: "m9".to_string(),
+        title: "One Piece Film Z".to_string(),
+        year: Some(2012),
+        file: "/media/Movies/J-R/One Piece/One Piece Film Z (2012).mkv".to_string(),
+        genre: vec![],
+        collection: None,
+        edition_title: None,
+        guids: vec![],
+        imdb_id: None,
+        tmdb_id: None,
+        tvdb_id: None,
+    };
+
+    let add_settings = json!({
+        "movies": {
+            "folderStructure": "none",
+            "ownFolderPerMovie": true,
+            "ownFolderWithinSharedFolder": "add_movie_folder"
+        },
+        "general": {
+            "safety": {
+                "pathLengthCheck": true,
+                "reservedNamesCheck": true,
+                "permissionsCheck": true
+            },
+            "encoding": {
+                "highlightNonLatin": false
+            }
+        }
+    });
+
+    let keep_settings = json!({
+        "movies": {
+            "folderStructure": "none",
+            "ownFolderPerMovie": true,
+            "ownFolderWithinSharedFolder": "keep_shared_folder"
+        },
+        "general": {
+            "safety": {
+                "pathLengthCheck": true,
+                "reservedNamesCheck": true,
+                "permissionsCheck": true
+            },
+            "encoding": {
+                "highlightNonLatin": false
+            }
+        }
+    });
+
+    let relative_dirs = vec!["J-R".to_string(), "One Piece".to_string()];
+    let add_op = compute_movie_proposal(
+        &movie,
+        "{title}[ ({year})]{ext}",
+        &add_settings,
+        Some(&relative_dirs),
+    )
+    .expect("backend preview movie proposal with nested folder");
+    let keep_op = compute_movie_proposal(
+        &movie,
+        "{title}[ ({year})]{ext}",
+        &keep_settings,
+        Some(&relative_dirs),
+    )
+    .expect("backend preview movie proposal keeping shared folder");
+
+    assert_eq!(
+        add_op.new_path,
+        "J-R_One Piece_One Piece Film Z_One Piece Film Z (2012).mkv"
+    );
+    assert_eq!(
+        keep_op.new_path,
+        "J-R_One Piece_One Piece Film Z (2012).mkv"
+    );
 }
 
 #[test]
@@ -619,7 +736,8 @@ fn compute_relative_dirs_preserves_grouping_under_library_root() {
 fn compute_movie_destinations_respects_existing_grouping_and_own_folder() {
     let settings = json!({
         "movies": {
-            "ownFolderPerMovie": true
+            "ownFolderPerMovie": true,
+            "ownFolderWithinSharedFolder": "add_movie_folder"
         }
     });
 
@@ -651,7 +769,35 @@ fn compute_movie_destinations_respects_existing_grouping_and_own_folder() {
     };
     let resp2 = compute_movie_destinations(req2).expect("destinations");
     assert_eq!(resp2.len(), 1);
-    assert_eq!(resp2[0].proposed, "A-D/Nolan/Inception (2010).mkv");
+    assert_eq!(
+        resp2[0].proposed,
+        "A-D/Nolan/Inception/Inception (2010).mkv"
+    );
+}
+
+#[test]
+fn compute_movie_destinations_can_keep_existing_shared_folder_as_final_folder() {
+    let settings = json!({
+        "movies": {
+            "ownFolderPerMovie": true,
+            "ownFolderWithinSharedFolder": "keep_shared_folder"
+        }
+    });
+
+    let req = MovieDestinationRequest {
+        settings,
+        library_roots: vec!["/media/Movies".to_string()],
+        items: vec![MovieDestinationItem {
+            rating_key: "rk2".to_string(),
+            original_path: "/media/Movies/A-D/Nolan/Inception (2010).mkv".to_string(),
+            base_name: "Inception (2010).mkv".to_string(),
+            title: "Inception".to_string(),
+            year: Some(2010),
+        }],
+    };
+    let resp = compute_movie_destinations(req).expect("destinations");
+    assert_eq!(resp.len(), 1);
+    assert_eq!(resp[0].proposed, "A-D/Nolan/Inception (2010).mkv");
 }
 
 #[test]
@@ -857,6 +1003,52 @@ fn cleanup_empty_folders_removes_empty_directories_but_keeps_non_empty_ones() {
         .any(|p| Path::new(p).ends_with(Path::new("B").join("Keep"))));
     assert!(non_empty_dir.exists(), "non-empty directory should remain");
     assert!(!empty_dir.exists(), "empty directory should be removed");
+}
+
+#[test]
+fn apply_video_rename_discovers_and_moves_matching_subtitles_when_frontend_omits_them() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let library_root = dir.path().join("library");
+    std::fs::create_dir_all(&library_root).expect("create library root");
+
+    let video_source = library_root.join("One Piece Film Red (2022).mkv");
+    let subtitle_source = library_root.join("One Piece Film Red (2022).eng.srt");
+    let video_target = library_root
+        .join("One Piece Film Red")
+        .join("One Piece Film Red (2022).mkv");
+    let subtitle_target = library_root
+        .join("One Piece Film Red")
+        .join("One Piece Film Red (2022).eng.srt");
+    let log_path = dir.path().join("rollback.json");
+
+    std::fs::write(&video_source, b"video-bytes").expect("write video");
+    std::fs::write(&subtitle_source, b"subtitle-bytes").expect("write subtitle");
+
+    let mappings = vec![crate::path_map::PathMapping {
+        server_id: "server1".to_string(),
+        plex_root: "/plex/Movies".to_string(),
+        local_root: library_root.to_string_lossy().to_string(),
+        platform: Some("linux".to_string()),
+    }];
+
+    let operations = vec![RenameOperation {
+        operation_type: "rename".to_string(),
+        original_path: "/plex/Movies/One Piece Film Red (2022).mkv".to_string(),
+        new_path: "One Piece Film Red/One Piece Film Red (2022).mkv".to_string(),
+        backup_path: None,
+        operation_id: "video_movie_1".to_string(),
+    }];
+
+    let result =
+        apply_operations_with_mappings_to_log_path(&operations, &mappings, "server1", &log_path)
+            .expect("apply should succeed");
+
+    assert!(result.success, "apply should succeed: {:?}", result.errors);
+    assert_eq!(result.operations_applied, 2);
+    assert!(!video_source.exists(), "video source should move");
+    assert!(!subtitle_source.exists(), "subtitle source should move");
+    assert!(video_target.exists(), "video target should exist");
+    assert!(subtitle_target.exists(), "subtitle target should exist");
 }
 
 #[test]

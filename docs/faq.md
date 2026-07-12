@@ -210,17 +210,15 @@ Yes! Each media type has customizable templates:
 
 **Template Help Available:** Click the "?" help buttons next to template fields to see all available placeholder tags and their usage examples.
 
-**Movie template example:** `{title}[ ({year})]{ext}`
+**Movie template example:** `{title}[ ({year})]`
 - `{title}` - Movie title
 - `{year}` - Release year (optional)
-- `{ext}` - File extension
-
-**TV template example:** `{showTitle} - S{season:02}E{episode:02} - {title}{ext}`
+**TV template example:** `{showTitle} - S{season:02}E{episode:02} - {title}`
 - `{showTitle}` - TV show name
 - `{season:02}` - Season number (zero-padded)
 - `{episode:02}` - Episode number (zero-padded); multi-episode files automatically normalize to Plex-style ranges such as `S01E01-E02`
 
-**Available Placeholders:** `{title}`, `{year}`, `{ext}`, `{showTitle}`, `{season}`, `{episode}`, `{grandparentTitle}`, `{parentTitle}`, `{imdbToken}`, `{tvdbToken}`, `{tmdbToken}`, `{plexIds}`, and more.
+**Available Placeholders:** `{title}`, `{year}`, `{showTitle}`, `{season}`, `{episode}`, `{grandparentTitle}`, `{parentTitle}`, `{imdbToken}`, `{tvdbToken}`, `{tmdbToken}`, `{plexIds}`, and more.
 
 **Advanced features:**
 - **Optional groups**: `[ ({year})]` omits if year unavailable

@@ -11,6 +11,20 @@ type PreviewResult = {
   subtitle_operations?: BackendSubtitleOp[];
 };
 
+function extractVideoBase(path: string | undefined): string {
+  if (!path) return "";
+  const fileName = path.split(/[\\/]/).pop() || "";
+  return fileName.replace(/\.[^.]+$/, "");
+}
+
+function normalizeSubtitleMatchBase(value: string): string {
+  return value
+    .replace(/[._]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 /**
  * Attach subtitle operations returned from the backend preview
  * to the corresponding preview rows. Matching is based on the
@@ -26,14 +40,22 @@ export function attachSubtitleOperations(
   if (!ops.length) return rows;
 
   rows.forEach((row) => {
-    const plexPath = row.plexPath || row.filePath;
-    const videoName = plexPath.split(/[\\/]/).pop() || "";
-    const videoBase = videoName.replace(/\.[^.]+$/, "");
+    const rawVideoBases = [extractVideoBase(row.filePath), extractVideoBase(row.plexPath)]
+      .filter(Boolean);
+    const videoBases = Array.from(new Set(rawVideoBases));
+    const normalizedVideoBases = videoBases.map(normalizeSubtitleMatchBase);
 
     const subtitleOps = ops.filter((op) => {
       const originalPath = op.original_path;
       const subName = originalPath.split(/[\\/]/).pop() || originalPath;
-      return subName.startsWith(videoBase);
+      if (videoBases.some((videoBase) => subName.startsWith(videoBase))) {
+        return true;
+      }
+
+      const normalizedSubtitleName = normalizeSubtitleMatchBase(subName);
+      return normalizedVideoBases.some(
+        (videoBase) => videoBase && normalizedSubtitleName.startsWith(videoBase),
+      );
     });
 
     if (!subtitleOps.length) {

@@ -86,7 +86,7 @@ This guide provides practical advice for getting the most out of Name-o-Tron 900
 - **Collection Organization**: Use "Always group into collections" for series like Marvel movies.
 - **Edition Detection**: The app automatically detects "Extended", "Director's Cut", "IMAX" from filenames.
 - **Multiple Versions**: Enable "Append version name" for 4K, HDR, or commentary versions.
-- **Individual Folders**: Enable "Put every movie in its own folder" for standard Plex organization.
+- **Individual Folders**: Enable "Create a separate folder for each movie" for standard Plex organization.
 
 ### TV Shows
 
@@ -201,7 +201,7 @@ This section covers advanced workflows for specific media types and complex setu
 1. **Enable Special Detection**: Settings > TV Shows > "Detect OVA/Specials → Season 00"
 2. **Season Folder Organization**: Keep "Organize into season folders" enabled
 3. **Multi-Episode Handling**: Enable "Normalize multi-episode files" so compact or dashed inputs normalize to `S01E01-E02`
-4. **Template Customization**: Use `{showTitle} - S{season:02}E{episode:02} - {title}{ext}`
+4. **Template Customization**: Use `{showTitle} - S{season:02}E{episode:02} - {title}`
 
 **Expected Results:**
 
@@ -255,11 +255,11 @@ Beethoven - Complete Symphonies/
 1. **Collection Organization**: Use "Always group into collections" for series
 2. **Edition Handling**: Enable all edition detection and expansion options
 3. **Version Management**: Enable "Append version name" for 4K/HDR variants
-4. **Individual Folders**: Enable "Put every movie in its own folder"
+4. **Individual Folders**: Enable "Create a separate folder for each movie"
 
 **Template Strategy:**
 ```
-{title}[ ({year})][ - {edition}][ ({collection})]{ext}
+{title}[ ({year})][ - {edition}][ ({collection})]
 ```
 
 **Results in:**
@@ -282,7 +282,7 @@ Beethoven - Complete Symphonies/
 [tips_template_preview.png]
 
 ```
-[{grandparentTitle}/]{parentTitle}/[{season:02}/]{showTitle} - S{season:02}E{episode:02} - {title}{ext}
+[{grandparentTitle}/]{parentTitle}/[{season:02}/]{showTitle} - S{season:02}E{episode:02} - {title}
 ```
 
 ### Mixed Plex/Jellyfin Libraries
@@ -379,10 +379,10 @@ Beethoven - Complete Symphonies/
 
 ### Template Customization
 - **Template Help Modals**: Use the "?" help buttons next to template fields to see all available placeholder tags and their usage.
-- **Movie Templates**: Start with `{title}[ ({year})]{ext}` and customize as needed.
-- **TV Templates**: Use `{showTitle} - S{season:02}E{episode:02} - {title}{ext}` for standard formatting.
+- **Movie Templates**: Start with `{title}[ ({year})]` and customize as needed. The real file extension is preserved automatically.
+- **TV Templates**: Use `{showTitle} - S{season:02}E{episode:02} - {title}` for standard formatting. The real file extension is preserved automatically.
 - **Optional Groups**: Use `[ ({year})]` to omit year when not available.
-- **Available Placeholders**: `{title}`, `{year}`, `{ext}`, `{showTitle}`, `{season}`, `{episode}`, `{grandparentTitle}`, `{parentTitle}`, `{imdbToken}`, `{tvdbToken}`, `{tmdbToken}`, `{plexIds}`, and more.
+- **Available Placeholders**: `{title}`, `{year}`, `{showTitle}`, `{season}`, `{episode}`, `{grandparentTitle}`, `{parentTitle}`, `{imdbToken}`, `{tvdbToken}`, `{tmdbToken}`, `{plexIds}`, and more.
 
 ### Settings Export/Import
 - **Backup Settings**: Export settings before major configuration changes.

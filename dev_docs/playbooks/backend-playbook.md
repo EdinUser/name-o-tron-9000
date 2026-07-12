@@ -11,6 +11,7 @@ Use this playbook for changes under `src-tauri/src/`, especially Tauri commands,
   - validate before apply
   - prefer reversible behavior
   - preserve rollback compatibility
+- Treat `apply_video_renames` as the authoritative filesystem path for video plus matching subtitles. It must remain correct even when the frontend sends only selected video operations.
 - Treat logging and diagnostics as privacy-sensitive surfaces.
   - redact paths
   - mask server IPs and tokens
@@ -36,5 +37,8 @@ Use this playbook for changes under `src-tauri/src/`, especially Tauri commands,
 - `src-tauri/src/lib.rs` command registration parity
 - path mapping edge cases across platforms
 - preview/apply rename parity
+- stem-only templates and internal extension preservation
+- matching subtitle discovery during apply for selected video operations
+- subtitle target parent directory creation before rename/move
 - rollback log shape compatibility
 - logging redaction behavior

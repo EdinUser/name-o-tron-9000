@@ -170,4 +170,28 @@ describe("Preview proposals – mapping and safety flags", () => {
     );
     expect(rowWithout.flags).not.toContain(">255 path");
   });
+
+  it("drops deprecated {ext} from the template stem and trims before appending the real extension", async () => {
+    const movie: MovieItem = {
+      type: "movie",
+      ratingKey: "rk-trim",
+      title: "One Piece 3D- Straw Hat Chase",
+      year: 2011,
+      file: "/media/Movies/One Piece 3D- Straw Hat Chase (2011) .mkv",
+      plexPath: "/media/Movies/One Piece 3D- Straw Hat Chase (2011) .mkv",
+    };
+
+    const row = await computeMovieProposal(
+      movie,
+      "{title}[ ({year})] {ext} ",
+      false,
+      false,
+      "",
+      { ...baseSettings },
+      "/mnt/Movies",
+      ["/media/Movies"],
+    );
+
+    expect(row.proposed).toBe("One Piece 3D- Straw Hat Chase (2011).mkv");
+  });
 });

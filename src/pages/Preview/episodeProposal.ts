@@ -11,6 +11,8 @@ import {
     resolvePlexFilePath,
     safeFolderName,
     sanitizeProposal,
+    stripDeprecatedExtTokenFromTemplate,
+    finalizeRenderedStem,
 } from "./utils";
 import {
     appendSplitPartSuffix,
@@ -248,7 +250,7 @@ export async function computeMultiEpisodeProposal(
     let templateResult = "";
     try {
         templateResult = renderTemplate(
-            renderEpisodeTemplateWithPlexTokens(dynamicTemplate, { startEpisode, endEpisode }),
+            renderEpisodeTemplateWithPlexTokens(stripDeprecatedExtTokenFromTemplate(dynamicTemplate), { startEpisode, endEpisode }),
             ctx,
         );
     } catch (error) {
@@ -256,8 +258,7 @@ export async function computeMultiEpisodeProposal(
         templateResult = `${showTitle} - S${String(detectedSeason || 0).padStart(2, "0")}${ctx.multiEpisodeRange} - ${detectedTitle}`;
     }
 
-    let proposedFileName = templateResult;
-    if (!proposedFileName.endsWith(ext)) proposedFileName += ext;
+    let proposedFileName = `${finalizeRenderedStem(templateResult)}${ext}`;
     proposedFileName = appendSplitPartSuffix(proposedFileName, ext, splitPartSuffix);
 
     const sanitizeResult = await sanitizeProposal(proposedFileName, settings);
@@ -577,7 +578,7 @@ export async function computeEpisodeProposal(
     let templateResult = "";
     try {
         templateResult = renderTemplate(
-            renderEpisodeTemplateWithPlexTokens(dynamicTemplate, {
+            renderEpisodeTemplateWithPlexTokens(stripDeprecatedExtTokenFromTemplate(dynamicTemplate), {
                 startEpisode: typeof detectedIndex === "number" ? detectedIndex : 0,
                 endEpisode: typeof detectedRangeEnd === "number" ? detectedRangeEnd : (typeof detectedIndex === "number" ? detectedIndex : 0),
             }),
@@ -588,8 +589,7 @@ export async function computeEpisodeProposal(
         templateResult = `${e.showTitle} - S${String(detectedSeason || 0).padStart(2, "0")}E${String(detectedIndex || 0).padStart(2, "0")} - ${detectedTitle}`;
     }
 
-    let proposedFileName = templateResult;
-    if (!proposedFileName.endsWith(ext)) proposedFileName += ext;
+    let proposedFileName = `${finalizeRenderedStem(templateResult)}${ext}`;
     proposedFileName = appendSplitPartSuffix(proposedFileName, ext, splitPartSuffix);
 
     const sanitizeResult = await sanitizeProposal(proposedFileName, settings);

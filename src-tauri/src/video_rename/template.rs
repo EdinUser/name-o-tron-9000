@@ -3,6 +3,14 @@ use std::collections::HashMap;
 
 pub(super) type TemplateContext = HashMap<String, String>;
 
+pub(super) fn strip_deprecated_ext_token(template: &str) -> String {
+    template.replace("{ext}", "")
+}
+
+pub(super) fn finalize_rendered_stem(stem: &str) -> String {
+    stem.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 pub(super) fn render_template(template: &str, context: &TemplateContext) -> String {
     if template.is_empty() {
         return String::new();

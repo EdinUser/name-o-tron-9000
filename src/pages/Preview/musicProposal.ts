@@ -2,6 +2,7 @@ import type { MusicItem, PreviewRow } from "./types";
 import {
     basename,
     extname,
+    finalizeRenderedStem,
     getRelativePathUnderRoots,
     hasNonLatin,
     isItemMapped,
@@ -9,6 +10,7 @@ import {
     normalizeUnicode,
     resolvePlexFilePath,
     sanitizeProposal,
+    stripDeprecatedExtTokenFromTemplate,
 } from "./utils";
 import {
     buildPlexIdTokens,
@@ -61,7 +63,7 @@ export async function computeMusicProposal(
         // For AAT format, ensure we have artist/album/track structure
         if (!template.includes('{artist}') || !template.includes('{album}') || !template.includes('{track}')) {
             // If template doesn't include all AAT components, use a default AAT structure
-            dynamicTemplate = "{artist}/{album}/{trackNumber:02} - {track}{ext}";
+            dynamicTemplate = "{artist}/{album}/{trackNumber:02} - {track}";
         }
     }
 
@@ -89,13 +91,13 @@ export async function computeMusicProposal(
 
     let proposed = "";
     try {
-        proposed = renderTemplate(dynamicTemplate, ctx);
+        proposed = renderTemplate(stripDeprecatedExtTokenFromTemplate(dynamicTemplate), ctx);
     } catch (error) {
         console.error("Error rendering music template:", error);
         proposed = `${m.artist}/${m.album}/${String(trackNumber || "").padStart(2, "0")} - ${m.track}`;
     }
 
-    if (!proposed.endsWith(ext)) proposed += ext;
+    proposed = `${finalizeRenderedStem(proposed)}${ext}`;
 
     // Apply folder structure
     if (folderPrefix) {

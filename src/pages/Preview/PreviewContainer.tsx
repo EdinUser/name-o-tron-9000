@@ -1557,6 +1557,26 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         }
                     }
                 }
+                try {
+                    const filePaths = newRows.map(row => row.filePath);
+                    if (filePaths.length > 0) {
+                        const previewResult = await invoke<any>("preview_video_renames", {
+                            request: {
+                                library_id: library.key,
+                                scope: filePaths,
+                                settings: settings,
+                                server_id: generateServerId(server),
+                            }
+                        });
+
+                        attachSubtitleOperations(newRows, previewResult);
+                    }
+                } catch {
+                    // Continue without subtitle operations for remote rows.
+                }
+
+                await enrichRowsWithPosters(newRows);
+
                 setRemoteResults(newRows);
                 setRemoteQuery(q);
             } catch (e) {
@@ -1570,6 +1590,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         debouncedSearchQuery,
+        reloadTick,
         library.key,
         library.type,
         server.address,

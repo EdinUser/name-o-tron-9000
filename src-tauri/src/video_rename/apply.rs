@@ -1,4 +1,5 @@
 use super::{ApplyResult, CleanupEmptyFoldersResult, RenameOperation};
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
@@ -44,6 +45,72 @@ pub(super) fn resolve_video_operations_for_apply(
     }
 
     Ok(resolved_operations)
+}
+
+fn subtitle_target_for_video(subtitle_path: &str, video_target_path: &str) -> String {
+    let video_target = Path::new(video_target_path);
+    let target_parent = video_target
+        .parent()
+        .unwrap_or_else(|| Path::new(video_target_path));
+    let video_stem = video_target
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy();
+    let subtitle_file = Path::new(subtitle_path)
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy();
+    let subtitle_extension = Path::new(subtitle_path)
+        .extension()
+        .unwrap_or_default()
+        .to_string_lossy();
+
+    let target_filename = match crate::subtitle::classify_subtitle_filename(&subtitle_file, "") {
+        crate::subtitle::SubtitleClassification::VideoSubtitle(lang_suffix) => {
+            format!("{}.{}.{}", video_stem, lang_suffix, subtitle_extension)
+        }
+        crate::subtitle::SubtitleClassification::Unknown => {
+            format!("{}.{}", video_stem, subtitle_extension)
+        }
+    };
+
+    target_parent
+        .join(target_filename)
+        .to_string_lossy()
+        .to_string()
+}
+
+pub(super) fn add_missing_subtitle_operations(
+    operations: &[RenameOperation],
+) -> Vec<RenameOperation> {
+    let mut augmented = operations.to_vec();
+    let mut existing_subtitle_sources: HashSet<String> = operations
+        .iter()
+        .filter(|operation| operation.operation_id.starts_with("subtitle_"))
+        .map(|operation| operation.original_path.clone())
+        .collect();
+
+    for operation in operations {
+        if operation.operation_id.starts_with("subtitle_") {
+            continue;
+        }
+
+        for subtitle in crate::subtitle::find_subtitle_files(&operation.original_path) {
+            if !existing_subtitle_sources.insert(subtitle.original_path.clone()) {
+                continue;
+            }
+
+            augmented.push(RenameOperation {
+                operation_type: "rename".to_string(),
+                original_path: subtitle.original_path.clone(),
+                new_path: subtitle_target_for_video(&subtitle.original_path, &operation.new_path),
+                backup_path: None,
+                operation_id: format!("subtitle_auto_{}", uuid::Uuid::new_v4()),
+            });
+        }
+    }
+
+    augmented
 }
 
 pub(super) fn apply_mixed_operations_with_log_path(

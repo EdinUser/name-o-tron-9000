@@ -3,8 +3,9 @@ use super::episode_tokens::{
     render_episode_template_with_plex_tokens,
 };
 use super::{
-    extname, normalize_unicode, render_template, sanitize_and_validate_path, EpisodeItem,
-    RenameOperation, TemplateContext,
+    extname, finalize_rendered_stem, normalize_unicode, render_template,
+    sanitize_and_validate_path, strip_deprecated_ext_token, EpisodeItem, RenameOperation,
+    TemplateContext,
 };
 
 fn format_plex_id_token(provider: &str, id: Option<&str>) -> String {
@@ -56,8 +57,6 @@ pub(super) fn compute_episode_proposal(
         "thetvdb".to_string(),
         episode.tvdb_id.clone().unwrap_or_default(),
     );
-    context.insert("ext".to_string(), ext.clone());
-
     context.insert(
         "grandparentTitle".to_string(),
         episode.grandparent_title.clone(),
@@ -111,12 +110,16 @@ pub(super) fn compute_episode_proposal(
     context.insert("ids".to_string(), plex_ids.clone());
     context.insert("plexIds".to_string(), plex_ids);
 
-    let rendered_template =
-        render_episode_template_with_plex_tokens(template, episode.index, range_end);
-    let mut proposed = render_template(&rendered_template, &context);
-    if !proposed.ends_with(&ext) {
-        proposed.push_str(&ext);
-    }
+    let rendered_template = render_episode_template_with_plex_tokens(
+        &strip_deprecated_ext_token(template),
+        episode.index,
+        range_end,
+    );
+    let mut proposed = format!(
+        "{}{}",
+        finalize_rendered_stem(&render_template(&rendered_template, &context)),
+        ext
+    );
     proposed = append_split_part_suffix(&proposed, &ext, split_part_suffix.as_deref());
 
     let season_folders = tv_settings

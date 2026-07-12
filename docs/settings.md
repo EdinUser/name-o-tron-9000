@@ -130,9 +130,10 @@ Throughout this document, settings options are marked with labels to help you un
 - **Alphabet ranges (A-C, D-F, …)** - Grouped letter ranges
 - **By Genre** - Organize by primary genre
 - **By Year/Decade** - Decade-based folders (1990-1999/)
-- **Put every movie in its own folder** ✓
+- **Create a separate folder for each movie** ✓
   - Create individual movie folders
   - Standard Plex organization
+  - If a movie is already inside a shared folder, you can either add a movie folder inside it or keep the shared folder as the final folder
 
 ### Editions 🟡 Advanced
 - **Preserve Plex edition tokens** (•) - Use Plex metadata
