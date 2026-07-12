@@ -1028,3 +1028,13 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - `npx vitest run src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx --reporter=dot` passed.
 - Follow-ups:
   - Re-check the live `City Slickers` remote search case in the Tauri app to confirm Plex metadata and local path mappings produce the expected poster and subtitle markers.
+
+- Summary: Added a versioned startup risk acknowledgement gate before normal app workflows, with a prominent beta warning, required confirmation checkbox, and Exit action that closes the Tauri window when declined. Bumped app version metadata to `0.2.1` across npm, Tauri, Cargo, Cargo lock, and Linux metainfo release entries.
+- Files or areas: `src/App.tsx`, `src/components/RiskAcknowledgementModal.tsx`, `package.json`, `package-lock.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, `src-tauri/linux/*.metainfo.xml`, `docs/features.md`.
+- Verification:
+  - `npm run test:types` passed.
+  - `npx vitest run src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx --reporter=dot` passed.
+  - `cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1` reported `name-o-tron-9000@0.2.1`.
+  - `npm run build` passed with existing Vite mixed dynamic/static import warnings.
+- Follow-ups:
+  - Create the GitHub release after the modal and version bump are verified.

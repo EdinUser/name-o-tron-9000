@@ -22,6 +22,11 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 
 ## Preview & Safety System
 
+### Startup Risk Acknowledgement
+- **First-run Gate**: The app requires an explicit file-rename risk acknowledgement before normal workflows are available
+- **Beta Warning**: The acknowledgement highlights that the app is beta software and should be tested on small library portions first
+- **Exit on Decline**: Users who do not accept the acknowledgement can exit before any library operations are available
+
 ### Traffic-Light Status System
 - **🟩 Green**: Files already compliant with Plex naming conventions
 - **🟨 Yellow**: Warnings for potential issues (non-Latin characters, missing metadata, guessed editions)
