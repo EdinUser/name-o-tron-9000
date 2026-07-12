@@ -1047,3 +1047,12 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - `mkdocs build --strict` could not run because `mkdocs` is not installed in this environment.
 - Follow-ups:
   - Run `mkdocs build --strict` in the docs build environment or after installing MkDocs locally.
+
+- Summary: Corrected live GitHub merge policy for the release path: repository merge commits are enabled, squash/rebase merges are disabled, and the active `main` ruleset now allows only merge commits. Updated the repo governance playbook to match the live settings and explicitly forbid squash/rebase for `develop -> main`.
+- Files or areas: GitHub repository settings, GitHub ruleset `main`, `dev_docs/playbooks/repo-governance-playbook.md`.
+- Verification:
+  - `gh repo view --json mergeCommitAllowed,squashMergeAllowed,rebaseMergeAllowed,deleteBranchOnMerge` reported merge commits enabled and squash/rebase disabled.
+  - `gh api repos/EdinUser/name-o-tron-9000/rulesets/8630719 --jq '.rules[] | select(.type=="pull_request") | .parameters.allowed_merge_methods'` reported `["merge"]`.
+  - `gh pr view 67 --json number,baseRefName,headRefName,mergeable,mergeStateStatus,statusCheckRollup,url` reported `mergeable: MERGEABLE`; required checks were running.
+- Follow-ups:
+  - Wait for `test-linux` and `test-windows` on PR #67 to finish, then merge with the merge-commit method.

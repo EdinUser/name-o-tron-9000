@@ -21,9 +21,10 @@ Use this playbook when you are changing branch strategy, workflow triggers, bran
 - Set the default branch to `develop` if you want day-to-day PRs to land there by default.
 - Protect `main` with a ruleset or branch protection rule.
 - Require pull requests before merging to `main`.
-- Require at least one review on `main`.
 - Require the CI checks you actually trust before merging to `main`.
 - Block force-pushes and branch deletion on `main`.
+- Allow merge commits for PRs into `main`.
+- Do not allow squash or rebase merges for PRs into `main`.
 
 ## Plan limitations
 
@@ -35,21 +36,21 @@ Use this playbook when you are changing branch strategy, workflow triggers, bran
 - Merge feature branches into `develop`.
 - Open pull requests into `main` only from `develop`.
 - Merge `develop` into `main` only when you are intentionally preparing a release.
+- Use a merge commit for `develop -> main` release PRs. Do not squash or rebase that hop.
 - Tag releases from `main`, not from feature branches or `develop`.
 
 ## Current live policy
 
 - `develop`
 - Required status checks: `validate-pr-route`, `test-linux`
-- Linear history required
 - Force-push and deletion blocked
 - Conversation resolution required
 - No mandatory review count
 
 - `main`
 - Required status checks: `validate-pr-route`, `test-linux`, `test-windows`
-- Pull request review required: 1 approval
-- Linear history required
+- Pull requests into `main` must come from `develop`
+- Allowed merge method for `main`: merge commit only
 - Force-push and deletion blocked
 - Conversation resolution required
 - Admins are not forced through the same restrictions, so the repository owner can still bypass in emergencies
