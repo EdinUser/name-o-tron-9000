@@ -51,6 +51,7 @@ const baseSettings: Settings = {
     alphaArticleHandling: "ignore",
     folderStructureBehavior: "intelligent",
     ownFolderPerMovie: true,
+    ownFolderWithinSharedFolder: "add_movie_folder",
     editions: {
       mode: "preserve",
       createFromFilenames: true,
@@ -94,9 +95,9 @@ const baseSettings: Settings = {
     },
   },
   templates: {
-    movie: "{title}[ ({year})]{ext}",
-    episode: "{showTitle} - S{season:02}E{episode:02} - {title}{ext}",
-    music: "{artist}/{album}/{trackNumber:02} - {track}{ext}",
+    movie: "{title}[ ({year})]",
+    episode: "{showTitle} - S{season:02}E{episode:02} - {title}",
+    music: "{artist}/{album}/{trackNumber:02} - {track}",
   },
   templateHistory: {},
   templateFavorites: {},

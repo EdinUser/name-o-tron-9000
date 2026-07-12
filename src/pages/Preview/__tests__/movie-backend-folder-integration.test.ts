@@ -27,6 +27,7 @@ const baseSettings: any = {
   },
   movies: {
     ownFolderPerMovie: true,
+    ownFolderWithinSharedFolder: "add_movie_folder",
     alphaArticleHandling: "keep",
     collections: {
       enabled: false,
@@ -89,8 +90,8 @@ describe("Movie backend folder integration", () => {
       libraryRoots,
     );
 
-    // Preserve existing grouping, ISO handling appends [ISO] before extension
-    expect(row.proposed).toBe("A-D/Nolan/Inception [ISO].iso");
+    // Preserve existing grouping, add the dedicated movie folder, then append [ISO] before extension
+    expect(row.proposed).toBe("A-D/Nolan/Inception/Inception [ISO].iso");
     expect(row.flags).toContain("marked-iso");
     expect(row.status).not.toBe("error");
   });
@@ -184,6 +185,61 @@ describe("Movie backend folder integration", () => {
     );
 
     expect(row.proposed).toBe("Nolan Collection/Inception (2010).mkv");
+  });
+
+  it("adds a movie folder inside an existing shared folder by default", async () => {
+    const movie: MovieItem = {
+      type: "movie",
+      ratingKey: "rk-shared-folder",
+      title: "One Piece Film Z",
+      year: 2012,
+      file: "/media/Movies/J-R/One Piece/One Piece Film Z (2012).mkv",
+      plexPath: "/media/Movies/J-R/One Piece/One Piece Film Z (2012).mkv",
+    } as any;
+
+    const settings = JSON.parse(JSON.stringify(baseSettings));
+    settings.movies.folderStructureBehavior = "preserve_existing";
+
+    const row = await computeMovieProposal(
+      movie,
+      "{title}[ ({year})]{ext}",
+      true,
+      false,
+      "",
+      settings,
+      "/mnt/Movies",
+      ["/media/Movies"],
+    );
+
+    expect(row.proposed).toBe("J-R/One Piece/One Piece Film Z/One Piece Film Z (2012).mkv");
+  });
+
+  it("can keep the shared folder as the final folder when configured", async () => {
+    const movie: MovieItem = {
+      type: "movie",
+      ratingKey: "rk-shared-folder-keep",
+      title: "One Piece Film Z",
+      year: 2012,
+      file: "/media/Movies/J-R/One Piece/One Piece Film Z (2012).mkv",
+      plexPath: "/media/Movies/J-R/One Piece/One Piece Film Z (2012).mkv",
+    } as any;
+
+    const settings = JSON.parse(JSON.stringify(baseSettings));
+    settings.movies.folderStructureBehavior = "preserve_existing";
+    settings.movies.ownFolderWithinSharedFolder = "keep_shared_folder";
+
+    const row = await computeMovieProposal(
+      movie,
+      "{title}[ ({year})]{ext}",
+      true,
+      false,
+      "",
+      settings,
+      "/mnt/Movies",
+      ["/media/Movies"],
+    );
+
+    expect(row.proposed).toBe("J-R/One Piece/One Piece Film Z (2012).mkv");
   });
 
   it("renders Plex-style imdb token placeholders when the mock metadata exposes an imdb guid", async () => {

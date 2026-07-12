@@ -183,6 +183,7 @@ interface MovieSettings {
   folderStructure: 'none' | 'alpha' | 'alpha_ranges' | 'genre' | 'year_decade';
 
   ownFolderPerMovie: boolean;          // Default: true
+  ownFolderWithinSharedFolder: 'add_movie_folder' | 'keep_shared_folder'; // Default: 'add_movie_folder'
 
   editions: {
     preserveTokens: boolean;           // Default: true

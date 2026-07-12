@@ -57,7 +57,7 @@ describe('Settings Load/Save', () => {
 
       // Other defaults should still be present
       expect(settings.tv.seasonFolders).toBe(true); // From defaults
-      expect(settings.templates.movie).toBe('{title}[ ({year})]{ext}'); // From defaults
+      expect(settings.templates.movie).toBe('{title}[ ({year})]'); // From defaults
       expect(settings.templateHistory).toEqual({});
       expect(settings.templateFavorites).toEqual({});
     });
@@ -244,8 +244,8 @@ describe('Settings Load/Save', () => {
       const updatedAgain = addTemplateHistoryEntry(updated as any, 'server-1', 'library-1', '{title}[ ({year})]{ext}');
 
       expect(getTemplateHistoryEntries(updatedAgain as any, 'server-1', 'library-1')).toEqual([
-        '{title}[ ({year})]{ext}',
-        '{title}{ext}',
+        '{title}[ ({year})]',
+        '{title}',
       ]);
     });
 
@@ -275,8 +275,8 @@ describe('Settings Load/Save', () => {
       settings = addTemplateFavoriteEntry(settings, 'server-1', 'library-1', '{title}{ext}');
 
       expect(getTemplateFavoriteEntries(settings, 'server-1', 'library-1')).toEqual([
-        '{title}{ext}',
-        '{title}[ ({year})]{ext}',
+        '{title}',
+        '{title}[ ({year})]',
       ]);
       expect(getTemplateHistoryEntries(settings, 'server-1', 'library-1')).toEqual([]);
     });
@@ -289,7 +289,7 @@ describe('Settings Load/Save', () => {
       settings = removeTemplateFavoriteEntry(settings, 'server-1', 'library-1', '{title}{ext}');
 
       expect(getTemplateFavoriteEntries(settings, 'server-1', 'library-1')).toEqual([]);
-      expect(getTemplateHistoryEntries(settings, 'server-1', 'library-1')).toEqual(['{title}[ ({year})]{ext}']);
+      expect(getTemplateHistoryEntries(settings, 'server-1', 'library-1')).toEqual(['{title}[ ({year})]']);
     });
   });
 });

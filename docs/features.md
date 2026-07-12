@@ -64,8 +64,8 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 
 ### Template System
 - **Customizable Templates**: Per-media-type templates with placeholder support
-- **Movie Templates**: `{title}[ ({year})]{ext}` with optional collections and editions
-- **TV Templates**: `{showTitle} - S{season:02}E{episode:02} - {title}{ext}` with automatic Plex-style multi-episode and split-part handling
+- **Movie Templates**: `{title}[ ({year})]` with optional collections and editions; the real file extension is preserved automatically
+- **TV Templates**: `{showTitle} - S{season:02}E{episode:02} - {title}` with automatic Plex-style multi-episode and split-part handling; the real file extension is preserved automatically
 - **Music Templates**: Artist/Album/Track formatting with disc subfolder support
 - **Conditional Groups**: Use `[ (optional text) ]` for content that appears only when placeholders have values
 - **Nested Optionals**: Support for complex conditional formatting with nested optional groups

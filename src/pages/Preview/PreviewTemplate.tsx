@@ -394,10 +394,10 @@ export default function PreviewTemplate({
                           type="button"
                           onClick={() => {
                             const def = library.type === "movie"
-                              ? "{title}[ ({year})]{ext}"
+                              ? "{title}[ ({year})]"
                               : library.type === "show"
-                              ? "{showTitle} - S{season:02}E{episode:02} - {title}{ext}"
-                              : "{artist}/{album}/{trackNumber:02} - {track}{ext}";
+                              ? "{showTitle} - S{season:02}E{episode:02} - {title}"
+                              : "{artist}/{album}/{trackNumber:02} - {track}";
                             onApplyTemplateValue(def);
                             onCommitTemplateHistory(def);
                           }}

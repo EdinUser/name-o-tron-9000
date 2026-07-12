@@ -157,4 +157,97 @@ describe("Preview Plex refresh integration", () => {
       });
     });
   });
+
+  it("sends subtitle rename operations together with the movie apply request", async () => {
+    const movieWithTrailingSpace = {
+      ...trackedMovie,
+      title: "One Piece Film Red",
+      year: 2022,
+      Media: [
+        {
+          Part: [
+            {
+              file: "/mount/server/HDD1/Movies/One Piece Film Red (2022) .mkv",
+            },
+          ],
+        },
+      ],
+    };
+
+    mockInvoke.mockImplementation(async (command: string, args?: any) => {
+      switch (command) {
+        case "get_settings":
+          return {
+            pathMappings: [
+              {
+                server_id: "test-server-id",
+                plex_root: "/mount/server/HDD1/Movies",
+                local_root: "/mnt/Movies",
+              },
+            ],
+          };
+        case "fetch_library_content":
+          return {
+            MediaContainer: {
+              Metadata: [movieWithTrailingSpace],
+              totalSize: 1,
+              size: 1,
+              offset: 0,
+            },
+          };
+        case "sanitize_filename_cmd":
+          return args?.filename;
+        case "preview_video_renames":
+          return {
+            video_operations: [],
+            subtitle_operations: [
+              {
+                original_path: "/mnt/Movies/One Piece Film Red (2022) .eng.srt",
+                new_path: "/mnt/Movies/One Piece Film Red (2022) .eng.srt",
+                operation_type: "rename",
+              },
+            ],
+            warnings: [],
+            blocking_errors: [],
+          };
+        case "apply_video_renames":
+          return {
+            success: true,
+            operations_applied: 2,
+            operations_failed: 0,
+            rollback_log_path: "/tmp/rollback.json",
+            errors: [],
+            operations: args?.request?.operations ?? [],
+          };
+        default:
+          return null;
+      }
+    });
+
+    renderWithProviders(
+      <PreviewContainer server={mockServer} library={mockLibrary} onBack={vi.fn()} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("switch").length).toBeGreaterThan(0);
+    });
+
+    await userEvent.click(screen.getAllByRole("switch")[0]);
+    await userEvent.click(screen.getByRole("button", { name: "Proceed" }));
+
+    await waitFor(() => {
+      const applyCall = mockInvoke.mock.calls.find(
+        ([command]) => command === "apply_video_renames",
+      );
+      expect(applyCall).toBeDefined();
+      const operations = (applyCall?.[1] as any)?.request?.operations ?? [];
+      expect(operations).toHaveLength(2);
+      expect(
+        operations.some((operation: any) =>
+          operation.original_path === "/mnt/Movies/One Piece Film Red (2022) .eng.srt" &&
+          operation.new_path.endsWith("/One Piece Film Red (2022).eng.srt"),
+        ),
+      ).toBe(true);
+    });
+  });
 });

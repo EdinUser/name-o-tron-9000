@@ -126,4 +126,70 @@ describe("attachSubtitleOperations", () => {
       "/mnt/Series/Two Broke Girls/Two Broke Girls - S01E01 - And the Soft Opening.eng.srt",
     );
   });
+
+  it("moves movie subtitles into the newly created movie folder", () => {
+    const rows: PreviewRow[] = [
+      makeRow({
+        id: "movie-1",
+        kind: "movie",
+        filePath: "/mnt/Movies/J-R/One Piece/One Piece Film Z (2012).mkv",
+        plexPath: "/share/Movies/J-R/One Piece/One Piece Film Z (2012).mkv",
+        proposed:
+          "J-R/One Piece/One Piece Film Z/One Piece Film Z (2012).mkv",
+      }),
+    ];
+
+    const previewResult = {
+      subtitle_operations: [
+        {
+          original_path:
+            "/mnt/Movies/J-R/One Piece/One Piece Film Z (2012).eng.srt",
+          new_path:
+            "/mnt/Movies/J-R/One Piece/One Piece Film Z (2012).eng.srt",
+          operation_type: "rename",
+        },
+      ],
+    };
+
+    attachSubtitleOperations(rows, previewResult);
+
+    expect(rows[0].subtitleOperations).toBeDefined();
+    expect(rows[0].subtitleOperations![0].proposedPath).toBe(
+      "J-R/One Piece/One Piece Film Z/One Piece Film Z (2012).eng.srt",
+    );
+  });
+
+  it("matches subtitles using the local video filename when Plex and local names differ", () => {
+    const rows: PreviewRow[] = [
+      makeRow({
+        id: "movie-2",
+        kind: "movie",
+        filePath:
+          "/mnt/Movies/J-R/One Piece/One Piece 3D- Straw Hat Chase (2011) .mkv",
+        plexPath:
+          "/share/Movies/J-R/One Piece/One Piece 3D_ Straw Hat Chase (2011).mkv",
+        proposed:
+          "J-R/One Piece/One Piece 3D_ Straw Hat Chase/One Piece 3D_ Straw Hat Chase (2011).mkv",
+      }),
+    ];
+
+    const previewResult = {
+      subtitle_operations: [
+        {
+          original_path:
+            "/mnt/Movies/J-R/One Piece/One Piece 3D- Straw Hat Chase (2011) .eng.srt",
+          new_path:
+            "/mnt/Movies/J-R/One Piece/One Piece 3D- Straw Hat Chase (2011) .eng.srt",
+          operation_type: "rename",
+        },
+      ],
+    };
+
+    attachSubtitleOperations(rows, previewResult);
+
+    expect(rows[0].subtitleOperations).toBeDefined();
+    expect(rows[0].subtitleOperations![0].proposedPath).toBe(
+      "J-R/One Piece/One Piece 3D_ Straw Hat Chase/One Piece 3D_ Straw Hat Chase (2011).eng.srt",
+    );
+  });
 });

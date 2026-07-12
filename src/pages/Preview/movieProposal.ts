@@ -15,6 +15,8 @@ import {
     resolvePlexFilePath,
     safeFolderName,
     sanitizeProposal,
+    stripDeprecatedExtTokenFromTemplate,
+    finalizeRenderedStem,
     sortEditionsByPriority,
     splitPathSegments,
 } from "./utils";
@@ -167,6 +169,19 @@ function safeJoinPath(segments: string[]): string {
     return segments.filter(Boolean).join("/").replace(/\/+/g, "/");
 }
 
+function shouldAddMovieFolderInsideSharedFolder(settings: any): boolean {
+    return (settings.movies?.ownFolderWithinSharedFolder || "add_movie_folder") === "add_movie_folder";
+}
+
+function isDedicatedMovieLeafFolder(currentDirs: string[], movie: MovieItem): boolean {
+    if (currentDirs.length === 0) return false;
+    const leafDir = currentDirs[currentDirs.length - 1] || "";
+    const titleFolder = safeFolderName(movie.title).toLowerCase();
+    const fileStemFolder = safeFolderName(basename(movie.file).slice(0, Math.max(0, basename(movie.file).length - extname(movie.file).length))).toLowerCase();
+    const normalizedLeaf = safeFolderName(leafDir).toLowerCase();
+    return normalizedLeaf === titleFolder || normalizedLeaf === fileStemFolder;
+}
+
 function getMovieFolderSegments(
     m: MovieItem,
     settings: any,
@@ -181,8 +196,10 @@ function getMovieFolderSegments(
     const behavior: string = settings.movies?.folderStructureBehavior || "intelligent";
     const mode: string = settings.movies?.folderStructure || "none";
     const ownFolderPerMovie: boolean = !!settings.movies?.ownFolderPerMovie;
+    const addMovieFolderInsideSharedFolder = shouldAddMovieFolderInsideSharedFolder(settings);
     const effectiveCollectionName = String(collectionName || m.collection || "").trim();
     const collectionsEnabled: boolean = !!settings.movies?.collections?.enabled && effectiveCollectionName.length > 0;
+    const hasDedicatedLeafFolder = isDedicatedMovieLeafFolder(currentDirs, m);
 
     const shouldConsiderReorg =
         behavior === "reorganize_all" ||
@@ -201,6 +218,9 @@ function getMovieFolderSegments(
 
     if (behavior === "preserve_existing" || (behavior === "intelligent" && !shouldConsiderReorg)) {
         if (currentDirs.length > 0) {
+            if (ownFolderPerMovie && addMovieFolderInsideSharedFolder && !hasDedicatedLeafFolder) {
+                return { segments: [...currentDirs, safeFolderName(m.title)], decision: "preserved", currentRel };
+            }
             return { segments: currentDirs, decision: "preserved", currentRel };
         }
         if (ownFolderPerMovie) {
@@ -213,6 +233,9 @@ function getMovieFolderSegments(
     }
 
     if (behavior === "intelligent" && !isFlatItem) {
+        if (ownFolderPerMovie && addMovieFolderInsideSharedFolder && currentDirs.length > 0 && !hasDedicatedLeafFolder) {
+            return { segments: [...currentDirs, safeFolderName(m.title)], decision: "preserved", currentRel };
+        }
         return { segments: currentDirs, decision: "preserved", currentRel };
     }
 
@@ -384,18 +407,17 @@ export async function computeMovieProposal(
 
     let proposed = "";
     try {
-        proposed = renderTemplate(template, ctx);
+        proposed = renderTemplate(stripDeprecatedExtTokenFromTemplate(template), ctx);
     } catch (error) {
         console.error("Error rendering movie template:", error);
-        proposed = `${m.title}${ext}`;
+        proposed = m.title;
     }
 
     const templateSegments = splitPathSegments(proposed);
     const templateFileName = templateSegments[templateSegments.length - 1] || proposed;
     const templateDirs = templateSegments.slice(0, -1);
 
-    proposed = templateFileName;
-    if (!proposed.endsWith(ext)) proposed += ext; // safety net if template omitted {ext}
+    proposed = finalizeRenderedStem(templateFileName);
 
     // If user selected an edition mode and the template did not include any edition
     // placeholders, enforce insertion before the extension (only if edition should be included).
@@ -406,14 +428,11 @@ export async function computeMovieProposal(
             lower.includes(editionToken?.toLowerCase() || "");
         if (!hasEditionAlready) {
             let injection = editionDisplay.startsWith(" - ") ? editionDisplay : ` ${editionDisplay}`;
-            const dot = proposed.lastIndexOf(ext);
-            if (dot > 0) {
-                proposed = proposed.slice(0, dot) + injection + proposed.slice(dot);
-            } else {
-                proposed += injection;
-            }
+            proposed = finalizeRenderedStem(`${proposed}${injection}`);
         }
     }
+
+    proposed = `${proposed}${ext}`;
 
     const { segments: folderSegments, currentRel } = getMovieFolderSegments(
         m,

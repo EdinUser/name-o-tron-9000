@@ -163,9 +163,22 @@ export function Movies({s, onChange, onConfigureParsers}: { s: Settings; onChang
                         {value: "preserve_existing", label: "Preserve existing (never change folder structure)"}
                     ]} segmented/>
                 </Row>
-                <Row label="Put every movie in its own folder">
+                <Row label="Create a separate folder for each movie">
                     <Toggle checked={m.ownFolderPerMovie} onChange={(checked) => set({ownFolderPerMovie: checked})}/>
                 </Row>
+                {m.ownFolderPerMovie && (
+                    <Row label="If a movie is already inside a shared folder">
+                        <Radio
+                            value={m.ownFolderWithinSharedFolder}
+                            onChange={(v) => set({ownFolderWithinSharedFolder: v})}
+                            options={[
+                                {value: "add_movie_folder", label: "Add a movie folder inside the shared folder"},
+                                {value: "keep_shared_folder", label: "Keep the shared folder as the final folder"},
+                            ]}
+                            segmented
+                        />
+                    </Row>
+                )}
             </Section>
 
             <Section title="Folder Structure Preview">

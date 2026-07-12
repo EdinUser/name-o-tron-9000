@@ -53,6 +53,24 @@ fn compute_movie_destination_for_item(
         .get("ownFolderPerMovie")
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
+    let own_folder_within_shared_folder = movie_settings
+        .get("ownFolderWithinSharedFolder")
+        .and_then(|v| v.as_str())
+        .unwrap_or("add_movie_folder");
+    let should_add_inside_shared_folder = own_folder_within_shared_folder == "add_movie_folder";
+    let base_name_stem = item
+        .base_name
+        .rsplit_once('.')
+        .map(|(stem, _)| stem)
+        .unwrap_or(&item.base_name);
+    let has_dedicated_leaf_folder = relative_dirs
+        .last()
+        .map(|leaf| {
+            let normalized_leaf = safe_folder_name(leaf).to_lowercase();
+            normalized_leaf == safe_folder_name(&item.title).to_lowercase()
+                || normalized_leaf == safe_folder_name(base_name_stem).to_lowercase()
+        })
+        .unwrap_or(false);
 
     let mut segments: Vec<String> = Vec::new();
 
@@ -63,6 +81,9 @@ fn compute_movie_destination_for_item(
         }
     } else {
         segments.extend(relative_dirs.iter().cloned());
+        if own_folder_per_movie && should_add_inside_shared_folder && !has_dedicated_leaf_folder {
+            segments.push(safe_folder_name(&item.title));
+        }
     }
 
     if segments.is_empty() {

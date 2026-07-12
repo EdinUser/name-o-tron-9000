@@ -418,6 +418,33 @@ mod tests {
             "converted subtitle should start with UTF-8 BOM"
         );
     }
+
+    #[test]
+    fn apply_single_operation_rename_creates_missing_parent_directory() {
+        let dir = tempdir().expect("failed to create temp dir");
+        let source = dir.path().join("Movie (2024) .eng.srt");
+        let target_dir = dir.path().join("Movie");
+        let target = target_dir.join("Movie (2024).eng.srt");
+
+        fs::write(&source, b"1\n00:00:00,000 --> 00:00:01,000\nHello\n")
+            .expect("failed to write subtitle file");
+
+        let operation = RenameOperation {
+            operation_type: "rename".to_string(),
+            original_path: source.to_string_lossy().to_string(),
+            new_path: target.to_string_lossy().to_string(),
+            backup_path: None,
+            operation_id: "subtitle_test_rename".to_string(),
+        };
+
+        apply_single_operation(&operation).expect("rename operation should succeed");
+
+        assert!(!source.exists(), "source subtitle should be moved");
+        assert!(
+            target.exists(),
+            "subtitle should be moved into the new folder"
+        );
+    }
 }
 
 #[command]
@@ -898,6 +925,11 @@ pub fn apply_single_operation(operation: &RenameOperation) -> Result<(), String>
         "rename" => {
             let original_path = Path::new(&operation.original_path);
             let new_path = Path::new(&operation.new_path);
+            if let Some(parent) = new_path.parent() {
+                fs::create_dir_all(parent).map_err(|e| {
+                    format!("Failed to create directory {}: {}", parent.display(), e)
+                })?;
+            }
             if original_path != new_path && new_path.exists() {
                 return Err(format!("Target already exists: {}", operation.new_path));
             }
@@ -912,6 +944,11 @@ pub fn apply_single_operation(operation: &RenameOperation) -> Result<(), String>
         "move" => {
             let original_path = Path::new(&operation.original_path);
             let new_path = Path::new(&operation.new_path);
+            if let Some(parent) = new_path.parent() {
+                fs::create_dir_all(parent).map_err(|e| {
+                    format!("Failed to create directory {}: {}", parent.display(), e)
+                })?;
+            }
             if original_path != new_path && new_path.exists() {
                 return Err(format!("Target already exists: {}", operation.new_path));
             }

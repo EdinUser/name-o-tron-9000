@@ -83,6 +83,7 @@ export const createDefaultSettings = (overrides: any = {}) => ({
     alphaArticleHandling: 'ignore' as const,
     folderStructureBehavior: 'intelligent' as const,
     ownFolderPerMovie: true,
+    ownFolderWithinSharedFolder: 'add_movie_folder' as const,
     editions: {
       mode: 'preserve' as const,
       createFromFilenames: true,
@@ -129,9 +130,9 @@ export const createDefaultSettings = (overrides: any = {}) => ({
     },
   },
   templates: {
-    movie: '{title}[ ({year})]{ext}',
-    episode: '{showTitle} - S{season:02}E{episode:02} - {title}{ext}',
-    music: '{artist}/{album}/{trackNumber:02} - {track}{ext}',
+    movie: '{title}[ ({year})]',
+    episode: '{showTitle} - S{season:02}E{episode:02} - {title}',
+    music: '{artist}/{album}/{trackNumber:02} - {track}',
   },
   templateHistory: {},
   templateFavorites: {},

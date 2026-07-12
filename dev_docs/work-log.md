@@ -965,3 +965,66 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - `npm test -- src/pages/ShowSelection/__tests__/ShowSelection.integration.test.tsx` passed.
 - Follow-ups:
   - The remaining gap is broader behavior coverage around rename/apply flows; current mock-backed search and pagination coverage now uses tracked fixture data on both movie and TV paths.
+- Summary: Added a movie-folder sub-setting that controls what happens when a movie already lives inside a shared parent folder. The default now preserves the higher-level grouping while still inserting a dedicated movie folder beneath it, which fixes cases like `J-R/One Piece/<movie>.mkv` without removing the option to keep the shared folder as the final leaf. The Rust-side movie proposal path used by `preview_video_renames` was also aligned so the backend-only preview helper honors the same shared-folder rule.
+- Files or areas: `src/state/settings.tsx`, `src/pages/Settings/Movies.tsx`, `src/pages/Preview/movieProposal.ts`, `src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts`, `src-tauri/src/video_rename/destinations.rs`, `src-tauri/src/video_rename/tests.rs`, `docs/settings.md`, `docs/tips.md`, `dev_docs/appendix_api.md`.
+- Verification:
+  - `npx vitest run src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx src/pages/Settings/__tests__/general-diagnostics.test.tsx src/state/__tests__/settings-provider.test.tsx` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml compute_movie_` passed.
+- Follow-ups:
+  - Revisit Plex refresh reporting after we decide whether path-refresh issues should surface only for non-2xx responses.
+  - If we later want stronger end-to-end coverage for grouped movie folders in the mock Plex flow, add a tracked fixture case that mirrors the `One Piece` shared-folder layout.
+
+- Summary: Adjusted the backend preview subtitle path generation so movie subtitles follow the newly created movie folder instead of staying in the original shared parent, and added a frontend regression that asserts movie subtitle targets inherit the nested movie folder path.
+- Files or areas: `src-tauri/src/video_rename.rs`, `src/pages/Preview/__tests__/subtitle-mapping.test.ts`.
+- Verification:
+  - `npx vitest run src/pages/Preview/__tests__/subtitle-mapping.test.ts src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml compute_movie_` passed.
+- Follow-ups:
+  - If you still see a subtitle left behind, capture one exact video filename plus subtitle filename pair; the remaining likely gap would be subtitle discovery/matching rather than target-path generation.
+
+- Summary: Hardened Preview subtitle attachment so backend-discovered subtitle operations are matched against both the local resolved video filename and the Plex filename, with a normalized fallback for separator/spacing drift. This covers cases where the movie move is applied but the subtitle is never queued because its basename only matches the local filename shape.
+- Files or areas: `src/pages/Preview/subtitleMapping.ts`, `src/pages/Preview/__tests__/subtitle-mapping.test.ts`.
+- Verification:
+  - `npx vitest run src/pages/Preview/__tests__/subtitle-mapping.test.ts` passed.
+- Follow-ups:
+  - If the issue persists after this, the next place to inspect is the exact apply payload or rollback log to confirm whether the subtitle operation is being sent and whether it succeeds or fails at apply time.
+
+- Summary: Removed `{ext}` from the template contract and made file extensions internal again. Frontend and Rust proposal builders now strip legacy `{ext}` tokens, normalize the rendered stem, append the real extension afterward, and normalize stored template settings/history/favorites so old saved templates are cleaned up automatically.
+- Files or areas: `src/state/settings.tsx`, `src/components/TemplateHelpModal.tsx`, `src/pages/Preview/{PreviewTemplate.tsx,movieProposal.ts,episodeProposal.ts,musicProposal.ts,utils.ts}`, `src-tauri/src/video_rename/{template.rs,movies.rs,episodes.rs}.rs`, `src-tauri/src/video_rename.rs`, `docs/{features.md,faq.md,tips.md}`, `dev_docs/appendix_architecture.md`.
+- Verification:
+  - `npx vitest run src/pages/Preview/__tests__/preview-proposals-unmatched-and-safety.test.ts src/pages/Preview/__tests__/subtitle-mapping.test.ts src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts src/state/__tests__/settings-load-save.test.tsx src/pages/Settings/__tests__/general-diagnostics.test.tsx` passed.
+  - `npx vitest run src/state/__tests__/settings-load-save.test.tsx src/state/__tests__/settings-deep-merge.test.tsx src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml compute_movie_` passed.
+- Follow-ups:
+  - Re-test the exact grouped-movie subtitle case in the live app. The basename/folder alignment bug is now fixed, but only a real apply run will confirm whether it fully eliminates the orphaned subtitle case.
+
+- Summary: Fixed subtitle apply-time moves into new movie folders by creating the subtitle target directory before rename/move operations. Added a Rust regression for renaming a subtitle into a missing child folder and a Preview integration regression confirming subtitle operations are included in the apply payload.
+- Files or areas: `src-tauri/src/subtitle.rs`, `src/pages/Preview/__tests__/preview-plex-refresh.integration.test.tsx`.
+- Verification:
+  - `npx vitest run src/pages/Preview/__tests__/preview-plex-refresh.integration.test.tsx` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml apply_single_operation_rename_creates_missing_parent_directory` passed.
+- Follow-ups:
+  - Re-run the exact `One Piece Film Red` case in the app. If a subtitle still stays behind after this patch, the next step is to inspect the rollback log for a failed subtitle operation record from that run.
+
+- Summary: Added a backend apply fallback so `apply_video_renames` discovers matching subtitle files from each selected video's original folder and appends missing subtitle rename operations automatically. This covers the live failure mode where the movie operation is sent and succeeds, but no subtitle operation is attached by the frontend preview path.
+- Files or areas: `src-tauri/src/video_rename/apply.rs`, `src-tauri/src/video_rename.rs`, `src-tauri/src/video_rename/tests.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml apply_video_rename_discovers_and_moves_matching_subtitles_when_frontend_omits_them` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml apply_video_rename_` passed.
+  - `npx vitest run src/pages/Preview/__tests__/preview-plex-refresh.integration.test.tsx` passed.
+- Follow-ups:
+  - Re-run the `One Piece Film Red` case after rebuilding/restarting the Tauri app so the Rust backend changes are actually loaded.
+
+- Summary: Updated rename-related playbooks to document the current template/subtitle contract: templates are stem-only, legacy `{ext}` is stripped, real extensions are appended internally, movie subtitles must follow newly created movie folders, and backend apply must discover/move matching subtitles even when the frontend omits subtitle operations.
+- Files or areas: `dev_docs/playbooks/rename-safety-playbook.md`, `dev_docs/playbooks/testing-playbook.md`, `dev_docs/playbooks/frontend-playbook.md`, `dev_docs/playbooks/backend-playbook.md`.
+- Verification:
+  - `rg -n "\\{ext\\}|subtitle|extension|movie folder|own folder" dev_docs/playbooks` reviewed; remaining `{ext}` mentions are intentional legacy-token guidance.
+- Follow-ups:
+  - Keep `AGENTS.md` and broader architecture docs in sync if they continue to be used as active contributor contracts.
+
+- Summary: Fixed remote Preview search rows so they run through the same subtitle-operation attachment and block-view poster enrichment as normally loaded rows. Remote movie block cards now prefetch cached poster data, and remote rows can show subtitle operation markers when backend preview discovers matching sidecars.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`.
+- Verification:
+  - `npx vitest run src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx --reporter=dot` passed.
+- Follow-ups:
+  - Re-check the live `City Slickers` remote search case in the Tauri app to confirm Plex metadata and local path mappings produce the expected poster and subtitle markers.
