@@ -18,7 +18,8 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 - **Multi-Library Support**: Access Movies, TV Shows, and Music libraries
 - **Metadata Fetching**: Retrieves complete Plex metadata including titles, years, ratings, and artwork
 - **Real-time Search**: Search Plex database when local file filtering yields no results
- - **Remote search fallback**: When preview filtering returns zero local matches, the app calls Plex `/hubs/search`; returned rows are flagged as `remote-search` to distinguish them from local items.
+- **Remote search fallback**: When preview filtering returns zero local matches, the app calls Plex `/hubs/search`; returned rows are flagged as `remote-search` to distinguish them from local items
+- **Remote result enrichment**: Remote search rows use the same block-view poster fetching and subtitle-operation detection as normal preview rows
 
 ## Preview & Safety System
 
@@ -26,6 +27,7 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 - **First-run Gate**: The app requires an explicit file-rename risk acknowledgement before normal workflows are available
 - **Beta Warning**: The acknowledgement highlights that the app is beta software and should be tested on small library portions first
 - **Exit on Decline**: Users who do not accept the acknowledgement can exit before any library operations are available
+- **Versioned Acceptance**: The acknowledgement is stored locally and can be shown again when the acknowledgement text version changes
 
 ### Traffic-Light Status System
 - **🟩 Green**: Files already compliant with Plex naming conventions

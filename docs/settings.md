@@ -63,6 +63,7 @@ Throughout this document, settings options are marked with labels to help you un
 - **Default page sizes**: Movies 25, TV 20, Music 200 (client-side pagination).
 - **Debounced search**: 500ms debounce filters the current page immediately.
 - **Remote search fallback**: If a preview search returns zero local matches and the initial load is idle, the app queries Plex `/hubs/search`; those rows are flagged as `remote-search` to distinguish them from local items.
+- **Remote row enrichment**: Remote search rows participate in poster prefetching for Blocks view and subtitle-operation detection when matching sidecar subtitles exist.
 
 ### View Modes 🟢 Basic
 - **Movies view mode**: Choose between Table and Blocks view for movie libraries

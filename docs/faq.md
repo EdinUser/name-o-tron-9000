@@ -20,7 +20,7 @@ This FAQ covers common questions and issues users encounter with Name-o-Tron 900
 ## Installation & Setup
 
 ### **How do I install Name-o-Tron 9000?**
-Download the appropriate installer for your platform from the [releases page](https://github.com/your-repo/releases):
+Download the appropriate installer for your platform from the [downloads page](https://name-o-tron.kirilov.dev/downloads/) or the [GitHub releases page](https://github.com/EdinUser/name-o-tron-9000/releases):
 - **Windows**: Download the `.exe` installer and run it
 - **macOS**: Download the `.dmg` file and drag the app to Applications
 - **Linux**: Use the appropriate package (AppImage, .deb, or .rpm) for your distribution
@@ -30,6 +30,11 @@ Download the appropriate installer for your platform from the [releases page](ht
 - **RAM**: 256MB minimum, 1GB recommended for large libraries
 - **Storage**: 100MB for application, plus space for logs
 - **Network**: Access to your Plex server (local network or remote)
+
+### **Why does the app show a risk acknowledgement on startup?**
+Name-o-Tron 9000 can rename, move, and modify real files. The startup acknowledgement confirms that you understand the app is beta software and that you are responsible for your files, backups, Plex libraries, settings, path mappings, templates, and rename decisions.
+
+If you do not accept, use **Exit** to close the app before any library workflow is available.
 
 
 ## Plex Integration

@@ -11,6 +11,12 @@ The latest installers are published on the server and described by `release.json
 _Release info unavailable. The site will update after the next release run._
 {% endif %}
 
+## What's New in 0.2.1
+
+- **Startup risk acknowledgement**: First launch now requires an explicit acknowledgement before any library workflow is available, with a prominent beta warning and Exit option.
+- **Remote search parity**: Remote Plex search results in Preview now get the same block-view poster fetching and subtitle operation markers as normally loaded rows.
+- **Version metadata alignment**: npm, Tauri, Cargo, Cargo lock, and Linux metainfo release metadata are aligned on `0.2.1`.
+
 ## What's New in 0.2.0
 
 - **Safer Plex follow-up refreshes**: Rename and undo flows now trigger scoped Plex rescans for affected movie folders, episode folders, or show folders instead of relying on an automatic full-library scan.

@@ -1038,3 +1038,13 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - `npm run build` passed with existing Vite mixed dynamic/static import warnings.
 - Follow-ups:
   - Create the GitHub release after the modal and version bump are verified.
+
+- Summary: Audited the MkDocs-managed website source against the last month of `main` merge commits and updated public docs for the new startup risk acknowledgement, `0.2.1` release notes, remote-search poster/subtitle parity, beta small-batch guidance, and the correct downloads/GitHub release links.
+- Files or areas: `docs/index.md`, `docs/features.md`, `docs/releases.md`, `docs/settings.md`, `docs/tips.md`, `docs/faq.md`.
+- Verification:
+  - `git log main --since='2026-06-12' --merges --date=short --pretty=format:'%h %ad %s'` reviewed recent merge commits.
+  - `rg -n "your-repo|Risk Acknowledgement|What's New in 0\\.2\\.1|Remote row enrichment|Remote result enrichment|startup acknowledgement|0\\.2\\.1" docs` confirmed the placeholder release link is gone and new docs text is present.
+  - `rg -n -- "Home: index.md|Downloads: releases.md|Features: features.md|Settings: settings.md|Tips & Best Practices: tips.md|FAQ: faq.md" mkdocs.yml` confirmed the updated files are in MkDocs navigation.
+  - `mkdocs build --strict` could not run because `mkdocs` is not installed in this environment.
+- Follow-ups:
+  - Run `mkdocs build --strict` in the docs build environment or after installing MkDocs locally.

@@ -95,15 +95,16 @@ Name-o-Tron 9000 is designed specifically for Plex users who want to maintain pr
 
 ### First Launch Workflow
 
-1. **Server Discovery**: App automatically discovers Plex servers on your network and keeps discovered or manually added entries until you remove them
-2. **Authentication**: Login with your Plex account (PIN-based authentication)
-3. **Path Mapping**: Map Plex library paths to your local folder structure
-4. **Library Selection**: Choose Movies, TV Shows, or Music libraries
-5. **Preview Changes**: Review proposed renames with safety indicators
+1. **Risk Acknowledgement**: Confirm the beta file-rename warning before any library workflow is available
+2. **Server Discovery**: App automatically discovers Plex servers on your network and keeps discovered or manually added entries until you remove them
+3. **Authentication**: Login with your Plex account (PIN-based authentication)
+4. **Path Mapping**: Map Plex library paths to your local folder structure
+5. **Library Selection**: Choose Movies, TV Shows, or Music libraries
+6. **Preview Changes**: Review proposed renames with safety indicators
 
 [preview.png]
-6. **Apply Renames**: Execute changes (with automatic rollback logs)
-7. **Verify & Undo**: Check results and use one-click undo if needed (see [Rollback & Recovery](features.md#rollback--recovery))
+7. **Apply Renames**: Execute changes (with automatic rollback logs)
+8. **Verify & Undo**: Check results and use one-click undo if needed (see [Rollback & Recovery](features.md#rollback--recovery))
 
 [server_discovery.png]
 
@@ -113,6 +114,12 @@ Name-o-Tron 9000 is designed specifically for Plex users who want to maintain pr
 
 ```
 [START APP]
+    |
+    v
+[Risk Acknowledgement]
+    - Read the beta warning
+    - Confirm responsibility for files, backups, libraries, and rename decisions
+    - Exit if you do not accept
     |
     v
 [Welcome / Server Discovery]
@@ -177,6 +184,9 @@ Name-o-Tron 9000 is designed specifically for Plex users who want to maintain pr
 
 ### Preview Before Action
 Every rename operation shows exactly what will change before execution.
+
+### Beta Warning
+Name-o-Tron 9000 is still beta software. Test on small portions of your library first, keep backups, and review every preview before applying changes.
 
 ### Traffic-Light Status System
 - **🟩 Green**: File already compliant - no action needed
