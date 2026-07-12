@@ -1028,3 +1028,31 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - `npx vitest run src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx --reporter=dot` passed.
 - Follow-ups:
   - Re-check the live `City Slickers` remote search case in the Tauri app to confirm Plex metadata and local path mappings produce the expected poster and subtitle markers.
+- Summary: Added a versioned startup risk acknowledgement gate before normal app workflows, with a prominent beta warning, required confirmation checkbox, and Exit action that closes the Tauri window when declined. Bumped app version metadata to `0.2.1` across npm, Tauri, Cargo, Cargo lock, and Linux metainfo release entries.
+- Files or areas: `src/App.tsx`, `src/components/RiskAcknowledgementModal.tsx`, `package.json`, `package-lock.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, `src-tauri/linux/*.metainfo.xml`, `docs/features.md`.
+- Verification:
+  - `npm run test:types` passed.
+  - `npx vitest run src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx --reporter=dot` passed.
+  - `cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1` reported `name-o-tron-9000@0.2.1`.
+  - `npm run build` passed with existing Vite mixed dynamic/static import warnings.
+- Follow-ups:
+  - Create the GitHub release after the modal and version bump are verified.
+
+- Summary: Audited the MkDocs-managed website source against the last month of `main` merge commits and updated public docs for the new startup risk acknowledgement, `0.2.1` release notes, remote-search poster/subtitle parity, beta small-batch guidance, and the correct downloads/GitHub release links.
+- Files or areas: `docs/index.md`, `docs/features.md`, `docs/releases.md`, `docs/settings.md`, `docs/tips.md`, `docs/faq.md`.
+- Verification:
+  - `git log main --since='2026-06-12' --merges --date=short --pretty=format:'%h %ad %s'` reviewed recent merge commits.
+  - `rg -n "your-repo|Risk Acknowledgement|What's New in 0\\.2\\.1|Remote row enrichment|Remote result enrichment|startup acknowledgement|0\\.2\\.1" docs` confirmed the placeholder release link is gone and new docs text is present.
+  - `rg -n -- "Home: index.md|Downloads: releases.md|Features: features.md|Settings: settings.md|Tips & Best Practices: tips.md|FAQ: faq.md" mkdocs.yml` confirmed the updated files are in MkDocs navigation.
+  - `mkdocs build --strict` could not run because `mkdocs` is not installed in this environment.
+- Follow-ups:
+  - Run `mkdocs build --strict` in the docs build environment or after installing MkDocs locally.
+
+- Summary: Corrected live GitHub merge policy for the release path: repository merge commits are enabled, squash/rebase merges are disabled, and the active `main` ruleset now allows only merge commits. Updated the repo governance playbook to match the live settings and explicitly forbid squash/rebase for `develop -> main`.
+- Files or areas: GitHub repository settings, GitHub ruleset `main`, `dev_docs/playbooks/repo-governance-playbook.md`.
+- Verification:
+  - `gh repo view --json mergeCommitAllowed,squashMergeAllowed,rebaseMergeAllowed,deleteBranchOnMerge` reported merge commits enabled and squash/rebase disabled.
+  - `gh api repos/EdinUser/name-o-tron-9000/rulesets/8630719 --jq '.rules[] | select(.type=="pull_request") | .parameters.allowed_merge_methods'` reported `["merge"]`.
+  - `gh pr view 67 --json number,baseRefName,headRefName,mergeable,mergeStateStatus,statusCheckRollup,url` reported `mergeable: MERGEABLE`; required checks were running.
+- Follow-ups:
+  - Wait for `test-linux` and `test-windows` on PR #67 to finish, then merge with the merge-commit method.

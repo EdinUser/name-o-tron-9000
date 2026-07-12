@@ -2,6 +2,13 @@
 
 This guide provides practical advice for getting the most out of Name-o-Tron 9000 while avoiding common pitfalls.
 
+## Beta Safety
+
+- **Start Small**: The app can rename and move real media files. Test with a small batch before running large library operations.
+- **Keep Backups**: Keep backups or snapshots for important libraries, especially while the app is in beta.
+- **Review the Preview**: Treat the preview table or block overview as the source of truth before pressing Proceed.
+- **Accept Only If Ready**: The startup acknowledgement is there to stop accidental use. Exit if you are not ready to take responsibility for the selected files and libraries.
+
 ## Plex Integration
 
 ### Server Discovery & Authentication

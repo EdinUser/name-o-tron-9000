@@ -25,6 +25,7 @@
     <binary>name-o-tron-9000</binary>
   </provides>
   <releases>
+    <release version="0.2.1" date="2026-07-12" />
     <release version="0.2.0" date="2026-07-10" />
   </releases>
 </component>
