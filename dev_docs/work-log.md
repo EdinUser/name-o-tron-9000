@@ -1056,3 +1056,31 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
   - `gh pr view 67 --json number,baseRefName,headRefName,mergeable,mergeStateStatus,statusCheckRollup,url` reported `mergeable: MERGEABLE`; required checks were running.
 - Follow-ups:
   - Wait for `test-linux` and `test-windows` on PR #67 to finish, then merge with the merge-commit method.
+
+- Summary: Fixed duplicate movie loading/redraws in Preview by sharing the movie prefetch in-flight/completed guards between the inline second-page prefetch and `loadMoreMovies`. This keeps remote search reload behavior and row poster/subtitle enrichment intact while preventing page 2 from being fetched twice.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`.
+- Verification:
+  - `npm run test -- src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx` passed.
+  - `npm run test -- src/pages/Preview/__tests__/preview-plex-refresh.integration.test.tsx` passed.
+  - `npm run build` passed with existing Vite mixed dynamic/static import warnings.
+- Follow-ups:
+  - Re-check Movies in the live Tauri app, especially reload while a search query is active and page 3 in blocks view.
+
+- Summary: Fixed explicit `{ids}`, `{plexIds}`, and direct provider token placeholders by carrying all Plex GUID metadata from `Guid[]` into Preview rows and by letting explicit template ID placeholders render from metadata even when automatic ID handling is disabled. Movie and TV proposal contexts now prefer metadata-derived Plex ID tags for explicit placeholders while preserving existing fallback behavior for old filenames.
+- Files or areas: `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/movieProposal.ts`, `src/pages/Preview/episodeProposal.ts`, `src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts`.
+- Verification:
+  - `npm run test -- src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts` passed.
+  - `npm run test -- src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts src/pages/Preview/__tests__/tv-episode-token-normalization.test.ts` passed.
+  - `npm run build` passed with existing Vite mixed dynamic/static import warnings.
+- Follow-ups:
+  - Re-check a real Plex movie whose primary `guid` is `plex://...` and external IDs are only present in `Guid[]`.
+
+- Summary: Updated movie library paging to request Plex GUID/detail metadata in the existing section fetch (`includeDetails=1&includeGuids=1`) instead of doing per-movie hydration calls. Preview renders explicit ID placeholders from `Guid[]` returned on the section page and the regression test rejects `fetch_plex_metadata` calls for this path.
+- Files or areas: `src-tauri/src/plex_api.rs`, `src/pages/Preview/PreviewContainer.tsx`, `src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx`.
+- Verification:
+  - `npm run test -- src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx -t "renders movie ID placeholders"` passed.
+  - `npm run test -- src/pages/Preview/__tests__/preview-search-pagination.integration.test.tsx src/pages/Preview/__tests__/movie-backend-folder-integration.test.ts src/pages/Preview/__tests__/tv-episode-token-normalization.test.ts` passed.
+  - `cargo check --manifest-path src-tauri/Cargo.toml` passed.
+  - `npm run build` passed with existing Vite mixed dynamic/static import warnings.
+- Follow-ups:
+  - Re-test the live Movies blocks view with `{title}[ ({year})] {imdbToken}` after restarting the dev app so the updated frontend code is loaded.

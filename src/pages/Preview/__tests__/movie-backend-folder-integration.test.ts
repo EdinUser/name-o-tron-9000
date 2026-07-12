@@ -263,6 +263,54 @@ describe("Movie backend folder integration", () => {
     expect(row.proposed).toBe("Incoming/Interstellar {imdb-tt0816692}.mkv");
   });
 
+  it("renders explicit ids placeholders from metadata even when automatic movie IDs are disabled", async () => {
+    const movie: MovieItem = {
+      ...(buildMovieProposalItem("101") as MovieItem),
+      guid: "plex://movie/mock imdb://tt0816692 tmdb://157336",
+    };
+
+    const settings = JSON.parse(JSON.stringify(baseSettings));
+    settings.movies.ids = "none";
+    settings.movies.ownFolderPerMovie = false;
+
+    const row = await computeMovieProposal(
+      movie,
+      "{title}[ ({year})][ {ids}]{ext}",
+      false,
+      false,
+      "",
+      settings,
+      "/mnt/Movies",
+      ["/mount/server/HDD1/Movies"],
+    );
+
+    expect(row.proposed).toBe("Incoming/Interstellar (2014) {imdb-tt0816692} {tmdb-157336}.mkv");
+  });
+
+  it("renders imdbToken when imdb is available through additional Plex GUID metadata", async () => {
+    const movie: MovieItem = {
+      ...(buildMovieProposalItem("101") as MovieItem),
+      guid: "plex://movie/mock tmdb://157336 imdb://tt0816692",
+    };
+
+    const settings = JSON.parse(JSON.stringify(baseSettings));
+    settings.movies.ids = "none";
+    settings.movies.ownFolderPerMovie = false;
+
+    const row = await computeMovieProposal(
+      movie,
+      "{title} {imdbToken}{ext}",
+      false,
+      false,
+      "",
+      settings,
+      "/mnt/Movies",
+      ["/mount/server/HDD1/Movies"],
+    );
+
+    expect(row.proposed).toBe("Incoming/Interstellar {imdb-tt0816692}.mkv");
+  });
+
   it("renders plexIds as a space-separated list of available Plex-style provider tags", async () => {
     const movie: MovieItem = buildMovieProposalItem("101") as any;
 

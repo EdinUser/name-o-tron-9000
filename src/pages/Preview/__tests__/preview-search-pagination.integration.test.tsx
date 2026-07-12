@@ -372,6 +372,93 @@ describe("Preview movie search pagination regressions", () => {
     expect(fetchStarts.slice(fetchCountBeforeReload)).toContain(0);
   });
 
+  it("renders movie ID placeholders from Guid metadata returned by the section page", async () => {
+    localStorageMock.getItem.mockImplementation((key: string) => {
+      if (key === "plexToken") return "fake-token";
+      if (key === "nameotron.settings.v1") {
+        return JSON.stringify({
+          general: {
+            pagination: {
+              defaultMovieLimit: 10,
+              defaultShowLimit: 20,
+              defaultMusicLimit: 200,
+            },
+            viewMode: {
+              movies: "blocks",
+              tv: "blocks",
+            },
+          },
+          templates: {
+            movie: "{title}[ ({year})] {imdbToken}",
+          },
+          movies: {
+            ids: "none",
+          },
+        });
+      }
+      return null;
+    });
+
+    const movieEntry = {
+      ...getMockMovies(1)[0],
+      guid: "plex://movie/local-only",
+      Guid: [{ id: "imdb://tt0816692" }, { id: "tmdb://157336" }],
+    };
+
+    mockInvoke.mockImplementation(async (command: string, args?: any) => {
+      switch (command) {
+        case "get_settings":
+          return {
+            pathMappings: [
+              {
+                server_id: "test-server-id",
+                plex_root: "/mount/server/HDD1/Movies",
+                local_root: "/mnt/Movies",
+              },
+            ],
+          };
+        case "fetch_library_content":
+          return {
+            MediaContainer: {
+              Metadata: [movieEntry],
+              totalSize: 1,
+              size: 1,
+              offset: 0,
+            },
+          };
+        case "fetch_plex_metadata":
+          throw new Error("Movie ID placeholders should not trigger per-movie metadata hydration");
+        case "sanitize_filename_cmd":
+          return args?.filename;
+        case "preview_video_renames":
+          return {
+            video_operations: [],
+            subtitle_operations: [],
+            warnings: [],
+            blocking_errors: [],
+          };
+        case "fetch_plex_image":
+          return "data:image/jpeg;base64,ZmFrZQ==";
+        default:
+          throw new Error(`Unexpected invoke: ${command}`);
+      }
+    });
+
+    renderWithProviders(
+      <PreviewContainer
+        server={mockServer}
+        library={mockLibrary}
+        onBack={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Interstellar \(2014\) \{imdb-tt0816692\}\.mkv/)).toBeInTheDocument();
+    });
+
+    expect(mockInvoke).not.toHaveBeenCalledWith("fetch_plex_metadata", expect.anything());
+  });
+
   it("fetches posters for movie blocks view rows loaded on page 3", async () => {
     localStorageMock.getItem.mockImplementation((key: string) => {
       if (key === "plexToken") return "fake-token";
@@ -398,6 +485,7 @@ describe("Preview movie search pagination regressions", () => {
     const page2Rows = movieEntries.slice(10, 20);
     const page3Rows = movieEntries.slice(20, 25);
     const fetchImageCalls: string[] = [];
+    const fetchStarts: number[] = [];
 
     mockInvoke.mockImplementation(async (command: string, args?: any) => {
       switch (command) {
@@ -412,6 +500,7 @@ describe("Preview movie search pagination regressions", () => {
             ],
           };
         case "fetch_library_content":
+          fetchStarts.push(Number(args?.start ?? 0));
           if (args?.start === 0) {
             return {
               MediaContainer: {
@@ -494,6 +583,7 @@ describe("Preview movie search pagination regressions", () => {
     });
 
     expect(screen.getByAltText(`${page3Rows[0]?.title} poster`)).toBeInTheDocument();
+    expect(fetchStarts.filter((start) => start === 10)).toHaveLength(1);
   });
 
   it("fetches posters for remote movie search results in blocks view", async () => {
