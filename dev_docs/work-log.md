@@ -15,6 +15,23 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 
 ## 2026-07-13
 
+- Summary: Changed release packaging to run on `v*` tags/manual dispatch, decoupled normal MkDocs deploys onto `main` pushes, added release-time docs refresh after installer upload, and moved downloads above release notes.
+- Files or areas: `.github/workflows/main.yml`, `.github/workflows/docs-site.yml`, `docs/releases.md`, `dev_docs/work-log.md`.
+- Verification:
+  - Workflow YAML parsed with PyYAML.
+  - `git diff --check` passed.
+  - `mkdocs build --clean --site-dir /tmp/nameotron-site` passed using a temporary `release.json` fixture.
+  - Rendered release page order was checked: download links appear before release notes in the main content.
+- Follow-ups:
+  - Confirm the first tagged release updates installers, `release.json`, and the downloads page in sequence.
+
+- Summary: Refreshed the root README against the current public docs, elevated Website/Downloads/Discord/Community links near the top, and removed stale docs references.
+- Files or areas: `README.md`, `dev_docs/work-log.md`.
+- Verification:
+  - README stale-link, local target, and non-ASCII scans passed after cleanup.
+- Follow-ups:
+  - None.
+
 - Summary: Repositioned the MkDocs site around Plex-metadata-powered media-library normalization, added SEO landing pages, Discord visibility, agent discovery files, and CI-friendly docs plugin dependencies.
 - Files or areas: `docs/`, `mkdocs.yml`, `.github/workflows/docs-site.yml`, `requirements-docs.txt`, `README.md`.
 - Verification:

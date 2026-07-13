@@ -1,215 +1,229 @@
 <p align="center">
-  <img src="public/name-o-tron-9000.svg" alt="Name‑o‑Tron 9000 logo" width="140">
+  <img src="public/name-o-tron-9000.svg" alt="Name-o-Tron 9000 logo" width="140">
 </p>
 
 # Name-o-Tron 9000
 
-Name-o-Tron 9000 is a safety-first, Plex-metadata-powered media-library normalization tool. It uses matches already curated in Plex to reorganize Movies, TV Shows, Music, subtitles, and folders into consistent, portable, reliably identifiable filesystem structures.
+Name-o-Tron 9000 is a safety-first Plex file renamer and media-library organizer. It uses metadata already matched and curated in Plex to normalize Movies, TV Shows, Music, subtitles, files, and folders into cleaner, portable filesystem structures.
 
 Your media library should outlive your media server.
 
-## Audience & Scope
+- **Website:** https://name-o-tron.kirilov.dev/
+- **Downloads:** https://name-o-tron.kirilov.dev/downloads/
+- **Discord:** https://discord.gg/Hp9B3Ayuj7
+- **Community:** https://community.kirilov.dev/
 
-Name-o-Tron currently requires access to a Plex Media Server because Plex provides the matched metadata used as its source of truth. The resulting files and folders are intended to remain useful beyond one media-server database.
+## What It Is
 
-**Intended users:**
+Name-o-Tron is a cross-platform desktop app for media libraries that are already managed in Plex. Plex remains the source of truth for titles, years, seasons, episodes, albums, editions, artwork references, and provider IDs; Name-o-Tron applies that resolved identity to your local filesystem.
 
-- Plex users with Movies, TV, or Music libraries
-- Plex users who want clean, portable, media-server-friendly filesystem organization
-- Developers/testers extending or debugging the tool
+It is intended for users whose media is already matched correctly in Plex but whose filenames, folders, subtitles, or library layout are inconsistent, ambiguous, or hard to migrate.
 
-**Not intended for:**
+Name-o-Tron currently requires Plex access. It is not a raw-folder scraper, a second metadata matcher, or a fully media-server-agnostic metadata exporter today.
 
-- Users without Plex metadata access (this tool will not function without Plex as the current metadata source).
+## Implemented Today
 
-👉 If you need a general-purpose renamer, consider alternatives such as FileBot or Advanced Renamer.
+- Plex server discovery, remembered/manual server entries, and PIN authentication
+- Movies, TV Shows, and Music library access
+- Configurable filename and folder templates
+- Folder organization for movies, TV seasons, music albums, collections, genres, years, and alphabetical layouts
+- Provider ID preservation/appending where Plex exposes IDs
+- Subtitle detection, renaming, language-code handling, and encoding workflows
+- Cross-platform path mapping for local disks, NAS paths, and server/client path differences
+- Preview-first rename workflow with traffic-light statuses
+- Manual metadata fixes from the Preview screen, persisted across sessions
+- Table and blocks preview modes, including poster thumbnails where available
+- Local filtering plus Plex remote search fallback when preview search finds no local matches
+- Operation logs, preview snapshots, support bundles, and rollback for the latest supported rename batch
+- Focused Plex follow-up refreshes after rename and undo flows
 
-## Features
+## Example Output
 
-- **Plex Integration**: Discover and authenticate with Plex Media Servers using automatic server discovery, remembered server entries, and PIN-based authentication
-- **Safety-First Design**: Traffic-light status system (Green/Yellow/Red) with comprehensive validation and batch guards
-- **Preview System**: Generate rename proposals with real filesystem validation before applying changes
-- **Rollback Support**: Operation logging with undo support for the latest supported rename batch (see [Rollback & Recovery](docs/features.md#rollback-recovery))
-- **Subtitle Handling**: Full subtitle detection, classification, renaming, and encoding conversion support
-- **Cross-Platform Path Mapping**: Robust path resolution for different operating systems and network configurations
-- **Diagnostics & Snapshots**: Export support bundles and preview snapshots with machine/environment details redacted while keeping rename-relevant item names and proposals for bug reports
+```text
+Bad.Movie.Name.1080p.x264.mkv
+Bad.Movie.Name.1080p.x264.eng.srt
+```
 
-## Architecture
+can become:
 
-- **Frontend**: React/TypeScript application with custom UI components
-- **Backend**: Rust via Tauri framework for filesystem operations and Plex API integration
-- **Storage**: OS-appropriate application data directories for settings and logs
+```text
+Movies/
+`-- Blade Runner (1982) {imdb-tt0083658}/
+    |-- Blade Runner (1982) {imdb-tt0083658}.mkv
+    `-- Blade Runner (1982) {imdb-tt0083658}.eng.srt
+```
 
-## Installation
+For TV episodes:
 
-### Download & Install
+```text
+show.s01e01-e02.web.mkv
+```
 
-**Official Releases** are available for:
-- **Windows** (x64, portable .exe)
-- **macOS** (Intel/Apple Silicon, .dmg installer)
-- **Linux** (AppImage, .deb, .rpm packages)
+can become:
 
-Download directly from the live site: https://name-o-tron.kirilov.dev/downloads/  
-Docs are hosted at https://name-o-tron.kirilov.dev/ (built from the `docs/` folder).
+```text
+Show Name/
+`-- Season 01/
+    `-- Show Name - S01E01-E02 - Episode Title.mkv
+```
 
-### Building from Source
+The exact output depends on your templates and settings.
 
-#### Prerequisites
+## Safety Model
 
-- **Node.js** 18+ (for frontend development)
-- **Rust** 1.70+ (for backend development)
-- **System dependencies**:
-  - Windows: Microsoft Visual C++ Build Tools
-  - macOS: Xcode Command Line Tools
-  - Linux: `build-essential`, `pkg-config`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libjavascriptcoregtk-4.1-dev`, `libsoup-3.0-dev`, `libglib2.0-dev`, `libpango1.0-dev`, `libatk1.0-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`
+Name-o-Tron never treats renaming as blind text replacement. It previews proposed operations first, validates them, and blocks selected red-status rows before apply.
 
-#### Quick Start
+Preview statuses:
 
-1. **Clone and setup**:
-   ```bash
-   git clone <repository-url>
-   cd name-o-tron-9000
-   npm install
-   ```
+- **Green:** proposed name is safe under the active template/settings
+- **Yellow:** warning for review, such as long paths, missing metadata, guessed editions, or character compatibility concerns
+- **Red:** blocking issue, such as unsafe destination names, duplicate targets, path limits, target conflicts, or permission problems
+- **Unmatched:** item is not resolved to usable Plex metadata and an accessible local path
 
-2. **Development with mock server**:
-   ```bash
-   npm run mock:setup # Optional: rebuild local mock media tree
-   npm run mock:plex  # Terminal A - starts mock Plex server
-   npm run tauri dev  # Terminal B - starts the app
-   ```
+Apply-time protections include batch guards, permission checks, duplicate-target detection, parent directory creation, rollback logging, and copy-plus-cleanup fallback for cross-device moves where needed.
 
-3. **Production build**:
-   ```bash
-   npm run tauri build
-   ```
+Rollback has boundaries. Later manual edits, moved files, mount changes, destination collisions, permissions, or unavailable NAS storage can prevent reversal. Test with a small subset first and keep backups for major library changes.
 
-4. **Linux installer smoke test on your machine**:
-   ```bash
-   npm run bundle:linux
-   ```
-   Output lands under `src-tauri/target/release/bundle/` with `.AppImage`, `.deb`, and `.rpm` artifacts so you can install or run them locally before pushing to GitHub Actions.
+## Quick Start
 
-## User Guide
+1. Install Name-o-Tron from the [Downloads](https://name-o-tron.kirilov.dev/downloads/) page.
+2. Open the app and accept the startup risk acknowledgement only when you are ready to work with real files.
+3. Connect to Plex through discovery, manual server entry, and PIN authentication.
+4. Select a Movies, TV Shows, or Music library.
+5. Configure path mappings so Plex server paths resolve to local filesystem paths.
+6. Choose or edit templates for filenames and folders.
+7. Preview proposed operations and review green, yellow, red, and unmatched statuses.
+8. Apply only selected safe operations.
+9. Use operation logs or rollback if a completed batch needs to be reversed.
 
-Complete documentation is available in the [`docs/`](./docs/) folder:
+## Documentation
 
-- **[Quick Start Guide](docs/index.md)** - First-time setup and basic usage
-- **[Features Overview](docs/features.md)** - Detailed capabilities by category
-- **[Settings Reference](docs/settings.md)** - Complete configuration options
-- **[Tips & Best Practices](docs/tips.md)** - Practical advice and common patterns
-- **[FAQ & Troubleshooting](docs/faq.md)** - Common questions and solutions
-- **[Technical Appendix](docs/appendix.md)** - Advanced technical details
+The public documentation starts at [docs/index.md](docs/index.md) and is published at https://name-o-tron.kirilov.dev/.
 
-### First Launch Workflow
+- [What is Name-o-Tron?](docs/what-is-name-o-tron.md)
+- [Rename Files Using Plex Metadata](docs/rename-files-using-plex-metadata.md)
+- [Renaming & Templates](docs/renaming-and-templates.md)
+- [Folder Structures](docs/plex-folder-structure.md)
+- [Subtitle Renaming](docs/plex-subtitle-renamer.md)
+- [Features](docs/features.md)
+- [Settings](docs/settings.md)
+- [Tips & Best Practices](docs/tips.md)
+- [FAQ & Troubleshooting](docs/faq.md)
+- [Downloads & Releases](docs/releases.md)
 
-1. **Server Discovery** - App automatically finds Plex servers on your network and keeps discovered/manual entries until you remove them
-2. **Authentication** - Login with your Plex account (PIN-based flow)
-3. **Path Mapping** - Map Plex library paths to your local folder structure
-4. **Library Selection** - Choose Movies, TV Shows, or Music libraries
-5. **Preview Changes** - Review proposed renames with safety indicators
-6. **Apply Renames** - Execute changes with operation logs
-7. **Verify & Undo** - Check results and use undo for the latest supported rename batch if needed (see [Rollback & Recovery](docs/features.md#rollback-recovery))
-
-During preview you can:
-- Filter by status, search, and use per-page “Select all” to quickly choose items
-- For TV libraries, filter episodes by season or view all seasons
-- Export an environment-redacted preview snapshot for troubleshooting
+Contributor documentation starts at [dev_docs/README.md](dev_docs/README.md).
 
 ## Configuration
 
-The application supports comprehensive settings organized into 5 tabs:
+Settings are organized into five tabs:
 
-### General Settings
-- **Preview & Logging** - Always preview changes, export logs as TXT/CSV/JSON
-- **Filename Encoding** - Unicode preservation, transliteration options
-- **Conflict Handling** - Skip, overwrite, or auto-number conflicts
-- **Safety Checks** - Path length, reserved names, permissions validation
+- **General:** preview, logging, rollback, filename encoding, conflict handling, safety checks, pagination, search, view modes, and manual metadata fixes
+- **Movies:** collections, chronology, folder structure, editions, versions, provider IDs, extras, and subtitles
+- **TV Shows:** season folders, specials/OVAs, multi-episode normalization, provider IDs, and subtitles
+- **Music:** artist, album, track, disc, and folder organization
+- **Misc:** unmatched files, non-media sidecars, and advanced warnings
 
-### Media-Specific Settings
-- **Movies** - Collections, folder structure, editions, IDs, extras handling
-- **TV Shows** - Season folders, specials/OVAs, multi-episode normalization
-- **Music** - Artist/Album/Track formatting, disc subfolder organization
+Defaults are intentionally conservative: preview before rename, keep Unicode, log operations, create rollback data, and require explicit user decisions for risky behavior.
 
-### Advanced Features
-- **Path Mapping** - Cross-platform path resolution for NAS/remote libraries
-- **Unmatched Files** - Handle files not found in Plex database
-- **Non-Media Files** - Process .txt, .nfo, .jpg and other associated files
+## Installation
 
-## Safety & Recovery
+Official releases are published for:
 
-All rename operations include multiple safety layers:
+- Windows: `.exe`
+- macOS: `.dmg`
+- Linux: AppImage, `.deb`, and `.rpm`
 
-### Pre-Flight Validation
-- **Traffic-Light Status System**:
-  - Green: Already compliant (no change needed)
-  - Yellow: Warning (review before proceeding)
-  - Red: Blocking error (must be fixed or skipped)
-  - Unmatched: Not found in Plex database
+Download installers from https://name-o-tron.kirilov.dev/downloads/ or [GitHub Releases](https://github.com/EdinUser/name-o-tron-9000/releases).
 
-### Execution Safety
-- **Batch Guards** - Cannot proceed with selected red-flagged items
-- **Atomic Operations** - Prefer rename within filesystem; fallback to copy+delete
-- **Permission Checks** - Verify access before operations
-- **Rollback Logging** - Operations are recorded for supported rollback and audit
+## Building From Source
 
-### Recovery Options
-- **One-Click Undo** - Restore supported files from the latest rename batch when sources, destinations, mounts, and permissions still allow it (see [Rollback & Recovery](docs/features.md#rollback-recovery))
-- **Selective Retry** - Re-run only skipped or failed items
-- **Log Export** - Export operation history as TXT, CSV, or JSON
-- **Backup Files** - Optional `filenames_backup.json` before operations
+Prerequisites:
+
+- Node.js 18+
+- Rust 1.70+
+- Platform build tools:
+  - Windows: Microsoft Visual C++ Build Tools and WebView2 runtime
+  - macOS: Xcode Command Line Tools
+  - Linux: `build-essential`, `pkg-config`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libjavascriptcoregtk-4.1-dev`, `libsoup-3.0-dev`, `libglib2.0-dev`, `libpango1.0-dev`, `libatk1.0-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`
+
+```bash
+git clone <repository-url>
+cd name-o-tron-9000
+npm install
+```
+
+Development with the mock Plex server:
+
+```bash
+npm run mock:setup
+npm run mock:plex
+npm run tauri dev
+```
+
+Production build:
+
+```bash
+npm run tauri build
+```
+
+Linux installer smoke test:
+
+```bash
+npm run bundle:linux
+```
+
+Linux bundle output lands under `src-tauri/target/release/bundle/`.
+
+## Verification Commands
+
+Common checks from the repo root:
+
+```bash
+npm run test:types
+npm test
+npm run test:rust
+npm run test:all
+npm run build
+```
+
+Mock Plex helpers:
+
+```bash
+npm run mock:setup
+npm run mock:plex
+npm run mock:verify
+```
 
 ## Troubleshooting
 
-### Common Issues
+**No Plex servers found**
 
-**"No Plex servers found"**
-- Ensure Plex Media Server is running and accessible on your network
-- Check firewall settings allow network discovery
-- Try Home → Advanced Scan or manual server addition
-- Remove stale saved entries from Home if an old server address keeps reappearing
+- Confirm Plex Media Server is running and reachable.
+- Check firewall and network discovery settings.
+- Try Home -> Advanced Scan or manual server addition.
+- Remove stale saved entries from Home if old addresses keep reappearing.
 
-**"Path mapping failed"**
-- Verify Plex library root paths match your local folder structure
-- Test mappings using the "Test Mapping" button in settings
-- Ensure network drives are mounted and accessible
+**Path mapping failed**
 
-**"Rename blocked by red status"**
-- Use "Skip All Reds" to unselect problematic items
-- Use "Auto-Fix Reds" for common issues (invalid characters, long paths)
-- Review individual items in the preview table
+- Confirm Plex library roots match the paths visible from the machine running Name-o-Tron.
+- Test mappings from the app before applying rename operations.
+- Ensure network drives or NAS mounts are mounted and writable.
 
-**"Subtitle encoding errors"**
-- Enable UTF-8 conversion in settings (General tab)
-- Check subtitle file permissions and format support
-- Review logs in `~/.nameotron/logs/` for detailed error information
+**Rename blocked by red status**
 
-### Getting Help
+- Fix the item, use Auto-Fix Reds where appropriate, or skip red rows.
+- Review duplicate targets, invalid characters, path length, target existence, and permissions.
 
-1. **Check the FAQ** - [docs/faq.md](docs/faq.md) for common questions
-2. **Review Logs** - Operation logs in `~/.nameotron/logs/`
-3. **Export Settings** - Use settings export for troubleshooting
-4. **Discord** - Join https://discord.gg/Hp9B3Ayuj7 for discussion and release questions
-5. **Community Support** - GitHub issues for bugs and feature requests
+**Subtitle encoding errors**
 
-### Manual Rollback
+- Enable UTF-8 conversion if appropriate.
+- Check subtitle file permissions and format support.
+- Review logs under the app data logs directory for details.
 
-If the application cannot start or "Undo Last Rename" fails:
-1. Locate rollback logs in `~/.nameotron/logs/` (see [Rollback & Recovery](docs/features.md#rollback-recovery))
-2. Open the most recent `rollback_*.json` file
-3. Manually restore files listed as "success" operations
-4. Backup files are preserved with `.backup` extension where applicable
+For more help, see [FAQ & Troubleshooting](docs/faq.md), join Discord, or use the community site linked above.
 
 ## Contributing
 
-We welcome contributions! Please see [docs/roadmap.md](docs/roadmap.md) for planned enhancements and [AGENTS.md](AGENTS.md) for developer guidelines.
+Use [`AGENTS.md`](AGENTS.md) for repository-specific agent/developer rules and [dev_docs/README.md](dev_docs/README.md) for contributor-facing architecture, build, testing, and workflow notes.
 
-### Development Philosophy
-- **Safety-first** - All changes must maintain rollback capabilities
-- **User-focused** - Balance power-user features with safe defaults
-- **Cross-platform** - Support Windows, macOS, and Linux equally
-- **Comprehensive** - Update documentation when adding features
-
----
-
-**Made with love for the Plex community**
+Keep changes small, safety-first, and documented. Update public docs when behavior, settings, release process, or user-visible workflows change.
