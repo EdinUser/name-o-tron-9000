@@ -1,3 +1,7 @@
+---
+description: "Download the latest Name-o-Tron 9000 installers for Windows, macOS, and Linux, and review recent release notes."
+---
+
 # Downloads & Releases
 
 The latest installers are published on the server and described by `release.json`.

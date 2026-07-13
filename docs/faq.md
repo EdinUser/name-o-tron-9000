@@ -1,19 +1,57 @@
+---
+description: "Frequently asked questions about Name-o-Tron installation, Plex integration, path mapping, renaming, templates, rollback, performance, and support."
+---
+
 # FAQ & Troubleshooting
 
 This FAQ covers common questions and issues users encounter with Name-o-Tron 9000. Questions are organized by category for easy navigation.
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Does Name-o-Tron work without Plex?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Name-o-Tron currently requires access to Plex because Plex provides the matched metadata used as the source of truth."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can Name-o-Tron scan a raw folder and identify everything itself?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Name-o-Tron is not a general-purpose media scraper. It is strongest when Plex already has the correct matches."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I customize the renaming templates?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Each media type has configurable templates, and template changes are previewed before any file operation is applied."
+      }
+    }
+  ]
+}
+</script>
+
 ## 📑 Table of Contents
 
-1. [Installation & Setup](#installation--setup)
+1. [Installation & Setup](#installation-setup)
 2. [Plex Integration](#plex-integration)
 3. [Path Mapping](#path-mapping)
-4. [Preview & Renaming](#preview--renaming)
-5. [File Operations](#file-operations)
-6. [Settings & Configuration](#settings--configuration)
-7. [Performance & Large Libraries](#performance--large-libraries)
-8. [Network & Remote Access](#network--remote-access)
-9. [Troubleshooting](#troubleshooting)
-10. [Getting Help](#getting-help)
+4. [Product Scope](#product-scope)
+5. [Preview & Renaming](#preview-renaming)
+6. [File Operations](#file-operations)
+7. [Settings & Configuration](#settings-configuration)
+8. [Performance & Large Libraries](#performance-large-libraries)
+9. [Network & Remote Access](#network-remote-access)
+10. [Troubleshooting](#troubleshooting)
+11. [Getting Help](#getting-help)
 
 ---
 
@@ -54,9 +92,10 @@ If you do not accept, use **Exit** to close the app before any library workflow 
 
 ### **Authentication fails with Plex**
 **Common causes:**
-- Incorrect Plex account credentials
-- Server not linked to your Plex account
-- Network connectivity issues
+- Plex authorization was not completed
+- The authorization token expired
+- The selected server is not available to that Plex account
+- Network access to Plex is unavailable
 
 **Solutions:**
 1. Verify your Plex login works in a web browser
@@ -76,6 +115,19 @@ If you do not accept, use **Exit** to close the app before any library workflow 
 3. Check that you're selecting the correct server if you have multiple
 
 [path_mapping.png]
+
+## Product Scope
+
+### **Does Name-o-Tron work without Plex?**
+No. Name-o-Tron currently requires access to Plex because Plex provides the matched metadata used as the source of truth.
+
+The resulting filenames and folders are intended to be clean, portable, and useful beyond one Plex database, but Plex is still required as the current metadata input.
+
+### **Is Name-o-Tron only for Plex-style filenames?**
+No. Name-o-Tron creates configurable, media-server-friendly filenames and folder structures from Plex metadata. Plex compatibility matters, but the larger goal is a clean filesystem library whose identity and organization are visible outside the Plex database.
+
+### **Can Name-o-Tron scan a raw folder and identify everything itself?**
+No. It is not a general-purpose media scraper. If you need independent identification from filenames, use a tool designed for that workflow. Name-o-Tron is strongest when Plex already has the correct matches.
 
 ## Path Mapping
 
@@ -117,20 +169,24 @@ For detailed guidance on setting up and troubleshooting path mappings, see [Path
 
 ### **Why is a file showing as "Unmatched"?**
 **Common causes:**
-- File not properly scanned into Plex library
-- Filename doesn't match Plex's metadata matching rules
-- File in wrong library section (movie in TV library, etc.)
+- The item has not been scanned into Plex
+- Plex has not matched the item correctly
+- The item belongs to another library section
+- The file path cannot be resolved through the current path mapping
+- The file is unavailable or no longer exists
+- The item type is not supported
+- Plex metadata is incomplete or inconsistent
 
 **Solutions:**
-1. Run "Scan Library Files" in Plex Web for the affected library
-2. Check that the file appears in Plex Web before using the app
-3. Ensure the file is in the correct library section (Movies/TV/Music)
-4. Review Plex's naming guidelines for your media type
+1. Verify that the item appears in Plex
+2. Confirm it is matched correctly in Plex
+3. Ensure it is in the correct library section (Movies/TV/Music)
+4. Confirm path mapping resolves the Plex path to an accessible local file
 
 ### **Why is a rename blocked with red status?**
 **Common blocking issues:**
 - **Invalid characters**: `\ / : * ? " < > |` in filenames
-- **Path too long**: Over 255 characters (Windows limit)
+- **Path too long**: The proposed filename or full path exceeds the app's configured safety threshold or the detected platform's supported limit
 - **Reserved names**: Windows reserved names like CON, AUX
 - **Duplicate targets**: File would overwrite existing file
 - **Permission issues**: No write access to destination
@@ -143,8 +199,8 @@ For detailed guidance on setting up and troubleshooting path mappings, see [Path
 
 ### **What do yellow warnings mean?**
 **Common warnings:**
-- **Non-Latin characters**: May cause issues on some systems
-- **Path length**: Between 200-255 characters (caution zone)
+- **Character compatibility**: Characters may be incompatible with the selected destination filesystem, application setting, or transliteration policy
+- **Path length**: The proposed filename or path is approaching the configured safety threshold
 - **Missing metadata**: Edition, year, or other info not found
 - **Non-standard extensions**: Not in common media format list
 
@@ -170,11 +226,13 @@ For detailed guidance on setting up and troubleshooting path mappings, see [Path
 [undo_last_rename.png]
 
 ### **How do I undo changes if something goes wrong?**
-For comprehensive information about rollback and recovery options, see [Rollback & Recovery](features.md#rollback--recovery) in the Features guide.
+For comprehensive information about rollback and recovery options, see [Rollback & Recovery](features.md#rollback-recovery) in the Features guide.
 
 **Quick access:**
-- Use the "Undo Last Rename" button in the main interface for automatic rollback
+- Use the "Undo Last Rename" button in the main interface for supported rollback of the latest rename batch
 - Manual rollback logs are stored in `~/.nameotron/logs/`
+
+Rollback can be affected by later manual file changes, moved or deleted files, changed mounts, destination collisions, permission changes, or unavailable NAS storage.
 
 ### **Can I preview changes before applying them?**
 Yes! The app always shows a preview of what will change:
@@ -184,7 +242,7 @@ Yes! The app always shows a preview of what will change:
 - **Options**: Skip problematic items or auto-fix common issues
 
 ### **Where are the logs stored and how do I read them?**
-For detailed information about log storage, types, and export options, see [Rollback & Recovery](features.md#rollback--recovery) in the Features guide.
+For detailed information about log storage, types, and export options, see [Rollback & Recovery](features.md#rollback-recovery) in the Features guide.
 
 **Quick reference:**
 - Logs location: `~/.nameotron/logs/` (OS-specific app data directory)
@@ -301,7 +359,7 @@ Yes, with these considerations:
 **Plex-related issues:**
 1. **Refresh metadata** in Plex Web for affected items
 2. **Re-scan library** if files were recently added
-3. **Check file naming** against Plex naming conventions
+3. **Verify the item is correctly matched** in Plex before using Plex metadata for normalization
 4. **Verify library section** (movie in Movies, etc.)
 
 **App-related issues:**
@@ -315,7 +373,9 @@ Yes, with these considerations:
 ### **Where can I find more documentation?**
 - **Complete user guide**: See the `docs/` folder in the installation
 - **Settings reference**: [docs/settings.md](settings.md)
+- **Renaming templates**: [Renaming & Templates](renaming-and-templates.md)
 - **Tips & best practices**: [docs/tips.md](tips.md)
+- **Discord**: [Join the Name-o-Tron Discord](https://discord.gg/Hp9B3Ayuj7)
 - **Technical details**: See the developer docs in `dev_docs/` inside the repository.
 
 

@@ -1,11 +1,17 @@
+---
+description: "Feature overview for Name-o-Tron 9000: Plex metadata access, preview safety, templates, folder organization, subtitles, path mapping, logging, and rollback."
+---
+
 # Features Overview
 
-This section details the comprehensive capabilities of Name-o-Tron 9000, organized by major functional areas. It is a purpose-built **Plex renamer** focused on safe, metadata-accurate **Plex library rename** workflows (movies, TV, music), with poster hover cards, show-mapping cache, and remote Plex search to keep large libraries responsive.
+Name-o-Tron 9000 is a safety-first Plex file renamer and media-library organizer. It uses existing Plex matches to create safer, clearer filenames, folders, subtitle sidecars, and rollback-ready filesystem operations for Movies, TV Shows, and Music.
+
+At its core, Name-o-Tron provides a safety-first Plex file renaming workflow, but it also reorganizes folders, subtitles, and related library structures. The broader goal is a clean, portable filesystem library whose organization does not exist only inside one media-server database.
 
 ## Plex Integration
 
 ### Server Discovery & Authentication
-- **Automatic Discovery**: Uses SSDP multicast to find Plex servers on your local network
+- **Automatic Discovery**: Finds accessible Plex servers on your local network
 - **Remembered Server List**: Home keeps discovered and manually added servers until you remove them
 - **Manual Removal**: Remove stale server entries directly from Home instead of rediscovering everything every session
 - **Manual Server Addition**: Add servers manually by IP address or hostname
@@ -30,10 +36,10 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 - **Versioned Acceptance**: The acknowledgement is stored locally and can be shown again when the acknowledgement text version changes
 
 ### Traffic-Light Status System
-- **🟩 Green**: Files already compliant with Plex naming conventions
-- **🟨 Yellow**: Warnings for potential issues (non-Latin characters, missing metadata, guessed editions)
-- **🟥 Red**: Blocking errors that must be resolved (invalid characters, path length >255, permission issues)
-- **❌ Unmatched**: Files not found in Plex database
+- **🟩 Green**: Proposed names are already safe and consistent with the active template/settings
+- **🟨 Yellow**: Warnings for review, such as missing metadata, guessed editions, long paths, or character compatibility concerns under the active settings
+- **🟥 Red**: Blocking errors that must be resolved, such as unsafe destination names, path limits, duplicate targets, or permission problems
+- **❌ Unmatched**: Items not resolved to usable Plex metadata and an accessible local path
 
 ### Status-Based Filtering
 - **Filter by Status**: Dropdown filter to show only specific status types (all, good, warning, error, unmatched)
@@ -59,11 +65,11 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 - **Persistent Fixes**: Manual changes are saved and applied consistently across sessions
 - **Movie Fields**: Edit title, year, and edition information
 - **TV Episode Fields**: Edit show title, episode title, season, and episode numbers
-- **Template Integration**: Edited metadata flows through the template system for consistent naming
+- **Template Integration**: Edited metadata flows through the template system for consistent, media-server-friendly naming
 
 ### Pre-Flight Validation
 - **Permission Checks**: Verify read/write access before operations
-- **Path Length Validation**: Warn at >200 characters, block at >255
+- **Path Length Validation**: Warn or block when proposed filenames or full paths exceed configured safety thresholds or detected platform limits
 - **Reserved Name Detection**: Flag Windows reserved names (CON, AUX, etc.)
 - **Duplicate Detection**: Prevent filename conflicts within batch
 
@@ -109,18 +115,36 @@ This section details the comprehensive capabilities of Name-o-Tron 9000, organiz
 - **Timestamped Records**: Full audit trail of all changes
 
 ### Recovery Options
-- **One-Click Undo**: Restore all files from the last rename operation
-- **Targeted Plex reconciliation after apply/undo**: Successful rename and undo flows trigger focused Plex section-path rescans instead of an automatic full-library scan
+- **One-Click Undo**: Restore supported files from the latest rename batch when sources, destinations, mounts, and permissions still allow it
+- **Plex reconciliation after apply/undo**: Successful rename and undo flows request focused Plex section-path rescans where supported; Plex may still decide to scan a broader path or library section
 - **Export Capabilities**: Export logs as TXT, CSV, or JSON formats based on General settings
 - **Backup Files**: Optional `filenames_backup.json` before operations
 - **Diagnostic Bundles**: Export anonymized diagnostic ZIP bundles (settings + recent logs) from the Settings → General tab for bug reports
 
 ### Plex Rescan Strategy
-- **Movies**: Automatic Plex follow-up rescans target the single movie folder affected by the rename or undo
-- **TV episodes**: Small batches target episode folders directly
-- **TV shows**: Larger TV batches target the show folder to avoid excessive per-episode requests
-- **Manual controls**: Preview rows and the TV Show Selection list expose compact manual rescan actions when you want to force a scoped Plex update yourself
+- **Movies**: Follow-up requests prefer the affected movie folder when enough path information is available
+- **TV episodes**: Small batches can request episode-folder updates
+- **TV shows**: Larger TV batches can request show-folder updates to avoid excessive per-episode requests
+- **Manual controls**: Preview rows and the TV Show Selection list expose compact manual rescan actions when you want to request a Plex update yourself
 - **Explicit full scan only**: Broad library rescans stay manual via the header action because automatic full-library scans were proven too disruptive
+
+## Safety Model
+
+### Before Execution
+- Generate rename and folder proposals from Plex metadata and active templates
+- Resolve Plex paths to local filesystem paths through path mapping
+- Detect target collisions, inaccessible sources, unsafe names, path-length risks, and permission problems
+- Classify blocking errors separately from warnings
+
+### During Execution
+- Process selected items only
+- Keep related subtitle operations tied to the selected media item
+- Record attempted operations and report successes, failures, and skipped items
+
+### After Execution
+- Display results and retain operation logs
+- Provide rollback for the latest supported rename batch
+- Request Plex reconciliation where supported by the current library, path mapping, and Plex response behavior
 
 ### Storage Locations
 - **Cross-Platform**: OS-appropriate application data directories

@@ -13,6 +13,27 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 - Follow-ups:
 ```
 
+## 2026-07-13
+
+- Summary: Repositioned the MkDocs site around Plex-metadata-powered media-library normalization, added SEO landing pages, Discord visibility, agent discovery files, and CI-friendly docs plugin dependencies.
+- Files or areas: `docs/`, `mkdocs.yml`, `.github/workflows/docs-site.yml`, `requirements-docs.txt`, `README.md`.
+- Verification:
+  - `python -m mkdocs --version` confirmed MkDocs was not installed locally.
+  - temporary venv install from `requirements-docs.txt` completed.
+  - `mkdocs build --clean --site-dir /tmp/nameotron-site` passed.
+  - generated output includes `sitemap.xml`, `robots.txt`, `llms.txt`, homepage JSON-LD, and FAQ JSON-LD.
+- Follow-ups:
+  - Validate rich results and Search Console after deployment.
+
+- Summary: Applied a follow-up content refinement pass from the docs audit: clarified no-second-scraper positioning, target users, portable-library meaning, provider-ID examples, FAQ safety wording, rollback boundaries, and future SEO page candidates.
+- Files or areas: `docs/index.md`, `docs/features.md`, `docs/faq.md`, `docs/tips.md`, `docs/what-is-name-o-tron.md`, `README.md`, `_helpers/work/future-seo-pages-2026-07-13.md`.
+- Verification:
+  - `rg` stale wording scan for old Plex-renamer/auth/path/rollback phrases returned no matches.
+  - `git diff --check` passed.
+  - `mkdocs build --clean --site-dir /tmp/nameotron-site` passed.
+- Follow-ups:
+  - Revisit the deferred SEO pages after the core pages are reviewed and accepted.
+
 ## 2026-07-04
 
 ## 2026-07-09

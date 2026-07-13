@@ -1,212 +1,88 @@
-# Name-o-Tron 9000 — User Guide
+---
+description: "Name-o-Tron 9000 is a Plex file renamer and media-library organizer that uses existing Plex metadata to create clean, portable files and folders with preview, validation, and rollback."
+---
+
+# Name-o-Tron 9000
 
 <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
   <img src="assets/name-o-tron-animate.svg" alt="Name-o-Tron 9000 animated logo" style="max-width:180px;min-width:140px;">
   <div>
-    <p><strong>Rename with safety-first defaults, live previews, and full rollback.</strong></p>
-    <p>Desktop Plex renamer — discover servers, map paths, preview, rename, and undo across your Plex libraries.</p>
-    <p style="margin-top:4px;color:#9ca3af;">Keywords: Plex renamer, Plex library rename, Plex file naming, Plex metadata rename.</p>
+    <p><strong>Your media library should outlive your media server.</strong></p>
+    <p>Name-o-Tron uses metadata already curated in Plex to rename, organize, and normalize your Movies, TV Shows, and Music.</p>
+    <p style="margin-top:4px;color:#9ca3af;">Plex file renamer, Plex metadata organizer, media-library normalization, subtitle renamer, folder structure cleanup.</p>
   </div>
 </div>
 
-## Why Name-o-Tron 9000 for Plex renaming?
+Name-o-Tron 9000 is a Plex file renamer and media-library organizer that uses your existing Plex metadata to safely normalize files, folders, and subtitles.
 
-- Purpose-built Plex renamer with traffic-light safety (🟩/🟨/🟥) so you never apply risky changes.
-- Works for full Plex library rename jobs or targeted fixes (Movies, TV, Music).
-- Keeps Plex naming conventions aligned with metadata (titles, years, seasons/episodes, editions).
-- Runs locally with rollback logs, so you can undo any batch instantly.
+Name-o-Tron does not identify your media again through another scraper. It uses the titles, years, episodes, albums, editions, and provider IDs you have already matched and corrected in Plex, then applies them to your files and folders.
 
-Welcome to the **Name-o-Tron 9000** user documentation.
-This guide explains how to install, configure, and safely use the app to rename your media files with Plex metadata.
+Name-o-Tron is intended for users whose media is already matched correctly in Plex but whose underlying filenames, folders, subtitles, or library structure remain inconsistent, ambiguous, or difficult to migrate.
 
-Name-o-Tron 9000 is a cross-platform desktop application that renames local media files using Plex metadata while enforcing Plex naming conventions and providing comprehensive safety and rollback capabilities.
+Name-o-Tron currently requires access to a Plex Media Server because Plex provides the matched metadata. A portable library means the identity of your media remains visible in filenames, folders, provider-ID tags, and subtitles instead of existing only inside one media-server database.
 
-## Audience & Scope
-
-Name-o-Tron 9000 is designed exclusively for Plex users.
-It requires access to a Plex Media Server and its metadata.
-
-**Intended users:**
-
-- Plex users with Movies, TV, or Music libraries
-- Plex power-users who want strict naming compliance
-- Developers/testers extending or debugging the tool
-
-**Not intended for:**
-
-- Users without Plex (this tool will not function without Plex metadata).
-
-👉 If you need a general-purpose renamer, consider alternatives such as FileBot or Advanced Renamer.
-
-## Who is this for?
-
-Name-o-Tron 9000 is designed specifically for Plex users who want to maintain proper naming conventions for their media libraries.
-
-**This tool is perfect for you if:**
-
-- You have a Plex Media Server with organized Movies, TV Shows, or Music libraries
-- You want your local files to match Plex's expected naming conventions exactly
-- You value safety and want to preview all changes before applying them
-- You need robust rollback capabilities in case something goes wrong
-- You're comfortable with basic Plex concepts like libraries, metadata, and server access
-
-**This tool is NOT for you if:**
-
-- You don't have a Plex Media Server or don't plan to use Plex
-- You need a general-purpose file renamer for non-media files
-- You prefer manual file management over automated tools
-- You're looking for cloud-based or web-based renaming solutions
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Name-o-Tron 9000",
+  "description": "A safety-first Plex file renamer and media-library organizer that uses existing Plex metadata to rename, organize, and normalize Movies, TV Shows, Music, subtitles, and folders.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Windows, macOS, Linux",
+  "url": "https://name-o-tron.kirilov.dev/",
+  "downloadUrl": "https://name-o-tron.kirilov.dev/downloads/",
+  "license": "https://github.com/EdinUser/name-o-tron-9000/blob/main/LICENSE",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}
+</script>
 
 ## What It Does
 
-- **Plex Integration**: Discover and authenticate with Plex Media Servers using automatic server discovery and PIN-based authentication
-- **Safety-First Design**: Traffic-light status system (Green/Yellow/Red) with comprehensive validation and batch guards
-- **Preview System**: Generate rename proposals with real filesystem validation before applying changes
-- **Manual Metadata Editing**: Edit metadata for individual items directly in the preview interface for customized naming
-- **Rollback Support**: Complete rollback logging with one-click undo functionality for all operations (see [Rollback & Recovery](features.md#rollback--recovery))
-- **Subtitle Handling**: Full subtitle detection, classification, renaming, and encoding conversion support
-- **Cross-Platform Path Mapping**: Robust path resolution for different operating systems and network configurations
+- **Use Plex's existing matches**: read titles, years, seasons, episodes, albums, artwork references, and provider IDs from Plex instead of rematching files through another scraper.
+- **Normalize the filesystem**: rename media files, create predictable folders, and apply configurable structures for Movies, TV Shows, and Music.
+- **Preserve identity**: keep or append stable identifiers such as IMDb, TMDb, and TVDB IDs when metadata exposes them.
+- **Handle related files**: rename subtitles with the media item and support subtitle language-code and encoding workflows.
+- **Work with real storage**: map Plex server paths to local Windows, macOS, Linux, NAS, and remote mount paths.
+- **Preview and recover**: validate paths, conflicts, permissions, and unsafe names before applying changes, then record operations for rollback.
 
----
+## Example Output
 
-## 📑 Table of Contents
+```text
+Movies/
+└── Blade Runner (1982) {imdb-tt0083658}/
+    ├── Blade Runner (1982) {imdb-tt0083658}.mkv
+    └── Blade Runner (1982) {imdb-tt0083658}.eng.srt
+```
 
-1. [Quick Start](#quick-start)
-2. [Installation](#installation)
-3. [First Launch](#first-launch)
-4. [Features Overview](features.md)
-5. [Configuration & Settings](settings.md)
-6. [Tips & Best Practices](tips.md)
-7. [FAQ & Troubleshooting](faq.md)
-8. [Community](#community)
+Stable provider IDs reduce ambiguity between remakes, alternate titles, regional titles, and similarly named media. They can help compatible tools identify the correct item without relying only on title matching.
 
----
+## Start Here
+
+If you are evaluating the app, read [What is Name-o-Tron?](what-is-name-o-tron.md) for the shortest factual overview.
+
+If you already know you want to rename files using Plex metadata, start with [Rename with Plex Metadata](rename-files-using-plex-metadata.md), then configure [Renaming & Templates](renaming-and-templates.md).
+
+If your main concern is library layout, see [Folder Structures](plex-folder-structure.md). For sidecar subtitle files, see [Subtitle Renaming](plex-subtitle-renamer.md).
+
+Join the [Name-o-Tron Discord](https://discord.gg/Hp9B3Ayuj7) for discussion, feedback, and release questions.
 
 ## Quick Start
 
-### Prerequisites
-- **Plex Media Server** running and accessible on your network
-- **Media files** organized in folders that Plex can scan
-- **Administrative access** to both Plex server and local files
+1. Install Name-o-Tron from the [Downloads](releases.md) page.
+2. Open the app and accept the startup risk acknowledgement only when you are ready to work with real files.
+3. Connect to Plex through discovery, manual server entry, and PIN authentication.
+4. Select a Movies, TV Shows, or Music library.
+5. Configure path mappings so Plex server paths resolve to local filesystem paths.
+6. Choose or edit templates for filenames and folders.
+7. Preview the proposed operations and review the traffic-light statuses.
+8. Apply only safe selected operations; use rollback if a completed batch needs to be reversed.
 
-### Installation
-- **Download** from https://name-o-tron.kirilov.dev/downloads/ (Linux/macOS/Windows installers published by CI)
-- **For developers**: build instructions live in `dev_docs/` inside the repository.
+## Safety Model
 
-### First Launch Workflow
+Name-o-Tron never treats renaming as a blind text replacement. It shows proposed changes first and blocks selected operations with red status. Warnings stay visible for review, and completed operations are logged so the latest supported rename batch can be undone.
 
-1. **Risk Acknowledgement**: Confirm the beta file-rename warning before any library workflow is available
-2. **Server Discovery**: App automatically discovers Plex servers on your network and keeps discovered or manually added entries until you remove them
-3. **Authentication**: Login with your Plex account (PIN-based authentication)
-4. **Path Mapping**: Map Plex library paths to your local folder structure
-5. **Library Selection**: Choose Movies, TV Shows, or Music libraries
-6. **Preview Changes**: Review proposed renames with safety indicators
-
-[preview.png]
-7. **Apply Renames**: Execute changes (with automatic rollback logs)
-8. **Verify & Undo**: Check results and use one-click undo if needed (see [Rollback & Recovery](features.md#rollback--recovery))
-
-[server_discovery.png]
-
----
-
-## App Flow Overview
-
-```
-[START APP]
-    |
-    v
-[Risk Acknowledgement]
-    - Read the beta warning
-    - Confirm responsibility for files, backups, libraries, and rename decisions
-    - Exit if you do not accept
-    |
-    v
-[Welcome / Server Discovery]
-    - Auto-discover Plex servers on your network
-    - Remember discovered/manual servers on Home
-    - Remove stale server entries directly from Home
-    - OR login with your Plex account
-    |
-    v
-[Library Selection]
-    - Pick Movies / TV / Music
-    - Whole library OR per-entry selection
-    |
-    v
-[Preview & Confirm]
-    - Table: Current → New filename
-    - Status indicators:
-         🟩 Green  = compliant (no rename needed)
-         🟨 Yellow = warning (non-Latin, missing metadata, etc.)
-         🟥 Red    = blocking (must skip/fix)
-         ❌ Unmatched = not in Plex DB
-    - Manual editing: Click edit icon (✏️) to modify metadata for customized naming
-    - Status filtering: Filter by status type (all, good, warning, error, unmatched)
-    - Options:
-         [⚡ Proceed to Rename] (enabled only if no 🟥 selected)
-         [❌ Skip All Reds] → unselects red-flagged items
-         [🛠 Auto-Fix Reds] → sanitizes fixable errors
-    |
-    v
-[Apply Renames]
-    - Batched renaming with checkpoints
-    - Errors skipped, warnings logged
-    |
-    v
-[Summary Screen]
-
-[summary_screen.png]
-
-    - ✅ Success count
-    - ⚠ Warnings
-    - ❌ Failures
-    - Skipped (red/unmatched)
-    - Options: Retry skipped
-    |
-    v
-[Restore & Logs]
-
-[undo_button.png]
-
-    - 🔄 Undo Last Rename (see [Rollback & Recovery](features.md#rollback--recovery))
-    - ▶️ Retry Skipped Items
-    - 📝 View Log (export TXT | CSV | JSON)
-    - Backup options (auto-log, filenames_backup.json)
-    |
-    v
-[END]
-```
-
----
-
-## Safety & Recovery
-
-### Preview Before Action
-Every rename operation shows exactly what will change before execution.
-
-### Beta Warning
-Name-o-Tron 9000 is still beta software. Test on small portions of your library first, keep backups, and review every preview before applying changes.
-
-### Traffic-Light Status System
-- **🟩 Green**: File already compliant - no action needed
-- **🟨 Yellow**: Warning - review before proceeding (non-Latin characters, missing metadata)
-- **🟥 Red**: Blocking error - must be fixed or skipped (invalid characters, path too long)
-- **❌ Unmatched**: File not found in Plex database
-
-### Batch Guards
-Cannot proceed with any selected red-flagged items - ensures safe operation.
-
-### Rollback & Undo
-Every rename run creates a detailed rollback log. Use "Undo Last Rename" to restore all changes.
-
-For comprehensive information about rollback capabilities, logging, and recovery options, see [Rollback & Recovery](features.md#rollback--recovery) in the Features Overview.
-
-### Logs & Export
-All operations logged with timestamps. Export as TXT, CSV, or JSON for analysis.
-
-👉 Continue to [Features Overview](features.md) for detailed capabilities.
-
-## Community
-
-Looking for help or want to share feedback? Join the Community forum (Flarum-powered) for Q&A, bug reports, and release updates: [https://community.kirilov.dev/](https://community.kirilov.dev/).
+For the full capability list, see [Features](features.md). For every setting, see [Configuration & Settings](settings.md). For practical workflow advice, see [Tips & Best Practices](tips.md).

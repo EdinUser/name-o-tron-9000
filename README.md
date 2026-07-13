@@ -4,24 +4,23 @@
 
 # Name-o-Tron 9000
 
-A cross-platform desktop application for renaming local media files using Plex metadata while enforcing Plex naming conventions and providing comprehensive safety and rollback capabilities.
+Name-o-Tron 9000 is a safety-first, Plex-metadata-powered media-library normalization tool. It uses matches already curated in Plex to reorganize Movies, TV Shows, Music, subtitles, and folders into consistent, portable, reliably identifiable filesystem structures.
+
+Your media library should outlive your media server.
 
 ## Audience & Scope
 
-**This tool is exclusively for Plex users. Non-Plex users won't benefit.**
-
-Name-o-Tron 9000 is designed exclusively for Plex users.
-It requires access to a Plex Media Server and its metadata.
+Name-o-Tron currently requires access to a Plex Media Server because Plex provides the matched metadata used as its source of truth. The resulting files and folders are intended to remain useful beyond one media-server database.
 
 **Intended users:**
 
 - Plex users with Movies, TV, or Music libraries
-- Plex power-users who want strict naming compliance
+- Plex users who want clean, portable, media-server-friendly filesystem organization
 - Developers/testers extending or debugging the tool
 
 **Not intended for:**
 
-- Users without Plex (this tool will not function without Plex metadata).
+- Users without Plex metadata access (this tool will not function without Plex as the current metadata source).
 
 👉 If you need a general-purpose renamer, consider alternatives such as FileBot or Advanced Renamer.
 
@@ -30,7 +29,7 @@ It requires access to a Plex Media Server and its metadata.
 - **Plex Integration**: Discover and authenticate with Plex Media Servers using automatic server discovery, remembered server entries, and PIN-based authentication
 - **Safety-First Design**: Traffic-light status system (Green/Yellow/Red) with comprehensive validation and batch guards
 - **Preview System**: Generate rename proposals with real filesystem validation before applying changes
-- **Rollback Support**: Complete rollback logging with one-click undo functionality for all operations (see [Rollback & Recovery](docs/features.md#rollback--recovery))
+- **Rollback Support**: Operation logging with undo support for the latest supported rename batch (see [Rollback & Recovery](docs/features.md#rollback-recovery))
 - **Subtitle Handling**: Full subtitle detection, classification, renaming, and encoding conversion support
 - **Cross-Platform Path Mapping**: Robust path resolution for different operating systems and network configurations
 - **Diagnostics & Snapshots**: Export support bundles and preview snapshots with machine/environment details redacted while keeping rename-relevant item names and proposals for bug reports
@@ -109,8 +108,8 @@ Complete documentation is available in the [`docs/`](./docs/) folder:
 3. **Path Mapping** - Map Plex library paths to your local folder structure
 4. **Library Selection** - Choose Movies, TV Shows, or Music libraries
 5. **Preview Changes** - Review proposed renames with safety indicators
-6. **Apply Renames** - Execute changes (with automatic rollback logs)
-7. **Verify & Undo** - Check results and use one-click undo if needed (see [Rollback & Recovery](docs/features.md#rollback--recovery))
+6. **Apply Renames** - Execute changes with operation logs
+7. **Verify & Undo** - Check results and use undo for the latest supported rename batch if needed (see [Rollback & Recovery](docs/features.md#rollback-recovery))
 
 During preview you can:
 - Filter by status, search, and use per-page “Select all” to quickly choose items
@@ -152,10 +151,10 @@ All rename operations include multiple safety layers:
 - **Batch Guards** - Cannot proceed with selected red-flagged items
 - **Atomic Operations** - Prefer rename within filesystem; fallback to copy+delete
 - **Permission Checks** - Verify access before operations
-- **Rollback Logging** - Every operation creates detailed undo logs
+- **Rollback Logging** - Operations are recorded for supported rollback and audit
 
 ### Recovery Options
-- **One-Click Undo** - Restore all files from the last rename operation (see [Rollback & Recovery](docs/features.md#rollback--recovery))
+- **One-Click Undo** - Restore supported files from the latest rename batch when sources, destinations, mounts, and permissions still allow it (see [Rollback & Recovery](docs/features.md#rollback-recovery))
 - **Selective Retry** - Re-run only skipped or failed items
 - **Log Export** - Export operation history as TXT, CSV, or JSON
 - **Backup Files** - Optional `filenames_backup.json` before operations
@@ -190,12 +189,13 @@ All rename operations include multiple safety layers:
 1. **Check the FAQ** - [docs/faq.md](docs/faq.md) for common questions
 2. **Review Logs** - Operation logs in `~/.nameotron/logs/`
 3. **Export Settings** - Use settings export for troubleshooting
-4. **Community Support** - GitHub issues for bugs and feature requests
+4. **Discord** - Join https://discord.gg/Hp9B3Ayuj7 for discussion and release questions
+5. **Community Support** - GitHub issues for bugs and feature requests
 
 ### Manual Rollback
 
 If the application cannot start or "Undo Last Rename" fails:
-1. Locate rollback logs in `~/.nameotron/logs/` (see [Rollback & Recovery](docs/features.md#rollback--recovery))
+1. Locate rollback logs in `~/.nameotron/logs/` (see [Rollback & Recovery](docs/features.md#rollback-recovery))
 2. Open the most recent `rollback_*.json` file
 3. Manually restore files listed as "success" operations
 4. Backup files are preserved with `.backup` extension where applicable
