@@ -143,19 +143,20 @@ pub async fn fetch_library_content(
         "X-Plex-Container-Start={}&X-Plex-Container-Size={}",
         start, size
     );
+    let details = "includeDetails=1&includeGuids=1";
 
     for b in &bases {
         // Try most common patterns first (allLeaves with token in header)
         if let Some(t) = token.as_ref() {
             let tok = urlencoding::encode(t);
             urls.push(format!(
-                "{}/library/sections/{}/allLeaves?{}&X-Plex-Token={}",
-                b, library_key, paging, tok
+                "{}/library/sections/{}/allLeaves?{}&{}&X-Plex-Token={}",
+                b, library_key, paging, details, tok
             ));
         } else {
             urls.push(format!(
-                "{}/library/sections/{}/allLeaves?{}",
-                b, library_key, paging
+                "{}/library/sections/{}/allLeaves?{}&{}",
+                b, library_key, paging, details
             ));
         }
 
@@ -163,13 +164,13 @@ pub async fn fetch_library_content(
         if let Some(t) = token.as_ref() {
             let tok = urlencoding::encode(t);
             urls.push(format!(
-                "{}/library/sections/{}/all?{}&X-Plex-Token={}",
-                b, library_key, paging, tok
+                "{}/library/sections/{}/all?{}&{}&X-Plex-Token={}",
+                b, library_key, paging, details, tok
             ));
         } else {
             urls.push(format!(
-                "{}/library/sections/{}/all?{}",
-                b, library_key, paging
+                "{}/library/sections/{}/all?{}&{}",
+                b, library_key, paging, details
             ));
         }
     }

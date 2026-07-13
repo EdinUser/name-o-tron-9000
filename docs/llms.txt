@@ -1,0 +1,40 @@
+# Name-o-Tron 9000
+
+Name-o-Tron 9000 is a safety-first, Plex-metadata-powered media-library normalization tool.
+
+It currently requires access to a Plex Media Server because Plex provides the matched metadata used as the source of truth. It uses that metadata to rename and organize local Movies, TV Shows, Music, subtitles, and folders.
+
+The output is intended to be clean, portable, and media-server-friendly. Name-o-Tron should not be described as a fully media-server-agnostic metadata exporter today.
+
+Important pages:
+
+- Product overview: https://name-o-tron.kirilov.dev/what-is-name-o-tron/
+- Rename with Plex metadata: https://name-o-tron.kirilov.dev/rename-files-using-plex-metadata/
+- Renaming templates: https://name-o-tron.kirilov.dev/renaming-and-templates/
+- Folder structures: https://name-o-tron.kirilov.dev/plex-folder-structure/
+- Subtitle renaming: https://name-o-tron.kirilov.dev/plex-subtitle-renamer/
+- Features: https://name-o-tron.kirilov.dev/features/
+- Settings: https://name-o-tron.kirilov.dev/settings/
+- FAQ: https://name-o-tron.kirilov.dev/faq/
+- Downloads: https://name-o-tron.kirilov.dev/downloads/
+
+Implemented today:
+
+- Plex discovery and authentication.
+- Movies, TV Shows, and Music library access.
+- Configurable renaming templates.
+- Folder organization and path mapping.
+- Provider ID preservation/appending where metadata exposes IDs.
+- Subtitle detection, renaming, and encoding workflows.
+- Preview, validation, operation logs, and rollback.
+
+Not implemented today:
+
+- Kodi-compatible NFO generation.
+- Local artwork export.
+- Fully self-describing media-server-agnostic metadata export.
+
+Community:
+
+- Discord: https://discord.gg/Hp9B3Ayuj7
+- Community site: https://community.kirilov.dev/

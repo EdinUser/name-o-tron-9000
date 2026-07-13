@@ -1,33 +1,39 @@
+---
+description: "Reference for Name-o-Tron settings that control how Plex metadata becomes filenames, folders, subtitles, safety checks, logs, rollback, and path behavior."
+---
+
 # Configuration & Settings
 
-The Name-o-Tron 9000 settings are organized into 5 tabs, providing comprehensive control over renaming behavior. Settings are designed with **safety-first defaults** for new users while offering deep customization for power users.
+Name-o-Tron settings control how Plex metadata becomes filesystem structure: filenames, folders, subtitle sidecars, provider IDs, safety checks, logs, and rollback behavior.
+
+The settings are organized into 5 tabs with safety-first defaults for new users and deeper customization for power users.
 
 ## 📑 Table of Contents
 
-1. [General Tab](#general-tab)
-   - [General Behavior](#general-behavior)
-   - [Filename Encoding](#filename-encoding)
-   - [Conflict Handling](#conflict-handling)
-   - [Safety Checks](#safety-checks)
-2. [Movies Tab](#movies-tab)
-   - [Collections](#collections)
-   - [Chronological Prefix](#chronological-prefix)
-   - [Folder Structure](#folder-structure)
-   - [Editions](#editions)
-   - [Versions](#versions)
-   - [IDs](#ids)
-   - [Special Cases](#special-cases)
-3. [TV Shows Tab](#tv-shows-tab)
-   - [Structure](#structure)
-   - [Edition-like Handling](#edition-like-handling)
-4. [Music Tab](#music-tab)
-   - [Organization](#organization)
-5. [Misc Tab](#misc-tab)
-   - [Unmatched Files](#unmatched-files)
-   - [Non-Media Files](#non-media-files)
-   - [Advanced Warnings](#advanced-warnings)
-6. [Settings Philosophy](#settings-philosophy)
-7. [Configuration Files](#configuration-files)
+1. General Tab
+   - General Behavior
+   - Filename Encoding
+   - Conflict Handling
+   - Safety Checks
+2. Movies Tab
+   - Collections
+   - Chronological Prefix
+   - Folder Structure
+   - Editions
+   - Versions
+   - IDs
+   - Special Cases
+3. TV Shows Tab
+   - Structure
+   - Edition-like Handling
+4. Music Tab
+   - Organization
+5. Misc Tab
+   - Unmatched Files
+   - Non-Media Files
+   - Advanced Warnings
+6. Settings Philosophy
+7. Configuration Files
 
 ---
 

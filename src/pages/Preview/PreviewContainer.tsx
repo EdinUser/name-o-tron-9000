@@ -151,6 +151,22 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         return String(collections[0]?.tag || collections[0] || "").trim();
     }
 
+    function extractGuidText(item: any): string {
+        const guids = new Set<string>();
+        const primaryGuid = String(item?.guid ?? "").trim();
+        if (primaryGuid) guids.add(primaryGuid);
+
+        const guidItems = item?.Guid || item?.guidList || [];
+        if (Array.isArray(guidItems)) {
+            for (const guidItem of guidItems) {
+                const value = String(guidItem?.id ?? guidItem ?? "").trim();
+                if (value) guids.add(value);
+            }
+        }
+
+        return Array.from(guids).join(" ");
+    }
+
     function buildMovieItem(item: any, file: string): MovieItem {
         return {
             type: "movie",
@@ -169,7 +185,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             tagline: String(item.tagline ?? ""),
             summary: String(item.summary ?? ""),
             collection: extractCollectionName(item),
-            guid: String(item.guid ?? ""),
+            guid: extractGuidText(item),
             thumb: String(item.thumb ?? ""),
         };
     }
@@ -701,6 +717,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                         const nextStart = offset + returned;
                         initialMoviePrefetch.current = true;
                         moviePrefetching.current = true;
+                        prefetchedSecondPageRef.current = true;
                         (async () => {
                             try {
                                 const moreData = await invoke<SectionResponse>("fetch_library_content", {
@@ -737,6 +754,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                     });
                                 }
                             } catch {
+                                prefetchedSecondPageRef.current = false;
                                 // ignore prefetch errors
                             } finally {
                                 moviePrefetching.current = false;
@@ -1082,6 +1100,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                             grandparentTitle: String(item.grandparentTitle ?? currentShow.title),
                             parentTitle: String(item.parentTitle ?? ""),
                             parentIndex: Number.isFinite(plexSeason) ? plexSeason : (item.parentIndex ? Number(item.parentIndex) : parsed.season),
+                            guid: extractGuidText(item),
                             thumb: String(item.thumb ?? ""),
                         };
                         newEpisodes.push(e);
@@ -1547,6 +1566,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                                 grandparentTitle: String(detailedItem.grandparentTitle ?? item.grandparentTitle ?? showTitle),
                                 parentTitle: String(detailedItem.parentTitle ?? item.parentTitle ?? ""),
                                 parentIndex: detailedItem.parentIndex ? Number(detailedItem.parentIndex) : (item.parentIndex ? Number(item.parentIndex) : seasonNum),
+                                guid: extractGuidText(detailedItem),
                                 thumb: String(detailedItem.thumb ?? item.thumb ?? ""),
                             };
                             const tpl = settings.templates.episode || template;
@@ -1654,6 +1674,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
         if (rows.length < pageSize) return;
         // Avoid overlapping with an explicit load or initial loading
         if (loading || pageLoading) return;
+        if (moviePrefetching.current) return;
 
         prefetchedSecondPageRef.current = true;
         loadMoreMovies();
@@ -2092,6 +2113,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
     // Load more functions
     const loadMoreMovies = useCallback(async () => {
         if (moviesPaging.exhausted) return;
+        if (moviePrefetching.current) return;
         const nextStart = moviesPaging.start;
         const pageSizeLocal = pageSize;
         if (moviesPaging.total && nextStart >= moviesPaging.total) {
@@ -2101,6 +2123,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
 
         setLoading(true);
         setPageLoading(true);
+        moviePrefetching.current = true;
         try {
             const token = (() => { try { return localStorage.getItem("plexToken"); } catch { return null; } })();
             const data = await invoke<SectionResponse>("fetch_library_content", {
@@ -2142,6 +2165,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
             setRows(prev => mergeUniqueRows(prev, more));
         } catch (e) {
         } finally {
+            moviePrefetching.current = false;
             setPageLoading(false);
             setLoading(false);
         }
@@ -2201,6 +2225,7 @@ export default function PreviewContainer({server, library, onBack}: Props) {
                     grandparentTitle: String(item.grandparentTitle ?? currentShow.title),
                     parentTitle: String(item.parentTitle ?? ""),
                     parentIndex: Number.isFinite(plexSeason) ? plexSeason : (item.parentIndex ? Number(item.parentIndex) : parsed.season),
+                    guid: extractGuidText(item),
                     thumb: String(item.thumb ?? ""),
                 });
             }

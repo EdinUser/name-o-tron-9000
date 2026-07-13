@@ -125,19 +125,6 @@ export async function computeMultiEpisodeProposal(
     // Build dynamic template based on settings
     let dynamicTemplate = template;
 
-    // Apply ID settings to template
-    if (settings.tv.ids === "none") {
-        dynamicTemplate = dynamicTemplate.replace(/\{imdb[^}]*\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{imdbToken\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{tvdb\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{tvdbToken\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{thetvdb[^}]*\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{tmdb[^}]*\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{tmdbToken\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{ids\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{plexIds\}/g, '');
-    }
-
     // Process IDs based on user settings
     let processedIds = "";
     if (settings.tv.ids === "preserve") {
@@ -160,6 +147,7 @@ export async function computeMultiEpisodeProposal(
     } else if (settings.tv.ids === "auto_append_all") {
         processedIds = buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId });
     }
+    const metadataIds = buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId });
 
     // Apply folder structure settings
     let showFolderName = "";
@@ -243,8 +231,8 @@ export async function computeMultiEpisodeProposal(
         tvdbToken: formatPlexIdToken("tvdb", thetvdbId),
         tmdb: tmdbId ?? "",
         tmdbToken: formatPlexIdToken("tmdb", tmdbId),
-        ids: processedIds,
-        plexIds: processedIds,
+        ids: metadataIds || processedIds.trim(),
+        plexIds: metadataIds || processedIds.trim(),
     } as any;
 
     let templateResult = "";
@@ -443,20 +431,6 @@ export async function computeEpisodeProposal(
     // Build dynamic template based on settings
     let dynamicTemplate = template;
 
-    // Apply ID settings to template
-    if (settings.tv.ids === "none") {
-        // Remove ID placeholders from template when IDs are disabled
-        dynamicTemplate = dynamicTemplate.replace(/\{imdb[^}]*\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{imdbToken\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{tvdb\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{tvdbToken\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{thetvdb[^}]*\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{tmdb[^}]*\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{tmdbToken\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{ids\}/g, '');
-        dynamicTemplate = dynamicTemplate.replace(/\{plexIds\}/g, '');
-    }
-
     // Process IDs based on user settings
     let processedIds = "";
     if (settings.tv.ids === "preserve") {
@@ -481,6 +455,7 @@ export async function computeEpisodeProposal(
         // Auto-append all available IDs from Plex metadata
         processedIds = buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId });
     }
+    const metadataIds = buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId });
 
     // Apply folder structure settings BEFORE template rendering
     let showFolderName = "";
@@ -571,8 +546,8 @@ export async function computeEpisodeProposal(
         tvdbToken: formatPlexIdToken("tvdb", thetvdbId),
         tmdb: tmdbId ?? "",
         tmdbToken: formatPlexIdToken("tmdb", tmdbId),
-        ids: processedIds,
-        plexIds: processedIds,
+        ids: metadataIds || processedIds.trim(),
+        plexIds: metadataIds || processedIds.trim(),
     } as any;
 
     let templateResult = "";

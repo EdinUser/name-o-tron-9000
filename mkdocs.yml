@@ -1,6 +1,7 @@
 site_name: Name-o-Tron 9000 Docs
-site_url: https://name-o-tron.kirilov.dev
-site_description: "User guide and reference for Name-o-Tron 9000"
+site_url: https://name-o-tron.kirilov.dev/
+site_description: "Name-o-Tron 9000 uses metadata already curated in Plex to rename, organize, and normalize Movies, TV Shows, Music, subtitles, and folders safely."
+site_author: "Name-o-Tron 9000"
 docs_dir: docs
 theme:
   name: material
@@ -9,18 +10,41 @@ theme:
 plugins:
   - search
   - macros
+  - meta
+  - redirects:
+      redirect_maps: {}
+  - git-revision-date-localized:
+      enable_creation_date: true
+      enable_git_follow: false
+      enable_parallel_processing: false
+  - minify:
+      minify_html: true
 nav:
   - Home: index.md
   - Downloads: releases.md
+  - What is Name-o-Tron?: what-is-name-o-tron.md
+  - Rename with Plex Metadata: rename-files-using-plex-metadata.md
+  - Renaming & Templates: renaming-and-templates.md
+  - Folder Structures: plex-folder-structure.md
+  - Subtitle Renaming: plex-subtitle-renamer.md
+  - Glossary: glossary.md
   - Features: features.md
   - Settings: settings.md
   - Tips & Best Practices: tips.md
   - FAQ: faq.md
+  - Discord: https://discord.gg/Hp9B3Ayuj7
   - Community: https://community.kirilov.dev/
+extra:
+  social:
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/Hp9B3Ayuj7
+      name: Join the Name-o-Tron Discord
+    - icon: fontawesome/solid/comments
+      link: https://community.kirilov.dev/
+      name: Name-o-Tron community
 markdown_extensions:
   - admonition
   - toc:
       permalink: true
   - tables
   - attr_list
-

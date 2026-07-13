@@ -315,15 +315,7 @@ export async function computeMovieProposal(
     const thetvdbId = m.guid ? extractTvdbId(m.guid) : null;
     const tmdbId = m.guid ? extractTmdbId(m.guid) : null;
 
-    // Process IDs based on user settings
-    let processedIds = "";
-    if (settings.movies.ids === "preserve") {
-        // Preserve existing IDs in the filename
-        processedIds = buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId });
-    } else if (settings.movies.ids === "auto_append_all") {
-        // Auto-append all available IDs
-        processedIds = buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId });
-    }
+    const metadataIds = buildPlexIdTokens({ imdb: imdbId, tvdb: thetvdbId, tmdb: tmdbId });
 
     // Process edition based on user settings
     let editionDisplay = "";
@@ -401,8 +393,8 @@ export async function computeMovieProposal(
         tvdbToken: formatPlexIdToken("tvdb", thetvdbId),
         tmdb: tmdbId ?? "",
         tmdbToken: formatPlexIdToken("tmdb", tmdbId),
-        ids: processedIds,
-        plexIds: processedIds,
+        ids: metadataIds,
+        plexIds: metadataIds,
     } as any;
 
     let proposed = "";

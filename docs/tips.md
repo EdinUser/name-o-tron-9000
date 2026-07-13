@@ -1,3 +1,7 @@
+---
+description: "Practical tips for using Name-o-Tron safely with Plex metadata, path mapping, templates, subtitles, NAS storage, and portable library workflows."
+---
+
 # Tips & Best Practices
 
 This guide provides practical advice for getting the most out of Name-o-Tron 9000 while avoiding common pitfalls.
@@ -29,7 +33,7 @@ This guide provides practical advice for getting the most out of Name-o-Tron 900
 - **Progress Monitoring**: The scan overlay shows real-time progress and discovered servers.
 
 ### Library Organization
-- **Consistent Naming**: Before using the app, ensure your Plex library is well-organized with consistent naming patterns.
+- **Correct Plex Matches**: Before using the app, verify that the selected media is correctly matched in Plex. Existing filenames and folders may be inconsistent; Name-o-Tron uses Plex's resolved metadata to normalize them.
 - **Metadata Quality**: High-quality Plex metadata improves rename accuracy. Run "Refresh Metadata" in Plex if results seem inconsistent.
 - **Library Types**: The app works best with properly configured Movie, TV Show, and Music libraries in Plex.
 
@@ -72,8 +76,8 @@ This guide provides practical advice for getting the most out of Name-o-Tron 900
 
 [tips_path_too_long.png]
 
-- **255 Character Limit**: Windows has a hard limit; macOS/Linux support longer paths but >255 can cause issues.
-- **Warn at 200**: The app warns at >200 characters to give buffer room.
+- **Configured Limits**: The app warns or blocks when proposed filenames or full paths exceed configured safety thresholds or detected platform limits.
+- **Buffer Room**: Keep folder structures shallow enough that renamed files remain well under common path-length limits.
 - **Deep Nesting**: Avoid deeply nested folder structures that compound path length issues.
 
 ### Special Characters
@@ -158,7 +162,7 @@ This guide provides practical advice for getting the most out of Name-o-Tron 900
 
 - **Progress Monitoring**: The app shows detailed progress for each operation.
 - **Error Handling**: Individual failures don't stop the entire batch.
-- **Rollback Logs**: Every operation creates detailed logs for potential undo (see [Rollback & Recovery](features.md#rollback--recovery)).
+- **Rollback Logs**: Every operation creates detailed logs for supported rollback of the latest rename batch (see [Rollback & Recovery](features.md#rollback-recovery)).
 
 ### After Operations
 
@@ -166,7 +170,7 @@ This guide provides practical advice for getting the most out of Name-o-Tron 900
 
 - **Verify Results**: Check that files renamed correctly and Plex recognizes them.
 - **Log Review**: Export and review logs for any issues or unexpected behavior.
-- **Undo Ready**: Keep rollback logs until you're confident with the results (see [Rollback & Recovery](features.md#rollback--recovery)).
+- **Undo Ready**: Keep rollback logs until you're confident with the results, and avoid manual file moves before using undo (see [Rollback & Recovery](features.md#rollback-recovery)).
 
 ## Troubleshooting Common Issues
 
@@ -296,10 +300,10 @@ Beethoven - Complete Symphonies/
 
 [tips_dual_library.png]
 
-**For users transitioning between Plex and Jellyfin or maintaining dual libraries:**
+**For users preparing a Plex-managed filesystem for use with Jellyfin or maintaining dual libraries:**
 
 1. **Metadata Consistency**: Ensure both systems use similar metadata sources for consistent results
-2. **Naming Convention Alignment**: Configure templates to match the target system's expectations
+2. **Template Alignment**: Configure templates to produce filenames and folders the target system can identify reliably
 3. **Batch Processing**: Process libraries in smaller chunks to verify compatibility
 4. **Rollback Strategy**: Keep detailed logs during transition for easy rollback if needed
 
