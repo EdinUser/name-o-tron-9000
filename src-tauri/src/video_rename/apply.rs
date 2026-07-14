@@ -36,7 +36,7 @@ pub(super) fn resolve_video_operations_for_apply(
             original_path: resolved_original.to_string_lossy().to_string(),
             new_path: resolved_new.to_string_lossy().to_string(),
             backup_path: operation.backup_path.as_ref().map(|backup| {
-                crate::path_map::resolve_apply_path_strict(backup, mappings, server_id)
+                crate::path_map::resolve_apply_path_allow_local(backup, mappings, server_id)
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_else(|| backup.clone())
             }),

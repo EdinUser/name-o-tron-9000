@@ -674,7 +674,10 @@ fn non_media_move_extras_moves_loose_file_and_undo_restores_it() {
     .expect("move_extras should create an operation");
 
     assert_eq!(operation.operation_type, "move");
-    assert!(operation.new_path.ends_with("Extras/poster.jpg"));
+    assert_eq!(
+        Path::new(&operation.new_path),
+        scenario.fixture.library_root("1").join("Extras/poster.jpg")
+    );
 
     let result = apply_operations_with_mappings_to_log_path(
         &[operation],
