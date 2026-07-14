@@ -133,7 +133,7 @@ fn episode_specials_folder_respects_detect_ovas_setting() {
     )
     .expect("episode proposal with Specials");
 
-    assert!(op_specials.new_path.starts_with("Specials_"));
+    assert!(op_specials.new_path.starts_with("Specials/"));
 
     let settings_without_specials = json!({
         "tv": {
@@ -160,7 +160,7 @@ fn episode_specials_folder_respects_detect_ovas_setting() {
     )
     .expect("episode proposal with Season 00");
 
-    assert!(op_season00.new_path.starts_with("Season 00_"));
+    assert!(op_season00.new_path.starts_with("Season 00/"));
 }
 
 #[test]
@@ -310,7 +310,7 @@ fn movie_own_folder_setting_changes_output_path() {
     let op_with_folder = compute_movie_proposal(&movie, "{title}{ext}", &with_folder, None)
         .expect("movie proposal with own folder");
 
-    assert!(op_with_folder.new_path.starts_with("Inception_"));
+    assert!(op_with_folder.new_path.starts_with("Inception/"));
 
     let mut without_folder = base_settings.clone();
     without_folder["movies"]["ownFolderPerMovie"] = json!(false);
@@ -362,7 +362,7 @@ fn movie_collections_setting_adds_collection_folder() {
     let op = compute_movie_proposal(&movie, "{title}{ext}", &settings, None)
         .expect("movie proposal with collection folder");
 
-    assert!(op.new_path.starts_with("Nolan Collection_"));
+    assert!(op.new_path.starts_with("Nolan Collection/"));
     assert!(op.new_path.contains("Inception"));
 }
 
@@ -407,7 +407,7 @@ fn movie_collections_if2plus_currently_excludes_collection_folder() {
     let op = compute_movie_proposal(&movie, "{title}{ext}", &settings, None)
         .expect("movie proposal without collection folder for if2plus mode");
 
-    assert!(!op.new_path.starts_with("Nolan Collection_"));
+    assert!(!op.new_path.starts_with("Nolan Collection/"));
 }
 
 #[test]
@@ -446,7 +446,7 @@ fn movie_folder_structure_alpha_groups_by_initial_letter() {
     let op = compute_movie_proposal(&movie, "{title}{ext}", &settings, None)
         .expect("movie proposal with alpha folder structure");
 
-    assert!(op.new_path.starts_with("A_"));
+    assert!(op.new_path.starts_with("A/"));
     assert!(op.new_path.contains("Avatar"));
 }
 
@@ -486,7 +486,7 @@ fn movie_folder_structure_year_decade_groups_by_decade() {
     let op = compute_movie_proposal(&movie, "{title}{ext}", &settings, None)
         .expect("movie proposal with year_decade folder structure");
 
-    assert!(op.new_path.starts_with("2000-2009_"));
+    assert!(op.new_path.starts_with("2000-2009/"));
     assert!(op.new_path.contains("Avatar"));
 }
 
@@ -716,11 +716,11 @@ fn movie_proposal_respects_shared_folder_setting_in_backend_preview_path() {
 
     assert_eq!(
         add_op.new_path,
-        "J-R_One Piece_One Piece Film Z_One Piece Film Z (2012).mkv"
+        "J-R/One Piece/One Piece Film Z/One Piece Film Z (2012).mkv"
     );
     assert_eq!(
         keep_op.new_path,
-        "J-R_One Piece_One Piece Film Z (2012).mkv"
+        "J-R/One Piece/One Piece Film Z (2012).mkv"
     );
 }
 

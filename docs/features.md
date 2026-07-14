@@ -196,7 +196,7 @@ For detailed guidance on setting up and troubleshooting path mappings, see [Path
 ### Comprehensive Test Coverage
 - **Frontend Tests**: 33+ tests covering React components, state management, and error handling
 - **Backend Tests**: 15+ tests covering Rust backend, settings persistence, and deep merge logic
-- **Integration Tests**: Full workflow testing with mock Plex servers
+- **Mock-Backed Integration Tests**: Plex-shaped fixture tests for settings/templates, path mappings, real filesystem rename/apply, subtitle moves, rollback logs, undo, collection/year folders, multilingual titles, and conflict handling
 - **Error Scenarios**: Extensive coverage of edge cases, malformed data, and system failures
 
 ### Test Categories
@@ -208,6 +208,12 @@ For detailed guidance on setting up and troubleshooting path mappings, see [Path
 - **Type Safety**: Settings validation, migration, and version compatibility
 
 ### Development Testing
-- **Mock Plex Server**: Comprehensive test fixtures for all media types
+- **Mock Plex Server**: Tracked Movies, TV Shows, and Music fixtures served from `tests/mock-plex/mock-plex-server.cjs`
+- **Mock Server Harness**: `npm run mock:reset`, `npm run mock:start`, `npm run mock:verify`, and `npm run mock:stop` manage generated media, HTTP readiness, endpoint checks, and stale PID state
+- **Mock HTTP Test**: `npm run test:mock:http` runs the reset/start/verify/stop path and is included in `npm run test:all`
+- **Unicode Fixtures**: Chinese, Japanese, Thai, Armenian, and decomposed-accent examples exercise non-Latin titles, normalization, subtitles, and search behavior
+- **Associated File Fixtures**: Mock-backed tests can seed subtitles, Kodi-style metadata/artwork, and residual leftover files to validate apply, cleanup, rollback, and undo behavior
+- **TV Fixture Integrity**: Selectable mock TV shows, including pagination filler shows, include episode leaves so show selection and preview flows remain testable
+- **Mock-Backed Rename Suite**: `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests`
 - **Automated CI/CD**: TypeScript checks, linting, and test execution
 - **Cross-Platform**: Testing on Windows, macOS, and Linux environments

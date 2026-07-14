@@ -13,7 +13,97 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 - Follow-ups:
 ```
 
+## 2026-07-14
+
+- Summary: Added `npm run build` to Linux PR CI so production frontend bundling is checked before merge without slowing the Windows release-gate job.
+- Files or areas: `.github/workflows/ci.yml`, `dev_docs/playbooks/testing-playbook.md`, `dev_docs/work-log.md`.
+- Verification:
+  - `git diff --check -- .github/workflows/ci.yml dev_docs/playbooks/testing-playbook.md dev_docs/work-log.md` passed.
+- Follow-ups:
+  - Revisit if production build time becomes a bottleneck on the self-hosted Linux runner.
+
+- Summary: Added `npm run test:mock:http` to exercise the tracked mock Plex HTTP server in automated runs, and included it in `npm run test:all`.
+- Files or areas: `package.json`, `tests/mock-plex/bin/mock-http-test.mjs`, `.github/workflows/ci.yml`, `README.md`, `tests/mock-plex/README.md`, `dev_docs/playbooks/testing-playbook.md`, `dev_docs/appendix_build.md`, `docs/features.md`, `dev_docs/work-log.md`.
+- Verification:
+  - `node --check tests/mock-plex/bin/mock-http-test.mjs` passed.
+  - Sandboxed `npm run test:mock:http` failed with expected `listen EPERM` on `127.0.0.1:32400`.
+  - Escalated `npm run test:mock:http` passed and stopped the harness-started mock server.
+- Follow-ups:
+  - If CI cannot bind `32400`, configure `MOCK_PLEX_PORT` for the test job or add a port override to the npm script.
+
+- Summary: Updated testing docs after clarifying that random files should not be treated as normal rename subjects. The docs now separate associated media asset group files from residual leftovers and point future tests at Kodi-style `.nfo`/artwork plus `_others` cleanup behavior.
+- Files or areas: `README.md`, `dev_docs/playbooks/testing-playbook.md`, `dev_docs/mock-backed-integration-test-matrix.md`, `dev_docs/appendix_build.md`, `docs/features.md`, `_helpers/work/media-asset-groups-and-leftovers-2026-07-14.md`, `dev_docs/work-log.md`.
+- Verification:
+  - `git diff --check -- README.md dev_docs/playbooks/testing-playbook.md dev_docs/mock-backed-integration-test-matrix.md dev_docs/appendix_build.md docs/features.md dev_docs/work-log.md _helpers/work/media-asset-groups-and-leftovers-2026-07-14.md` passed.
+- Follow-ups:
+  - Refactor provisional loose-file helper naming before wiring any UI behavior.
+
+- Summary: Added focused mock-backed undo coverage and non-media loose-file handling tests. Non-media `delete` is now reversible through a backup path, and the fixture builder can seed loose files that are not Plex library items.
+- Files or areas: `src-tauri/src/video_rename.rs`, `src-tauri/src/video_rename/apply.rs`, `src-tauri/src/subtitle.rs`, `src-tauri/tests/mock_plex_harness_tests.rs`, `src-tauri/tests/fixtures/bin/build_fixture_tree.sh`, `src-tauri/tests/fixtures/mock_plex/movie_basic_rename.json`, `dev_docs/mock-backed-integration-test-matrix.md`.
+- Verification:
+  - `cargo fmt --manifest-path src-tauri/Cargo.toml` passed.
+  - `bash -n src-tauri/tests/fixtures/bin/build_fixture_tree.sh` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml subtitle::tests` passed.
+- Follow-ups:
+  - Wire loose non-media discovery into the UI preview flow when we want users to review random sidecar files from real libraries, not only test/helper-generated operations.
+
 ## 2026-07-13
+
+- Summary: Updated contributor and public docs for the current mock Plex lifecycle, multilingual fixture set, mock-backed rename integration tests, TV fixture integrity fixes, and verification commands.
+- Files or areas: `README.md`, `tests/mock-plex/README.md`, `dev_docs/playbooks/testing-playbook.md`, `dev_docs/appendix_build.md`, `docs/features.md`, `dev_docs/mock-backed-integration-test-matrix.md`, `dev_docs/work-log.md`.
+- Verification:
+  - `git diff --check` passed.
+  - `rg -n "mock:setup|mock:plex|mock:start|mock:verify|mock_plex_harness_tests" ...` reviewed; remaining `mock:setup` and `mock:plex` references are intentional compatibility/manual-server notes.
+- Follow-ups:
+  - Add npm aliases for mock-backed integration tests if the suite becomes a common local/CI command.
+
+- Summary: Fixed mock TV pagination shows so every selectable filler show has at least one episode leaf and generated local media, avoiding 404s such as `/library/metadata/209/allLeaves` for Foxfire Academy; also made mock status/start/stop tolerate manually managed servers with stale PID state.
+- Files or areas: `tests/mock-plex/fixtures/shows_all.json`, `tests/mock-plex/fixtures/tv_all_leaves.json`, `tests/mock-plex/bin/mock-shared.mjs`, `tests/mock-plex/bin/mock-harness.mjs`, `tests/mock-plex/mock-plex-server.cjs`.
+- Verification:
+  - JSON parsing passed for `shows_all.json` and `tv_all_leaves.json`.
+  - `node --check` passed for touched mock scripts.
+  - `npm run mock:reset` regenerated the local media tree.
+  - Escalated `npm run mock:verify` passed against the running mock server, including Foxfire Academy allLeaves/children endpoints.
+  - Escalated `npm run mock:status` reported the running server correctly.
+- Follow-ups:
+  - Clear existing app-side show mapping caches when retesting old screenshots so stale unmapped states are not reused.
+
+- Summary: Expanded mock-backed rename integration coverage for collection grouping, year-decade organization, and existing-target conflicts using generated operations from Plex fixture metadata.
+- Files or areas: `src-tauri/tests/mock_plex_harness_tests.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+- Follow-ups:
+  - Add explicit non-Latin warning/status tests once preview warnings are exposed through a testable integration seam.
+
+- Summary: Added the first mock-backed rename integration tests that generate operations from Plex-shaped multilingual fixture metadata, settings, and templates before applying and undoing real filesystem changes.
+- Files or areas: `src-tauri/src/video_rename.rs`, `src-tauri/src/video_rename/sanitize.rs`, `src-tauri/src/video_rename/tests.rs`, `src-tauri/tests/mock_plex_harness_tests.rs`.
+- Verification:
+  - `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests` passed.
+  - `cargo test --manifest-path src-tauri/Cargo.toml video_rename` passed.
+- Follow-ups:
+  - Add more mock-backed combinations for collection grouping, alpha/year folders, non-Latin warning expectations, and conflict policies.
+
+- Summary: Expanded the tracked mock Plex fixture set with multilingual movie and TV cases for Unicode-heavy rename testing.
+- Files or areas: `tests/mock-plex/fixtures/movies_all.json`, `tests/mock-plex/fixtures/shows_all.json`, `tests/mock-plex/fixtures/tv_all_leaves.json`, `tests/mock-plex/bin/mock-shared.mjs`, `tests/mock-plex/mock-plex-server.cjs`, `tests/mock-plex/README.md`, `dev_docs/mock-backed-integration-test-matrix.md`.
+- Verification:
+  - JSON parsing passed for the changed fixture files.
+  - `node --check` passed for the changed mock scripts.
+- Follow-ups:
+  - Add mock-backed integration tests that generate operations from the new multilingual Plex metadata plus settings/templates before apply/undo.
+
+- Summary: Tightened the mock Plex lifecycle so background start requires real HTTP readiness, verify follows the generated state-file base URL, listen failures are logged, and movie search checks include the current movie catalog.
+- Files or areas: `tests/mock-plex/bin/mock-harness.mjs`, `tests/mock-plex/bin/mock-verify.mjs`, `tests/mock-plex/mock-plex-server.cjs`, `tests/mock-plex/README.md`, `package.json`, `dev_docs/mock-backed-integration-test-matrix.md`.
+- Verification:
+  - Sandboxed `npm run mock:start` now fails clearly with the `listen EPERM` log tail instead of writing false-ready state.
+  - Escalated `npm run mock:start` passed and wrote state for `http://127.0.0.1:32400`.
+  - Escalated `npm run mock:verify` passed all endpoint and seeded-media checks.
+  - Escalated `npm run mock:stop` stopped the background server.
+- Follow-ups:
+  - Add mock-backed integration tests that generate operations from Plex metadata plus settings/templates before apply/undo.
+  - Expand mock fixtures for Chinese, Japanese, Thai, and Armenian title/path coverage.
 
 - Summary: Changed release packaging to run on `v*` tags/manual dispatch, decoupled normal MkDocs deploys onto `main` pushes, added release-time docs refresh after installer upload, and moved downloads above release notes.
 - Files or areas: `.github/workflows/main.yml`, `.github/workflows/docs-site.yml`, `docs/releases.md`, `dev_docs/work-log.md`.

@@ -81,8 +81,14 @@ jobs:
       - name: Run frontend tests
         run: npm test
 
+      - name: Run frontend production build
+        run: npm run build
+
       - name: Run Rust tests
         run: npm run test:rust
+
+      - name: Run mock Plex HTTP tests
+        run: npm run test:mock:http
 
       - name: Run Rust integration tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --test integration_tests
@@ -139,6 +145,9 @@ jobs:
 
       - name: Run Rust tests
         run: npm run test:rust
+
+      - name: Run mock Plex HTTP tests
+        run: npm run test:mock:http
 
       - name: Run Rust integration tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --test integration_tests

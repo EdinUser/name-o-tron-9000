@@ -16,7 +16,8 @@
     "test:ui": "vitest --ui",
     "test:types": "tsc --noEmit",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "test:all": "npm run test:types && npm run test && npm run test:rust",
+    "test:mock:http": "node tests/mock-plex/bin/mock-http-test.mjs",
+    "test:all": "npm run test:types && npm run test && npm run test:rust && npm run test:mock:http",
     "mock:plex": "node tests/mock-plex/mock-plex-server.cjs",
     "mock:start": "node tests/mock-plex/bin/mock-harness.mjs start",
     "mock:stop": "node tests/mock-plex/bin/mock-harness.mjs stop",
@@ -25,7 +26,7 @@
     "mock:write-mappings": "node tests/mock-plex/bin/mock-reset.mjs --mode mappings --media-root ./test_media --mappings-out ./tests/mock-plex/generated/mock-path-mappings.json",
     "mock:setup": "node tests/mock-plex/bin/mock-reset.mjs --media-root ./test_media --mappings-out ./tests/mock-plex/generated/mock-path-mappings.json",
     "mock:reset": "node tests/mock-plex/bin/mock-reset.mjs --media-root ./test_media --mappings-out ./tests/mock-plex/generated/mock-path-mappings.json",
-    "mock:verify": "node tests/mock-plex/bin/mock-verify.mjs --base-url http://localhost:32400 --media-root ./test_media"
+    "mock:verify": "node tests/mock-plex/bin/mock-verify.mjs --media-root ./test_media"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

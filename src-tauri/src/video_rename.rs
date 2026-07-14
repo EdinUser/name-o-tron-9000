@@ -1,7 +1,7 @@
 use crate::rename_types::{
     ApplyRenamesRequest, ApplyResult, PreviewRenamesRequest, PreviewResult, RenameOperation,
 };
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::command;
 mod apply;
 mod common;
@@ -940,6 +940,62 @@ pub fn apply_operations_with_mappings_to_log_path(
     let operations = resolve_video_operations_for_apply(operations, mappings, server_id)?;
     let operations = add_missing_subtitle_operations(&operations);
     apply_mixed_operations_with_log_path(&operations, log_path)
+}
+
+pub fn propose_movie_rename_operation(
+    movie: &MovieItem,
+    template: &str,
+    settings: &serde_json::Value,
+    current_relative_dirs: Option<&[String]>,
+) -> Result<RenameOperation, String> {
+    compute_movie_proposal(movie, template, settings, current_relative_dirs)
+}
+
+pub fn propose_episode_rename_operation(
+    episode: &EpisodeItem,
+    template: &str,
+    settings: &serde_json::Value,
+) -> Result<RenameOperation, String> {
+    compute_episode_proposal(episode, template, settings)
+}
+
+pub fn propose_non_media_file_operation(
+    file_path: &Path,
+    library_root: &Path,
+    handling: &str,
+    backup_root: Option<&Path>,
+) -> Result<Option<RenameOperation>, String> {
+    let file_name = file_path
+        .file_name()
+        .ok_or_else(|| format!("Non-media path has no filename: {}", file_path.display()))?;
+
+    match handling {
+        "skip" => Ok(None),
+        "move_extras" => {
+            let target = library_root.join("Extras").join(file_name);
+            Ok(Some(RenameOperation {
+                operation_type: "move".to_string(),
+                original_path: file_path.to_string_lossy().to_string(),
+                new_path: target.to_string_lossy().to_string(),
+                backup_path: None,
+                operation_id: format!("non_media_move_{}", uuid::Uuid::new_v4()),
+            }))
+        }
+        "delete" => {
+            let backup_root = backup_root
+                .map(PathBuf::from)
+                .unwrap_or_else(|| library_root.join(".nameotron-trash"));
+            let backup_path = backup_root.join(file_name);
+            Ok(Some(RenameOperation {
+                operation_type: "delete".to_string(),
+                original_path: file_path.to_string_lossy().to_string(),
+                new_path: backup_path.to_string_lossy().to_string(),
+                backup_path: Some(backup_path.to_string_lossy().to_string()),
+                operation_id: format!("non_media_delete_{}", uuid::Uuid::new_v4()),
+            }))
+        }
+        other => Err(format!("Unsupported non-media handling option: {other}")),
+    }
 }
 
 pub fn cleanup_empty_folders_with_explicit_mappings(

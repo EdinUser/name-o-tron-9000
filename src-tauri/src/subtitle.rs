@@ -971,6 +971,40 @@ pub fn apply_single_operation(operation: &RenameOperation) -> Result<(), String>
                 )?;
             }
         }
+        "delete" => {
+            let original_path = Path::new(&operation.original_path);
+            if !original_path.exists() {
+                return Err(format!(
+                    "Source file does not exist: {}",
+                    operation.original_path
+                ));
+            }
+
+            if let Some(ref backup_path) = operation.backup_path {
+                let backup = Path::new(backup_path);
+                if let Some(parent) = backup.parent() {
+                    fs::create_dir_all(parent).map_err(|e| {
+                        format!(
+                            "Failed to create backup directory {}: {}",
+                            parent.display(),
+                            e
+                        )
+                    })?;
+                }
+                if backup.exists() {
+                    return Err(format!("Backup already exists: {}", backup_path));
+                }
+                fs::rename(&operation.original_path, backup_path).map_err(|e| {
+                    format!(
+                        "Failed to move {} to backup {}: {}",
+                        operation.original_path, backup_path, e
+                    )
+                })?;
+            } else {
+                fs::remove_file(&operation.original_path)
+                    .map_err(|e| format!("Failed to delete {}: {}", operation.original_path, e))?;
+            }
+        }
         _ => {
             return Err(format!(
                 "Unknown operation type: {}",
@@ -1039,6 +1073,37 @@ fn undo_single_operation(operation: &RenameOperation) -> Result<(), String> {
                         )
                     })?;
                 }
+            }
+        }
+        "delete" => {
+            if let Some(ref backup_path) = operation.backup_path {
+                if Path::new(backup_path).exists() {
+                    if let Some(parent) = Path::new(&operation.original_path).parent() {
+                        fs::create_dir_all(parent).map_err(|e| {
+                            format!(
+                                "Failed to recreate original directory {}: {}",
+                                parent.display(),
+                                e
+                            )
+                        })?;
+                    }
+                    fs::rename(backup_path, &operation.original_path).map_err(|e| {
+                        format!(
+                            "Failed to restore deleted backup {} to {}: {}",
+                            backup_path, operation.original_path, e
+                        )
+                    })?;
+                } else {
+                    return Err(format!(
+                        "Cannot undo delete without backup: {}",
+                        operation.original_path
+                    ));
+                }
+            } else {
+                return Err(format!(
+                    "Cannot undo delete without backup: {}",
+                    operation.original_path
+                ));
             }
         }
         _ => {

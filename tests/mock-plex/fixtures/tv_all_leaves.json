@@ -1,7 +1,7 @@
 {
   "MediaContainer": {
-    "size": 67,
-    "totalSize": 67,
+    "size": 91,
+    "totalSize": 91,
     "offset": 0,
     "Metadata": [
       {
@@ -9,9 +9,15 @@
         "key": "/library/metadata/2001",
         "guid": "imdb://tt7202001",
         "Guid": [
-          { "id": "imdb://tt7202001" },
-          { "id": "tmdb://920001" },
-          { "id": "tvdb://720001" }
+          {
+            "id": "imdb://tt7202001"
+          },
+          {
+            "id": "tmdb://920001"
+          },
+          {
+            "id": "tvdb://720001"
+          }
         ],
         "type": "episode",
         "title": "Crossroads",
@@ -22,16 +28,35 @@
         "index": 1,
         "year": 2023,
         "thumb": "/library/metadata/2001/thumb",
-        "Media": [{ "id": 6001, "container": "mkv", "Part": [{ "id": 8001, "key": "/library/parts/8001/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E01.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6001,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8001,
+                "key": "/library/parts/8001/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2002",
         "key": "/library/metadata/2002",
         "guid": "tvdb://720002",
         "Guid": [
-          { "id": "imdb://tt7202002" },
-          { "id": "tmdb://920002" },
-          { "id": "tvdb://720002" }
+          {
+            "id": "imdb://tt7202002"
+          },
+          {
+            "id": "tmdb://920002"
+          },
+          {
+            "id": "tvdb://720002"
+          }
         ],
         "type": "episode",
         "title": "Reckoning",
@@ -42,16 +67,35 @@
         "index": 2,
         "year": 2023,
         "thumb": "/library/metadata/2002/thumb",
-        "Media": [{ "id": 6002, "container": "mkv", "Part": [{ "id": 8002, "key": "/library/parts/8002/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E02.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6002,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8002,
+                "key": "/library/parts/8002/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E02.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2003",
         "key": "/library/metadata/2003",
         "guid": "tmdb://920003",
         "Guid": [
-          { "id": "imdb://tt7202003" },
-          { "id": "tmdb://920003" },
-          { "id": "tvdb://720003" }
+          {
+            "id": "imdb://tt7202003"
+          },
+          {
+            "id": "tmdb://920003"
+          },
+          {
+            "id": "tvdb://720003"
+          }
         ],
         "type": "episode",
         "title": "The Divide",
@@ -62,15 +106,32 @@
         "index": 3,
         "year": 2023,
         "thumb": "/library/metadata/2003/thumb",
-        "Media": [{ "id": 6003, "container": "mkv", "Part": [{ "id": 8003, "key": "/library/parts/8003/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E03E04.Multi.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6003,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8003,
+                "key": "/library/parts/8003/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E03E04.Multi.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2004",
         "key": "/library/metadata/2004",
         "guid": "tvdb://720004",
         "Guid": [
-          { "id": "imdb://tt7202004" },
-          { "id": "tvdb://720004" }
+          {
+            "id": "imdb://tt7202004"
+          },
+          {
+            "id": "tvdb://720004"
+          }
         ],
         "type": "episode",
         "title": "No Return",
@@ -81,16 +142,35 @@
         "index": 4,
         "year": 2023,
         "thumb": "/library/metadata/2004/thumb",
-        "Media": [{ "id": 6004, "container": "mkv", "Part": [{ "id": 8004, "key": "/library/parts/8004/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E03E04.Multi.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6004,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8004,
+                "key": "/library/parts/8004/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E03E04.Multi.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2005",
         "key": "/library/metadata/2005",
         "guid": "imdb://tt7202005",
         "Guid": [
-          { "id": "imdb://tt7202005" },
-          { "id": "tmdb://920005" },
-          { "id": "tvdb://720005" }
+          {
+            "id": "imdb://tt7202005"
+          },
+          {
+            "id": "tmdb://920005"
+          },
+          {
+            "id": "tvdb://720005"
+          }
         ],
         "type": "episode",
         "title": "The Siege Part 1",
@@ -101,15 +181,32 @@
         "index": 5,
         "year": 2023,
         "thumb": "/library/metadata/2005/thumb",
-        "Media": [{ "id": 6005, "container": "mkv", "Part": [{ "id": 8005, "key": "/library/parts/8005/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E05.Part1.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6005,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8005,
+                "key": "/library/parts/8005/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E05.Part1.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2006",
         "key": "/library/metadata/2006",
         "guid": "tvdb://720006",
         "Guid": [
-          { "id": "imdb://tt7202006" },
-          { "id": "tvdb://720006" }
+          {
+            "id": "imdb://tt7202006"
+          },
+          {
+            "id": "tvdb://720006"
+          }
         ],
         "type": "episode",
         "title": "The Siege Part 2",
@@ -120,16 +217,35 @@
         "index": 6,
         "year": 2023,
         "thumb": "/library/metadata/2006/thumb",
-        "Media": [{ "id": 6006, "container": "mkv", "Part": [{ "id": 8006, "key": "/library/parts/8006/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E06.Part2.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6006,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8006,
+                "key": "/library/parts/8006/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E06.Part2.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2007",
         "key": "/library/metadata/2007",
         "guid": "tmdb://920007",
         "Guid": [
-          { "id": "imdb://tt7202007" },
-          { "id": "tmdb://920007" },
-          { "id": "tvdb://720007" }
+          {
+            "id": "imdb://tt7202007"
+          },
+          {
+            "id": "tmdb://920007"
+          },
+          {
+            "id": "tvdb://720007"
+          }
         ],
         "type": "episode",
         "title": "Genesis OVA",
@@ -140,16 +256,35 @@
         "index": 1,
         "year": 2023,
         "thumb": "/library/metadata/2007/thumb",
-        "Media": [{ "id": 6007, "container": "mkv", "Part": [{ "id": 8007, "key": "/library/parts/8007/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E01.Genesis.OVA.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6007,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8007,
+                "key": "/library/parts/8007/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E01.Genesis.OVA.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2008",
         "key": "/library/metadata/2008",
         "guid": "tvdb://720008",
         "Guid": [
-          { "id": "imdb://tt7202008" },
-          { "id": "tmdb://920008" },
-          { "id": "tvdb://720008" }
+          {
+            "id": "imdb://tt7202008"
+          },
+          {
+            "id": "tmdb://920008"
+          },
+          {
+            "id": "tvdb://720008"
+          }
         ],
         "type": "episode",
         "title": "No Regrets OVA Part 1",
@@ -160,16 +295,35 @@
         "index": 2,
         "year": 2023,
         "thumb": "/library/metadata/2008/thumb",
-        "Media": [{ "id": 6008, "container": "mkv", "Part": [{ "id": 8008, "key": "/library/parts/8008/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E02.No.Regrets.Part1.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6008,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8008,
+                "key": "/library/parts/8008/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E02.No.Regrets.Part1.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2009",
         "key": "/library/metadata/2009",
         "guid": "imdb://tt7202009",
         "Guid": [
-          { "id": "imdb://tt7202009" },
-          { "id": "tmdb://920009" },
-          { "id": "tvdb://720009" }
+          {
+            "id": "imdb://tt7202009"
+          },
+          {
+            "id": "tmdb://920009"
+          },
+          {
+            "id": "tvdb://720009"
+          }
         ],
         "type": "episode",
         "title": "No Regrets OVA Part 2",
@@ -180,717 +334,30 @@
         "index": 3,
         "year": 2023,
         "thumb": "/library/metadata/2009/thumb",
-        "Media": [{ "id": 6009, "container": "mkv", "Part": [{ "id": 8009, "key": "/library/parts/8009/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E03.No.Regrets.Part2.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2050",
-        "key": "/library/metadata/2050",
-        "guid": "tvdb://720050",
-        "Guid": [{ "id": "tvdb://720050" }],
-        "type": "episode",
-        "title": "Episode 07",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 7,
-        "year": 2023,
-        "thumb": "/library/metadata/2050/thumb",
-        "Media": [{ "id": 6050, "container": "mkv", "Part": [{ "id": 8050, "key": "/library/parts/8050/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E07.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2051",
-        "key": "/library/metadata/2051",
-        "guid": "tvdb://720051",
-        "Guid": [{ "id": "tvdb://720051" }],
-        "type": "episode",
-        "title": "Episode 08",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 8,
-        "year": 2023,
-        "thumb": "/library/metadata/2051/thumb",
-        "Media": [{ "id": 6051, "container": "mkv", "Part": [{ "id": 8051, "key": "/library/parts/8051/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E08.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2052",
-        "key": "/library/metadata/2052",
-        "guid": "tvdb://720052",
-        "Guid": [{ "id": "tvdb://720052" }],
-        "type": "episode",
-        "title": "Episode 09",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 9,
-        "year": 2023,
-        "thumb": "/library/metadata/2052/thumb",
-        "Media": [{ "id": 6052, "container": "mkv", "Part": [{ "id": 8052, "key": "/library/parts/8052/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E09.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2053",
-        "key": "/library/metadata/2053",
-        "guid": "tvdb://720053",
-        "Guid": [{ "id": "tvdb://720053" }],
-        "type": "episode",
-        "title": "Episode 10",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 10,
-        "year": 2023,
-        "thumb": "/library/metadata/2053/thumb",
-        "Media": [{ "id": 6053, "container": "mkv", "Part": [{ "id": 8053, "key": "/library/parts/8053/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E10.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2054",
-        "key": "/library/metadata/2054",
-        "guid": "tvdb://720054",
-        "Guid": [{ "id": "tvdb://720054" }],
-        "type": "episode",
-        "title": "Episode 11",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 11,
-        "year": 2023,
-        "thumb": "/library/metadata/2054/thumb",
-        "Media": [{ "id": 6054, "container": "mkv", "Part": [{ "id": 8054, "key": "/library/parts/8054/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E11.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2055",
-        "key": "/library/metadata/2055",
-        "guid": "tvdb://720055",
-        "Guid": [{ "id": "tvdb://720055" }],
-        "type": "episode",
-        "title": "Episode 12",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 12,
-        "year": 2023,
-        "thumb": "/library/metadata/2055/thumb",
-        "Media": [{ "id": 6055, "container": "mkv", "Part": [{ "id": 8055, "key": "/library/parts/8055/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E12.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2056",
-        "key": "/library/metadata/2056",
-        "guid": "tvdb://720056",
-        "Guid": [{ "id": "tvdb://720056" }],
-        "type": "episode",
-        "title": "Episode 13",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 13,
-        "year": 2023,
-        "thumb": "/library/metadata/2056/thumb",
-        "Media": [{ "id": 6056, "container": "mkv", "Part": [{ "id": 8056, "key": "/library/parts/8056/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E13.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2057",
-        "key": "/library/metadata/2057",
-        "guid": "tvdb://720057",
-        "Guid": [{ "id": "tvdb://720057" }],
-        "type": "episode",
-        "title": "Episode 14",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 14,
-        "year": 2023,
-        "thumb": "/library/metadata/2057/thumb",
-        "Media": [{ "id": 6057, "container": "mkv", "Part": [{ "id": 8057, "key": "/library/parts/8057/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E14.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2058",
-        "key": "/library/metadata/2058",
-        "guid": "tvdb://720058",
-        "Guid": [{ "id": "tvdb://720058" }],
-        "type": "episode",
-        "title": "Episode 15",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 15,
-        "year": 2023,
-        "thumb": "/library/metadata/2058/thumb",
-        "Media": [{ "id": 6058, "container": "mkv", "Part": [{ "id": 8058, "key": "/library/parts/8058/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E15.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2059",
-        "key": "/library/metadata/2059",
-        "guid": "tvdb://720059",
-        "Guid": [{ "id": "tvdb://720059" }],
-        "type": "episode",
-        "title": "Episode 16",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 16,
-        "year": 2023,
-        "thumb": "/library/metadata/2059/thumb",
-        "Media": [{ "id": 6059, "container": "mkv", "Part": [{ "id": 8059, "key": "/library/parts/8059/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E16.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2060",
-        "key": "/library/metadata/2060",
-        "guid": "tvdb://720060",
-        "Guid": [{ "id": "tvdb://720060" }],
-        "type": "episode",
-        "title": "Episode 17",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 17,
-        "year": 2023,
-        "thumb": "/library/metadata/2060/thumb",
-        "Media": [{ "id": 6060, "container": "mkv", "Part": [{ "id": 8060, "key": "/library/parts/8060/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E17.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2061",
-        "key": "/library/metadata/2061",
-        "guid": "tvdb://720061",
-        "Guid": [{ "id": "tvdb://720061" }],
-        "type": "episode",
-        "title": "Episode 18",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 18,
-        "year": 2023,
-        "thumb": "/library/metadata/2061/thumb",
-        "Media": [{ "id": 6061, "container": "mkv", "Part": [{ "id": 8061, "key": "/library/parts/8061/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E18.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2062",
-        "key": "/library/metadata/2062",
-        "guid": "tvdb://720062",
-        "Guid": [{ "id": "tvdb://720062" }],
-        "type": "episode",
-        "title": "Episode 19",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 19,
-        "year": 2023,
-        "thumb": "/library/metadata/2062/thumb",
-        "Media": [{ "id": 6062, "container": "mkv", "Part": [{ "id": 8062, "key": "/library/parts/8062/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E19.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2063",
-        "key": "/library/metadata/2063",
-        "guid": "tvdb://720063",
-        "Guid": [{ "id": "tvdb://720063" }],
-        "type": "episode",
-        "title": "Episode 20",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 20,
-        "year": 2023,
-        "thumb": "/library/metadata/2063/thumb",
-        "Media": [{ "id": 6063, "container": "mkv", "Part": [{ "id": 8063, "key": "/library/parts/8063/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E20.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2064",
-        "key": "/library/metadata/2064",
-        "guid": "tvdb://720064",
-        "Guid": [{ "id": "tvdb://720064" }],
-        "type": "episode",
-        "title": "Episode 21",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 21,
-        "year": 2023,
-        "thumb": "/library/metadata/2064/thumb",
-        "Media": [{ "id": 6064, "container": "mkv", "Part": [{ "id": 8064, "key": "/library/parts/8064/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E21.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2065",
-        "key": "/library/metadata/2065",
-        "guid": "tvdb://720065",
-        "Guid": [{ "id": "tvdb://720065" }],
-        "type": "episode",
-        "title": "Episode 22",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 22,
-        "year": 2023,
-        "thumb": "/library/metadata/2065/thumb",
-        "Media": [{ "id": 6065, "container": "mkv", "Part": [{ "id": 8065, "key": "/library/parts/8065/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E22.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2066",
-        "key": "/library/metadata/2066",
-        "guid": "tvdb://720066",
-        "Guid": [{ "id": "tvdb://720066" }],
-        "type": "episode",
-        "title": "Episode 23",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 23,
-        "year": 2023,
-        "thumb": "/library/metadata/2066/thumb",
-        "Media": [{ "id": 6066, "container": "mkv", "Part": [{ "id": 8066, "key": "/library/parts/8066/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E23.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2067",
-        "key": "/library/metadata/2067",
-        "guid": "tvdb://720067",
-        "Guid": [{ "id": "tvdb://720067" }],
-        "type": "episode",
-        "title": "Episode 24",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 24,
-        "year": 2023,
-        "thumb": "/library/metadata/2067/thumb",
-        "Media": [{ "id": 6067, "container": "mkv", "Part": [{ "id": 8067, "key": "/library/parts/8067/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E24.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2068",
-        "key": "/library/metadata/2068",
-        "guid": "tvdb://720068",
-        "Guid": [{ "id": "tvdb://720068" }],
-        "type": "episode",
-        "title": "Episode 25",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 25,
-        "year": 2023,
-        "thumb": "/library/metadata/2068/thumb",
-        "Media": [{ "id": 6068, "container": "mkv", "Part": [{ "id": 8068, "key": "/library/parts/8068/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E25.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2069",
-        "key": "/library/metadata/2069",
-        "guid": "tvdb://720069",
-        "Guid": [{ "id": "tvdb://720069" }],
-        "type": "episode",
-        "title": "Episode 26",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 26,
-        "year": 2023,
-        "thumb": "/library/metadata/2069/thumb",
-        "Media": [{ "id": 6069, "container": "mkv", "Part": [{ "id": 8069, "key": "/library/parts/8069/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E26.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2070",
-        "key": "/library/metadata/2070",
-        "guid": "tvdb://720070",
-        "Guid": [{ "id": "tvdb://720070" }],
-        "type": "episode",
-        "title": "Episode 27",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 27,
-        "year": 2023,
-        "thumb": "/library/metadata/2070/thumb",
-        "Media": [{ "id": 6070, "container": "mkv", "Part": [{ "id": 8070, "key": "/library/parts/8070/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E27.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2071",
-        "key": "/library/metadata/2071",
-        "guid": "tvdb://720071",
-        "Guid": [{ "id": "tvdb://720071" }],
-        "type": "episode",
-        "title": "Episode 28",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 28,
-        "year": 2023,
-        "thumb": "/library/metadata/2071/thumb",
-        "Media": [{ "id": 6071, "container": "mkv", "Part": [{ "id": 8071, "key": "/library/parts/8071/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E28.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2072",
-        "key": "/library/metadata/2072",
-        "guid": "tvdb://720072",
-        "Guid": [{ "id": "tvdb://720072" }],
-        "type": "episode",
-        "title": "Episode 29",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 29,
-        "year": 2023,
-        "thumb": "/library/metadata/2072/thumb",
-        "Media": [{ "id": 6072, "container": "mkv", "Part": [{ "id": 8072, "key": "/library/parts/8072/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E29.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2073",
-        "key": "/library/metadata/2073",
-        "guid": "tvdb://720073",
-        "Guid": [{ "id": "tvdb://720073" }],
-        "type": "episode",
-        "title": "Episode 30",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 30,
-        "year": 2023,
-        "thumb": "/library/metadata/2073/thumb",
-        "Media": [{ "id": 6073, "container": "mkv", "Part": [{ "id": 8073, "key": "/library/parts/8073/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E30.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2074",
-        "key": "/library/metadata/2074",
-        "guid": "tvdb://720074",
-        "Guid": [{ "id": "tvdb://720074" }],
-        "type": "episode",
-        "title": "Episode 31",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 31,
-        "year": 2023,
-        "thumb": "/library/metadata/2074/thumb",
-        "Media": [{ "id": 6074, "container": "mkv", "Part": [{ "id": 8074, "key": "/library/parts/8074/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E31.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2075",
-        "key": "/library/metadata/2075",
-        "guid": "tvdb://720075",
-        "Guid": [{ "id": "tvdb://720075" }],
-        "type": "episode",
-        "title": "Episode 32",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 32,
-        "year": 2023,
-        "thumb": "/library/metadata/2075/thumb",
-        "Media": [{ "id": 6075, "container": "mkv", "Part": [{ "id": 8075, "key": "/library/parts/8075/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E32.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2076",
-        "key": "/library/metadata/2076",
-        "guid": "tvdb://720076",
-        "Guid": [{ "id": "tvdb://720076" }],
-        "type": "episode",
-        "title": "Episode 33",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 33,
-        "year": 2023,
-        "thumb": "/library/metadata/2076/thumb",
-        "Media": [{ "id": 6076, "container": "mkv", "Part": [{ "id": 8076, "key": "/library/parts/8076/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E33.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2077",
-        "key": "/library/metadata/2077",
-        "guid": "tvdb://720077",
-        "Guid": [{ "id": "tvdb://720077" }],
-        "type": "episode",
-        "title": "Episode 34",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 34,
-        "year": 2023,
-        "thumb": "/library/metadata/2077/thumb",
-        "Media": [{ "id": 6077, "container": "mkv", "Part": [{ "id": 8077, "key": "/library/parts/8077/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E34.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2078",
-        "key": "/library/metadata/2078",
-        "guid": "tvdb://720078",
-        "Guid": [{ "id": "tvdb://720078" }],
-        "type": "episode",
-        "title": "Episode 35",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 35,
-        "year": 2023,
-        "thumb": "/library/metadata/2078/thumb",
-        "Media": [{ "id": 6078, "container": "mkv", "Part": [{ "id": 8078, "key": "/library/parts/8078/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E35.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2079",
-        "key": "/library/metadata/2079",
-        "guid": "tvdb://720079",
-        "Guid": [{ "id": "tvdb://720079" }],
-        "type": "episode",
-        "title": "Episode 36",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 36,
-        "year": 2023,
-        "thumb": "/library/metadata/2079/thumb",
-        "Media": [{ "id": 6079, "container": "mkv", "Part": [{ "id": 8079, "key": "/library/parts/8079/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E36.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2080",
-        "key": "/library/metadata/2080",
-        "guid": "tvdb://720080",
-        "Guid": [{ "id": "tvdb://720080" }],
-        "type": "episode",
-        "title": "Episode 37",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 37,
-        "year": 2023,
-        "thumb": "/library/metadata/2080/thumb",
-        "Media": [{ "id": 6080, "container": "mkv", "Part": [{ "id": 8080, "key": "/library/parts/8080/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E37.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2081",
-        "key": "/library/metadata/2081",
-        "guid": "tvdb://720081",
-        "Guid": [{ "id": "tvdb://720081" }],
-        "type": "episode",
-        "title": "Episode 38",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 38,
-        "year": 2023,
-        "thumb": "/library/metadata/2081/thumb",
-        "Media": [{ "id": 6081, "container": "mkv", "Part": [{ "id": 8081, "key": "/library/parts/8081/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E38.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2082",
-        "key": "/library/metadata/2082",
-        "guid": "tvdb://720082",
-        "Guid": [{ "id": "tvdb://720082" }],
-        "type": "episode",
-        "title": "Episode 39",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 39,
-        "year": 2023,
-        "thumb": "/library/metadata/2082/thumb",
-        "Media": [{ "id": 6082, "container": "mkv", "Part": [{ "id": 8082, "key": "/library/parts/8082/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E39.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2083",
-        "key": "/library/metadata/2083",
-        "guid": "tvdb://720083",
-        "Guid": [{ "id": "tvdb://720083" }],
-        "type": "episode",
-        "title": "Episode 40",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 40,
-        "year": 2023,
-        "thumb": "/library/metadata/2083/thumb",
-        "Media": [{ "id": 6083, "container": "mkv", "Part": [{ "id": 8083, "key": "/library/parts/8083/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E40.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2084",
-        "key": "/library/metadata/2084",
-        "guid": "tvdb://720084",
-        "Guid": [{ "id": "tvdb://720084" }],
-        "type": "episode",
-        "title": "Episode 41",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 41,
-        "year": 2023,
-        "thumb": "/library/metadata/2084/thumb",
-        "Media": [{ "id": 6084, "container": "mkv", "Part": [{ "id": 8084, "key": "/library/parts/8084/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E41.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2085",
-        "key": "/library/metadata/2085",
-        "guid": "tvdb://720085",
-        "Guid": [{ "id": "tvdb://720085" }],
-        "type": "episode",
-        "title": "Episode 42",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 42,
-        "year": 2023,
-        "thumb": "/library/metadata/2085/thumb",
-        "Media": [{ "id": 6085, "container": "mkv", "Part": [{ "id": 8085, "key": "/library/parts/8085/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E42.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2086",
-        "key": "/library/metadata/2086",
-        "guid": "tvdb://720086",
-        "Guid": [{ "id": "tvdb://720086" }],
-        "type": "episode",
-        "title": "Episode 43",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 43,
-        "year": 2023,
-        "thumb": "/library/metadata/2086/thumb",
-        "Media": [{ "id": 6086, "container": "mkv", "Part": [{ "id": 8086, "key": "/library/parts/8086/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E43.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2087",
-        "key": "/library/metadata/2087",
-        "guid": "tvdb://720087",
-        "Guid": [{ "id": "tvdb://720087" }],
-        "type": "episode",
-        "title": "Episode 44",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 44,
-        "year": 2023,
-        "thumb": "/library/metadata/2087/thumb",
-        "Media": [{ "id": 6087, "container": "mkv", "Part": [{ "id": 8087, "key": "/library/parts/8087/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E44.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2088",
-        "key": "/library/metadata/2088",
-        "guid": "tvdb://720088",
-        "Guid": [{ "id": "tvdb://720088" }],
-        "type": "episode",
-        "title": "Episode 45",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 45,
-        "year": 2023,
-        "thumb": "/library/metadata/2088/thumb",
-        "Media": [{ "id": 6088, "container": "mkv", "Part": [{ "id": 8088, "key": "/library/parts/8088/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E45.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2089",
-        "key": "/library/metadata/2089",
-        "guid": "tvdb://720089",
-        "Guid": [{ "id": "tvdb://720089" }],
-        "type": "episode",
-        "title": "Episode 46",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 46,
-        "year": 2023,
-        "thumb": "/library/metadata/2089/thumb",
-        "Media": [{ "id": 6089, "container": "mkv", "Part": [{ "id": 8089, "key": "/library/parts/8089/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E46.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2090",
-        "key": "/library/metadata/2090",
-        "guid": "tvdb://720090",
-        "Guid": [{ "id": "tvdb://720090" }],
-        "type": "episode",
-        "title": "Episode 47",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 47,
-        "year": 2023,
-        "thumb": "/library/metadata/2090/thumb",
-        "Media": [{ "id": 6090, "container": "mkv", "Part": [{ "id": 8090, "key": "/library/parts/8090/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E47.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2091",
-        "key": "/library/metadata/2091",
-        "guid": "tvdb://720091",
-        "Guid": [{ "id": "tvdb://720091" }],
-        "type": "episode",
-        "title": "Episode 48",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 48,
-        "year": 2023,
-        "thumb": "/library/metadata/2091/thumb",
-        "Media": [{ "id": 6091, "container": "mkv", "Part": [{ "id": 8091, "key": "/library/parts/8091/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E48.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2092",
-        "key": "/library/metadata/2092",
-        "guid": "tvdb://720092",
-        "Guid": [{ "id": "tvdb://720092" }],
-        "type": "episode",
-        "title": "Episode 49",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 49,
-        "year": 2023,
-        "thumb": "/library/metadata/2092/thumb",
-        "Media": [{ "id": 6092, "container": "mkv", "Part": [{ "id": 8092, "key": "/library/parts/8092/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E49.mkv", "size": 1 }] }]
-      },
-      {
-        "ratingKey": "2093",
-        "key": "/library/metadata/2093",
-        "guid": "tvdb://720093",
-        "Guid": [{ "id": "tvdb://720093" }],
-        "type": "episode",
-        "title": "Episode 50",
-        "grandparentRatingKey": "200",
-        "grandparentTitle": "Abyssal Gate",
-        "parentTitle": "Season 01",
-        "parentIndex": 1,
-        "index": 50,
-        "year": 2023,
-        "thumb": "/library/metadata/2093/thumb",
-        "Media": [{ "id": 6093, "container": "mkv", "Part": [{ "id": 8093, "key": "/library/parts/8093/file.mkv", "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E50.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6009,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8009,
+                "key": "/library/parts/8009/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Specials/Abyssal_Gate.S00E03.No.Regrets.Part2.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2011",
         "key": "/library/metadata/2011",
         "guid": "tvdb://721011",
-        "Guid": [{ "id": "tvdb://721011" }],
+        "Guid": [
+          {
+            "id": "tvdb://721011"
+          }
+        ],
         "type": "episode",
         "title": "Harbor Lights",
         "grandparentRatingKey": "201",
@@ -900,13 +367,30 @@
         "index": 1,
         "year": 2019,
         "thumb": "/library/metadata/2011/thumb",
-        "Media": [{ "id": 6011, "container": "mkv", "Part": [{ "id": 8011, "key": "/library/parts/8011/file.mkv", "file": "/share/plex/Series/Northwind_Homicide/Season 01/Northwind_Homicide.S01E01.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6011,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8011,
+                "key": "/library/parts/8011/file.mkv",
+                "file": "/share/plex/Series/Northwind_Homicide/Season 01/Northwind_Homicide.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2012",
         "key": "/library/metadata/2012",
         "guid": "tvdb://721012",
-        "Guid": [{ "id": "tvdb://721012" }],
+        "Guid": [
+          {
+            "id": "tvdb://721012"
+          }
+        ],
         "type": "episode",
         "title": "Cold Case",
         "grandparentRatingKey": "201",
@@ -916,13 +400,30 @@
         "index": 2,
         "year": 2019,
         "thumb": "/library/metadata/2012/thumb",
-        "Media": [{ "id": 6012, "container": "mkv", "Part": [{ "id": 8012, "key": "/library/parts/8012/file.mkv", "file": "/share/plex/Series/Northwind_Homicide/Season 01/Northwind_Homicide.S01E02.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6012,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8012,
+                "key": "/library/parts/8012/file.mkv",
+                "file": "/share/plex/Series/Northwind_Homicide/Season 01/Northwind_Homicide.S01E02.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2013",
         "key": "/library/metadata/2013",
         "guid": "tvdb://721013",
-        "Guid": [{ "id": "tvdb://721013" }],
+        "Guid": [
+          {
+            "id": "tvdb://721013"
+          }
+        ],
         "type": "episode",
         "title": "Black Ice",
         "grandparentRatingKey": "201",
@@ -932,13 +433,30 @@
         "index": 1,
         "year": 2020,
         "thumb": "/library/metadata/2013/thumb",
-        "Media": [{ "id": 6013, "container": "mkv", "Part": [{ "id": 8013, "key": "/library/parts/8013/file.mkv", "file": "/share/plex/Series/Northwind_Homicide/Season 02/Northwind_Homicide.S02E01.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6013,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8013,
+                "key": "/library/parts/8013/file.mkv",
+                "file": "/share/plex/Series/Northwind_Homicide/Season 02/Northwind_Homicide.S02E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2014",
         "key": "/library/metadata/2014",
         "guid": "tvdb://721014",
-        "Guid": [{ "id": "tvdb://721014" }],
+        "Guid": [
+          {
+            "id": "tvdb://721014"
+          }
+        ],
         "type": "episode",
         "title": "Whiteout",
         "grandparentRatingKey": "201",
@@ -948,13 +466,30 @@
         "index": 2,
         "year": 2020,
         "thumb": "/library/metadata/2014/thumb",
-        "Media": [{ "id": 6014, "container": "mkv", "Part": [{ "id": 8014, "key": "/library/parts/8014/file.mkv", "file": "/share/plex/Series/Northwind_Homicide/Season 02/Northwind_Homicide.S02E02.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6014,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8014,
+                "key": "/library/parts/8014/file.mkv",
+                "file": "/share/plex/Series/Northwind_Homicide/Season 02/Northwind_Homicide.S02E02.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2015",
         "key": "/library/metadata/2015",
         "guid": "tvdb://721015",
-        "Guid": [{ "id": "tvdb://721015" }],
+        "Guid": [
+          {
+            "id": "tvdb://721015"
+          }
+        ],
         "type": "episode",
         "title": "Holiday Special",
         "grandparentRatingKey": "201",
@@ -964,13 +499,30 @@
         "index": 1,
         "year": 2020,
         "thumb": "/library/metadata/2015/thumb",
-        "Media": [{ "id": 6015, "container": "mkv", "Part": [{ "id": 8015, "key": "/library/parts/8015/file.mkv", "file": "/share/plex/Series/Northwind_Homicide/Specials/Northwind_Homicide.S00E01.Holiday.Special.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6015,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8015,
+                "key": "/library/parts/8015/file.mkv",
+                "file": "/share/plex/Series/Northwind_Homicide/Specials/Northwind_Homicide.S00E01.Holiday.Special.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2021",
         "key": "/library/metadata/2021",
         "guid": "tvdb://722021",
-        "Guid": [{ "id": "tvdb://722021" }],
+        "Guid": [
+          {
+            "id": "tvdb://722021"
+          }
+        ],
         "type": "episode",
         "title": "Pilot",
         "grandparentRatingKey": "202",
@@ -980,13 +532,30 @@
         "index": 1,
         "year": 2021,
         "thumb": "/library/metadata/2021/thumb",
-        "Media": [{ "id": 6021, "container": "mkv", "Part": [{ "id": 8021, "key": "/library/parts/8021/file.mkv", "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E01.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6021,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8021,
+                "key": "/library/parts/8021/file.mkv",
+                "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2022",
         "key": "/library/metadata/2022",
         "guid": "tvdb://722022",
-        "Guid": [{ "id": "tvdb://722022" }],
+        "Guid": [
+          {
+            "id": "tvdb://722022"
+          }
+        ],
         "type": "episode",
         "title": "Undertow",
         "grandparentRatingKey": "202",
@@ -996,13 +565,30 @@
         "index": 2,
         "year": 2021,
         "thumb": "/library/metadata/2022/thumb",
-        "Media": [{ "id": 6022, "container": "mkv", "Part": [{ "id": 8022, "key": "/library/parts/8022/file.mkv", "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E02E03.Finale.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6022,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8022,
+                "key": "/library/parts/8022/file.mkv",
+                "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E02E03.Finale.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2023",
         "key": "/library/metadata/2023",
         "guid": "tvdb://722023",
-        "Guid": [{ "id": "tvdb://722023" }],
+        "Guid": [
+          {
+            "id": "tvdb://722023"
+          }
+        ],
         "type": "episode",
         "title": "Beacon",
         "grandparentRatingKey": "202",
@@ -1012,16 +598,35 @@
         "index": 3,
         "year": 2021,
         "thumb": "/library/metadata/2023/thumb",
-        "Media": [{ "id": 6023, "container": "mkv", "Part": [{ "id": 8023, "key": "/library/parts/8023/file.mkv", "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E02E03.Finale.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6023,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8023,
+                "key": "/library/parts/8023/file.mkv",
+                "file": "/share/plex/Series/Quiet_Harbor/Season 01/Quiet_Harbor.S01E02E03.Finale.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2031",
         "key": "/library/metadata/2031",
         "guid": "imdb://tt8032031",
         "Guid": [
-          { "id": "imdb://tt8032031" },
-          { "id": "tmdb://930231" },
-          { "id": "tvdb://803231" }
+          {
+            "id": "imdb://tt8032031"
+          },
+          {
+            "id": "tmdb://930231"
+          },
+          {
+            "id": "tvdb://803231"
+          }
         ],
         "type": "episode",
         "title": "And the Soft Opening",
@@ -1032,15 +637,32 @@
         "index": 1,
         "year": 2011,
         "thumb": "/library/metadata/2031/thumb",
-        "Media": [{ "id": 6031, "container": "mkv", "Part": [{ "id": 8031, "key": "/library/parts/8031/file.mkv", "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E01.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6031,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8031,
+                "key": "/library/parts/8031/file.mkv",
+                "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2032",
         "key": "/library/metadata/2032",
         "guid": "tvdb://803232",
         "Guid": [
-          { "id": "imdb://tt8032032" },
-          { "id": "tvdb://803232" }
+          {
+            "id": "imdb://tt8032032"
+          },
+          {
+            "id": "tvdb://803232"
+          }
         ],
         "type": "episode",
         "title": "And the Pawnshop",
@@ -1051,16 +673,35 @@
         "index": 2,
         "year": 2011,
         "thumb": "/library/metadata/2032/thumb",
-        "Media": [{ "id": 6032, "container": "mkv", "Part": [{ "id": 8032, "key": "/library/parts/8032/file.mkv", "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E02.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6032,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8032,
+                "key": "/library/parts/8032/file.mkv",
+                "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E02.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2033",
         "key": "/library/metadata/2033",
         "guid": "tmdb://930233",
         "Guid": [
-          { "id": "imdb://tt8032033" },
-          { "id": "tmdb://930233" },
-          { "id": "tvdb://803233" }
+          {
+            "id": "imdb://tt8032033"
+          },
+          {
+            "id": "tmdb://930233"
+          },
+          {
+            "id": "tvdb://803233"
+          }
         ],
         "type": "episode",
         "title": "And the Ribbon Cutting",
@@ -1071,15 +712,32 @@
         "index": 3,
         "year": 2011,
         "thumb": "/library/metadata/2033/thumb",
-        "Media": [{ "id": 6033, "container": "mkv", "Part": [{ "id": 8033, "key": "/library/parts/8033/file.mkv", "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E03.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6033,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8033,
+                "key": "/library/parts/8033/file.mkv",
+                "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E03.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2034",
         "key": "/library/metadata/2034",
         "guid": "imdb://tt8032034",
         "Guid": [
-          { "id": "imdb://tt8032034" },
-          { "id": "tvdb://803234" }
+          {
+            "id": "imdb://tt8032034"
+          },
+          {
+            "id": "tvdb://803234"
+          }
         ],
         "type": "episode",
         "title": "And the Bar Tab",
@@ -1090,15 +748,32 @@
         "index": 4,
         "year": 2011,
         "thumb": "/library/metadata/2034/thumb",
-        "Media": [{ "id": 6034, "container": "mkv", "Part": [{ "id": 8034, "key": "/library/parts/8034/file.mkv", "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E04.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6034,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8034,
+                "key": "/library/parts/8034/file.mkv",
+                "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E04.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2035",
         "key": "/library/metadata/2035",
         "guid": "tvdb://803235",
         "Guid": [
-          { "id": "imdb://tt8032035" },
-          { "id": "tvdb://803235" }
+          {
+            "id": "imdb://tt8032035"
+          },
+          {
+            "id": "tvdb://803235"
+          }
         ],
         "type": "episode",
         "title": "And the Dry Run",
@@ -1109,16 +784,35 @@
         "index": 5,
         "year": 2011,
         "thumb": "/library/metadata/2035/thumb",
-        "Media": [{ "id": 6035, "container": "mkv", "Part": [{ "id": 8035, "key": "/library/parts/8035/file.mkv", "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E05.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6035,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8035,
+                "key": "/library/parts/8035/file.mkv",
+                "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E05.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       },
       {
         "ratingKey": "2036",
         "key": "/library/metadata/2036",
         "guid": "tmdb://930236",
         "Guid": [
-          { "id": "imdb://tt8032036" },
-          { "id": "tmdb://930236" },
-          { "id": "tvdb://803236" }
+          {
+            "id": "imdb://tt8032036"
+          },
+          {
+            "id": "tmdb://930236"
+          },
+          {
+            "id": "tvdb://803236"
+          }
         ],
         "type": "episode",
         "title": "And the Grand Reopening",
@@ -1129,7 +823,2276 @@
         "index": 6,
         "year": 2011,
         "thumb": "/library/metadata/2036/thumb",
-        "Media": [{ "id": 6036, "container": "mkv", "Part": [{ "id": 8036, "key": "/library/parts/8036/file.mkv", "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E06.mkv", "size": 1 }] }]
+        "Media": [
+          {
+            "id": 6036,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8036,
+                "key": "/library/parts/8036/file.mkv",
+                "file": "/share/plex/Series/Two_Broke_Girls/Two_Broke_Girls.S01E06.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2041",
+        "key": "/library/metadata/2041",
+        "guid": "tvdb://722041",
+        "Guid": [
+          {
+            "id": "tvdb://722041"
+          }
+        ],
+        "type": "episode",
+        "title": "First Dock",
+        "grandparentRatingKey": "204",
+        "grandparentTitle": "Atlas Terminal",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2018,
+        "thumb": "/library/metadata/2041/thumb",
+        "Media": [
+          {
+            "id": 6041,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8041,
+                "key": "/library/parts/8041/file.mkv",
+                "file": "/share/plex/Series/Atlas_Terminal/Season 01/Atlas_Terminal.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2050",
+        "key": "/library/metadata/2050",
+        "guid": "tvdb://720050",
+        "Guid": [
+          {
+            "id": "tvdb://720050"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 07",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 7,
+        "year": 2023,
+        "thumb": "/library/metadata/2050/thumb",
+        "Media": [
+          {
+            "id": 6050,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8050,
+                "key": "/library/parts/8050/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E07.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2051",
+        "key": "/library/metadata/2051",
+        "guid": "tvdb://720051",
+        "Guid": [
+          {
+            "id": "tvdb://720051"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 08",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 8,
+        "year": 2023,
+        "thumb": "/library/metadata/2051/thumb",
+        "Media": [
+          {
+            "id": 6051,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8051,
+                "key": "/library/parts/8051/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E08.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2051",
+        "key": "/library/metadata/2051",
+        "guid": "tvdb://722051",
+        "Guid": [
+          {
+            "id": "tvdb://722051"
+          }
+        ],
+        "type": "episode",
+        "title": "The Lantern",
+        "grandparentRatingKey": "205",
+        "grandparentTitle": "Briarwood Station",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2020,
+        "thumb": "/library/metadata/2051/thumb",
+        "Media": [
+          {
+            "id": 6051,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8051,
+                "key": "/library/parts/8051/file.mkv",
+                "file": "/share/plex/Series/Briarwood_Station/Season 01/Briarwood_Station.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2052",
+        "key": "/library/metadata/2052",
+        "guid": "tvdb://720052",
+        "Guid": [
+          {
+            "id": "tvdb://720052"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 09",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 9,
+        "year": 2023,
+        "thumb": "/library/metadata/2052/thumb",
+        "Media": [
+          {
+            "id": 6052,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8052,
+                "key": "/library/parts/8052/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E09.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2053",
+        "key": "/library/metadata/2053",
+        "guid": "tvdb://720053",
+        "Guid": [
+          {
+            "id": "tvdb://720053"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 10",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 10,
+        "year": 2023,
+        "thumb": "/library/metadata/2053/thumb",
+        "Media": [
+          {
+            "id": 6053,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8053,
+                "key": "/library/parts/8053/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E10.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2054",
+        "key": "/library/metadata/2054",
+        "guid": "tvdb://720054",
+        "Guid": [
+          {
+            "id": "tvdb://720054"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 11",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 11,
+        "year": 2023,
+        "thumb": "/library/metadata/2054/thumb",
+        "Media": [
+          {
+            "id": 6054,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8054,
+                "key": "/library/parts/8054/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E11.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2055",
+        "key": "/library/metadata/2055",
+        "guid": "tvdb://720055",
+        "Guid": [
+          {
+            "id": "tvdb://720055"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 12",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 12,
+        "year": 2023,
+        "thumb": "/library/metadata/2055/thumb",
+        "Media": [
+          {
+            "id": 6055,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8055,
+                "key": "/library/parts/8055/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E12.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2056",
+        "key": "/library/metadata/2056",
+        "guid": "tvdb://720056",
+        "Guid": [
+          {
+            "id": "tvdb://720056"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 13",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 13,
+        "year": 2023,
+        "thumb": "/library/metadata/2056/thumb",
+        "Media": [
+          {
+            "id": 6056,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8056,
+                "key": "/library/parts/8056/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E13.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2057",
+        "key": "/library/metadata/2057",
+        "guid": "tvdb://720057",
+        "Guid": [
+          {
+            "id": "tvdb://720057"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 14",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 14,
+        "year": 2023,
+        "thumb": "/library/metadata/2057/thumb",
+        "Media": [
+          {
+            "id": 6057,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8057,
+                "key": "/library/parts/8057/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E14.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2058",
+        "key": "/library/metadata/2058",
+        "guid": "tvdb://720058",
+        "Guid": [
+          {
+            "id": "tvdb://720058"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 15",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 15,
+        "year": 2023,
+        "thumb": "/library/metadata/2058/thumb",
+        "Media": [
+          {
+            "id": 6058,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8058,
+                "key": "/library/parts/8058/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E15.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2059",
+        "key": "/library/metadata/2059",
+        "guid": "tvdb://720059",
+        "Guid": [
+          {
+            "id": "tvdb://720059"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 16",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 16,
+        "year": 2023,
+        "thumb": "/library/metadata/2059/thumb",
+        "Media": [
+          {
+            "id": 6059,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8059,
+                "key": "/library/parts/8059/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E16.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2060",
+        "key": "/library/metadata/2060",
+        "guid": "tvdb://720060",
+        "Guid": [
+          {
+            "id": "tvdb://720060"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 17",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 17,
+        "year": 2023,
+        "thumb": "/library/metadata/2060/thumb",
+        "Media": [
+          {
+            "id": 6060,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8060,
+                "key": "/library/parts/8060/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E17.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2061",
+        "key": "/library/metadata/2061",
+        "guid": "tvdb://720061",
+        "Guid": [
+          {
+            "id": "tvdb://720061"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 18",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 18,
+        "year": 2023,
+        "thumb": "/library/metadata/2061/thumb",
+        "Media": [
+          {
+            "id": 6061,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8061,
+                "key": "/library/parts/8061/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E18.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2061",
+        "key": "/library/metadata/2061",
+        "guid": "tvdb://722061",
+        "Guid": [
+          {
+            "id": "tvdb://722061"
+          }
+        ],
+        "type": "episode",
+        "title": "Cold Signal",
+        "grandparentRatingKey": "206",
+        "grandparentTitle": "Cinder Bay",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2017,
+        "thumb": "/library/metadata/2061/thumb",
+        "Media": [
+          {
+            "id": 6061,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8061,
+                "key": "/library/parts/8061/file.mkv",
+                "file": "/share/plex/Series/Cinder_Bay/Season 01/Cinder_Bay.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2062",
+        "key": "/library/metadata/2062",
+        "guid": "tvdb://720062",
+        "Guid": [
+          {
+            "id": "tvdb://720062"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 19",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 19,
+        "year": 2023,
+        "thumb": "/library/metadata/2062/thumb",
+        "Media": [
+          {
+            "id": 6062,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8062,
+                "key": "/library/parts/8062/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E19.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2063",
+        "key": "/library/metadata/2063",
+        "guid": "tvdb://720063",
+        "Guid": [
+          {
+            "id": "tvdb://720063"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 20",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 20,
+        "year": 2023,
+        "thumb": "/library/metadata/2063/thumb",
+        "Media": [
+          {
+            "id": 6063,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8063,
+                "key": "/library/parts/8063/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E20.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2064",
+        "key": "/library/metadata/2064",
+        "guid": "tvdb://720064",
+        "Guid": [
+          {
+            "id": "tvdb://720064"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 21",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 21,
+        "year": 2023,
+        "thumb": "/library/metadata/2064/thumb",
+        "Media": [
+          {
+            "id": 6064,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8064,
+                "key": "/library/parts/8064/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E21.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2065",
+        "key": "/library/metadata/2065",
+        "guid": "tvdb://720065",
+        "Guid": [
+          {
+            "id": "tvdb://720065"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 22",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 22,
+        "year": 2023,
+        "thumb": "/library/metadata/2065/thumb",
+        "Media": [
+          {
+            "id": 6065,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8065,
+                "key": "/library/parts/8065/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E22.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2066",
+        "key": "/library/metadata/2066",
+        "guid": "tvdb://720066",
+        "Guid": [
+          {
+            "id": "tvdb://720066"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 23",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 23,
+        "year": 2023,
+        "thumb": "/library/metadata/2066/thumb",
+        "Media": [
+          {
+            "id": 6066,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8066,
+                "key": "/library/parts/8066/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E23.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2067",
+        "key": "/library/metadata/2067",
+        "guid": "tvdb://720067",
+        "Guid": [
+          {
+            "id": "tvdb://720067"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 24",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 24,
+        "year": 2023,
+        "thumb": "/library/metadata/2067/thumb",
+        "Media": [
+          {
+            "id": 6067,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8067,
+                "key": "/library/parts/8067/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E24.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2068",
+        "key": "/library/metadata/2068",
+        "guid": "tvdb://720068",
+        "Guid": [
+          {
+            "id": "tvdb://720068"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 25",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 25,
+        "year": 2023,
+        "thumb": "/library/metadata/2068/thumb",
+        "Media": [
+          {
+            "id": 6068,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8068,
+                "key": "/library/parts/8068/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E25.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2069",
+        "key": "/library/metadata/2069",
+        "guid": "tvdb://720069",
+        "Guid": [
+          {
+            "id": "tvdb://720069"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 26",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 26,
+        "year": 2023,
+        "thumb": "/library/metadata/2069/thumb",
+        "Media": [
+          {
+            "id": 6069,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8069,
+                "key": "/library/parts/8069/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E26.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2070",
+        "key": "/library/metadata/2070",
+        "guid": "tvdb://720070",
+        "Guid": [
+          {
+            "id": "tvdb://720070"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 27",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 27,
+        "year": 2023,
+        "thumb": "/library/metadata/2070/thumb",
+        "Media": [
+          {
+            "id": 6070,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8070,
+                "key": "/library/parts/8070/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E27.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2071",
+        "key": "/library/metadata/2071",
+        "guid": "tvdb://720071",
+        "Guid": [
+          {
+            "id": "tvdb://720071"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 28",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 28,
+        "year": 2023,
+        "thumb": "/library/metadata/2071/thumb",
+        "Media": [
+          {
+            "id": 6071,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8071,
+                "key": "/library/parts/8071/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E28.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2071",
+        "key": "/library/metadata/2071",
+        "guid": "tvdb://722071",
+        "Guid": [
+          {
+            "id": "tvdb://722071"
+          }
+        ],
+        "type": "episode",
+        "title": "Dead Channel",
+        "grandparentRatingKey": "207",
+        "grandparentTitle": "Drift Signal",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2022,
+        "thumb": "/library/metadata/2071/thumb",
+        "Media": [
+          {
+            "id": 6071,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8071,
+                "key": "/library/parts/8071/file.mkv",
+                "file": "/share/plex/Series/Drift_Signal/Season 01/Drift_Signal.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2072",
+        "key": "/library/metadata/2072",
+        "guid": "tvdb://720072",
+        "Guid": [
+          {
+            "id": "tvdb://720072"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 29",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 29,
+        "year": 2023,
+        "thumb": "/library/metadata/2072/thumb",
+        "Media": [
+          {
+            "id": 6072,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8072,
+                "key": "/library/parts/8072/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E29.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2073",
+        "key": "/library/metadata/2073",
+        "guid": "tvdb://720073",
+        "Guid": [
+          {
+            "id": "tvdb://720073"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 30",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 30,
+        "year": 2023,
+        "thumb": "/library/metadata/2073/thumb",
+        "Media": [
+          {
+            "id": 6073,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8073,
+                "key": "/library/parts/8073/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E30.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2074",
+        "key": "/library/metadata/2074",
+        "guid": "tvdb://720074",
+        "Guid": [
+          {
+            "id": "tvdb://720074"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 31",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 31,
+        "year": 2023,
+        "thumb": "/library/metadata/2074/thumb",
+        "Media": [
+          {
+            "id": 6074,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8074,
+                "key": "/library/parts/8074/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E31.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2075",
+        "key": "/library/metadata/2075",
+        "guid": "tvdb://720075",
+        "Guid": [
+          {
+            "id": "tvdb://720075"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 32",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 32,
+        "year": 2023,
+        "thumb": "/library/metadata/2075/thumb",
+        "Media": [
+          {
+            "id": 6075,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8075,
+                "key": "/library/parts/8075/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E32.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2076",
+        "key": "/library/metadata/2076",
+        "guid": "tvdb://720076",
+        "Guid": [
+          {
+            "id": "tvdb://720076"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 33",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 33,
+        "year": 2023,
+        "thumb": "/library/metadata/2076/thumb",
+        "Media": [
+          {
+            "id": 6076,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8076,
+                "key": "/library/parts/8076/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E33.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2077",
+        "key": "/library/metadata/2077",
+        "guid": "tvdb://720077",
+        "Guid": [
+          {
+            "id": "tvdb://720077"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 34",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 34,
+        "year": 2023,
+        "thumb": "/library/metadata/2077/thumb",
+        "Media": [
+          {
+            "id": 6077,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8077,
+                "key": "/library/parts/8077/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E34.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2078",
+        "key": "/library/metadata/2078",
+        "guid": "tvdb://720078",
+        "Guid": [
+          {
+            "id": "tvdb://720078"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 35",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 35,
+        "year": 2023,
+        "thumb": "/library/metadata/2078/thumb",
+        "Media": [
+          {
+            "id": 6078,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8078,
+                "key": "/library/parts/8078/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E35.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2079",
+        "key": "/library/metadata/2079",
+        "guid": "tvdb://720079",
+        "Guid": [
+          {
+            "id": "tvdb://720079"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 36",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 36,
+        "year": 2023,
+        "thumb": "/library/metadata/2079/thumb",
+        "Media": [
+          {
+            "id": 6079,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8079,
+                "key": "/library/parts/8079/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E36.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2080",
+        "key": "/library/metadata/2080",
+        "guid": "tvdb://720080",
+        "Guid": [
+          {
+            "id": "tvdb://720080"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 37",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 37,
+        "year": 2023,
+        "thumb": "/library/metadata/2080/thumb",
+        "Media": [
+          {
+            "id": 6080,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8080,
+                "key": "/library/parts/8080/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E37.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2081",
+        "key": "/library/metadata/2081",
+        "guid": "tvdb://720081",
+        "Guid": [
+          {
+            "id": "tvdb://720081"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 38",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 38,
+        "year": 2023,
+        "thumb": "/library/metadata/2081/thumb",
+        "Media": [
+          {
+            "id": 6081,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8081,
+                "key": "/library/parts/8081/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E38.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2081",
+        "key": "/library/metadata/2081",
+        "guid": "tvdb://722081",
+        "Guid": [
+          {
+            "id": "tvdb://722081"
+          }
+        ],
+        "type": "episode",
+        "title": "Eastbound",
+        "grandparentRatingKey": "208",
+        "grandparentTitle": "Eastwall",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2016,
+        "thumb": "/library/metadata/2081/thumb",
+        "Media": [
+          {
+            "id": 6081,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8081,
+                "key": "/library/parts/8081/file.mkv",
+                "file": "/share/plex/Series/Eastwall/Season 01/Eastwall.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2082",
+        "key": "/library/metadata/2082",
+        "guid": "tvdb://720082",
+        "Guid": [
+          {
+            "id": "tvdb://720082"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 39",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 39,
+        "year": 2023,
+        "thumb": "/library/metadata/2082/thumb",
+        "Media": [
+          {
+            "id": 6082,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8082,
+                "key": "/library/parts/8082/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E39.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2083",
+        "key": "/library/metadata/2083",
+        "guid": "tvdb://720083",
+        "Guid": [
+          {
+            "id": "tvdb://720083"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 40",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 40,
+        "year": 2023,
+        "thumb": "/library/metadata/2083/thumb",
+        "Media": [
+          {
+            "id": 6083,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8083,
+                "key": "/library/parts/8083/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E40.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2084",
+        "key": "/library/metadata/2084",
+        "guid": "tvdb://720084",
+        "Guid": [
+          {
+            "id": "tvdb://720084"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 41",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 41,
+        "year": 2023,
+        "thumb": "/library/metadata/2084/thumb",
+        "Media": [
+          {
+            "id": 6084,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8084,
+                "key": "/library/parts/8084/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E41.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2085",
+        "key": "/library/metadata/2085",
+        "guid": "tvdb://720085",
+        "Guid": [
+          {
+            "id": "tvdb://720085"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 42",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 42,
+        "year": 2023,
+        "thumb": "/library/metadata/2085/thumb",
+        "Media": [
+          {
+            "id": 6085,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8085,
+                "key": "/library/parts/8085/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E42.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2086",
+        "key": "/library/metadata/2086",
+        "guid": "tvdb://720086",
+        "Guid": [
+          {
+            "id": "tvdb://720086"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 43",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 43,
+        "year": 2023,
+        "thumb": "/library/metadata/2086/thumb",
+        "Media": [
+          {
+            "id": 6086,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8086,
+                "key": "/library/parts/8086/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E43.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2087",
+        "key": "/library/metadata/2087",
+        "guid": "tvdb://720087",
+        "Guid": [
+          {
+            "id": "tvdb://720087"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 44",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 44,
+        "year": 2023,
+        "thumb": "/library/metadata/2087/thumb",
+        "Media": [
+          {
+            "id": 6087,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8087,
+                "key": "/library/parts/8087/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E44.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2088",
+        "key": "/library/metadata/2088",
+        "guid": "tvdb://720088",
+        "Guid": [
+          {
+            "id": "tvdb://720088"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 45",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 45,
+        "year": 2023,
+        "thumb": "/library/metadata/2088/thumb",
+        "Media": [
+          {
+            "id": 6088,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8088,
+                "key": "/library/parts/8088/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E45.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2089",
+        "key": "/library/metadata/2089",
+        "guid": "tvdb://720089",
+        "Guid": [
+          {
+            "id": "tvdb://720089"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 46",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 46,
+        "year": 2023,
+        "thumb": "/library/metadata/2089/thumb",
+        "Media": [
+          {
+            "id": 6089,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8089,
+                "key": "/library/parts/8089/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E46.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2090",
+        "key": "/library/metadata/2090",
+        "guid": "tvdb://720090",
+        "Guid": [
+          {
+            "id": "tvdb://720090"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 47",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 47,
+        "year": 2023,
+        "thumb": "/library/metadata/2090/thumb",
+        "Media": [
+          {
+            "id": 6090,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8090,
+                "key": "/library/parts/8090/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E47.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2091",
+        "key": "/library/metadata/2091",
+        "guid": "tvdb://720091",
+        "Guid": [
+          {
+            "id": "tvdb://720091"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 48",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 48,
+        "year": 2023,
+        "thumb": "/library/metadata/2091/thumb",
+        "Media": [
+          {
+            "id": 6091,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8091,
+                "key": "/library/parts/8091/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E48.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2091",
+        "key": "/library/metadata/2091",
+        "guid": "tvdb://722091",
+        "Guid": [
+          {
+            "id": "tvdb://722091"
+          }
+        ],
+        "type": "episode",
+        "title": "Foxfire",
+        "grandparentRatingKey": "209",
+        "grandparentTitle": "Foxfire Academy",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2021,
+        "thumb": "/library/metadata/2091/thumb",
+        "Media": [
+          {
+            "id": 6091,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8091,
+                "key": "/library/parts/8091/file.mkv",
+                "file": "/share/plex/Series/Foxfire_Academy/Season 01/Foxfire_Academy.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2092",
+        "key": "/library/metadata/2092",
+        "guid": "tvdb://720092",
+        "Guid": [
+          {
+            "id": "tvdb://720092"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 49",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 49,
+        "year": 2023,
+        "thumb": "/library/metadata/2092/thumb",
+        "Media": [
+          {
+            "id": 6092,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8092,
+                "key": "/library/parts/8092/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E49.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2093",
+        "key": "/library/metadata/2093",
+        "guid": "tvdb://720093",
+        "Guid": [
+          {
+            "id": "tvdb://720093"
+          }
+        ],
+        "type": "episode",
+        "title": "Episode 50",
+        "grandparentRatingKey": "200",
+        "grandparentTitle": "Abyssal Gate",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 50,
+        "year": 2023,
+        "thumb": "/library/metadata/2093/thumb",
+        "Media": [
+          {
+            "id": 6093,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8093,
+                "key": "/library/parts/8093/file.mkv",
+                "file": "/share/plex/Series/Abyssal_Gate/Season 01/Abyssal_Gate.S01E50.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2101",
+        "key": "/library/metadata/2101",
+        "guid": "tvdb://722101",
+        "Guid": [
+          {
+            "id": "tvdb://722101"
+          }
+        ],
+        "type": "episode",
+        "title": "Low Tide",
+        "grandparentRatingKey": "210",
+        "grandparentTitle": "Glass Harbor",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2015,
+        "thumb": "/library/metadata/2101/thumb",
+        "Media": [
+          {
+            "id": 6101,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8101,
+                "key": "/library/parts/8101/file.mkv",
+                "file": "/share/plex/Series/Glass_Harbor/Season 01/Glass_Harbor.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2111",
+        "key": "/library/metadata/2111",
+        "guid": "tvdb://722111",
+        "Guid": [
+          {
+            "id": "tvdb://722111"
+          }
+        ],
+        "type": "episode",
+        "title": "Root Access",
+        "grandparentRatingKey": "211",
+        "grandparentTitle": "Highwater Code",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2024,
+        "thumb": "/library/metadata/2111/thumb",
+        "Media": [
+          {
+            "id": 6111,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8111,
+                "key": "/library/parts/8111/file.mkv",
+                "file": "/share/plex/Series/Highwater_Code/Season 01/Highwater_Code.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2121",
+        "key": "/library/metadata/2121",
+        "guid": "tvdb://722121",
+        "Guid": [
+          {
+            "id": "tvdb://722121"
+          }
+        ],
+        "type": "episode",
+        "title": "Hot Mill",
+        "grandparentRatingKey": "212",
+        "grandparentTitle": "Iron Vale",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2014,
+        "thumb": "/library/metadata/2121/thumb",
+        "Media": [
+          {
+            "id": 6121,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8121,
+                "key": "/library/parts/8121/file.mkv",
+                "file": "/share/plex/Series/Iron_Vale/Season 01/Iron_Vale.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2131",
+        "key": "/library/metadata/2131",
+        "guid": "tvdb://722131",
+        "Guid": [
+          {
+            "id": "tvdb://722131"
+          }
+        ],
+        "type": "episode",
+        "title": "Block Party",
+        "grandparentRatingKey": "213",
+        "grandparentTitle": "Juniper Street",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2012,
+        "thumb": "/library/metadata/2131/thumb",
+        "Media": [
+          {
+            "id": 6131,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8131,
+                "key": "/library/parts/8131/file.mkv",
+                "file": "/share/plex/Series/Juniper_Street/Season 01/Juniper_Street.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2141",
+        "key": "/library/metadata/2141",
+        "guid": "tvdb://722141",
+        "Guid": [
+          {
+            "id": "tvdb://722141"
+          }
+        ],
+        "type": "episode",
+        "title": "First Call",
+        "grandparentRatingKey": "214",
+        "grandparentTitle": "Kingfisher Unit",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2019,
+        "thumb": "/library/metadata/2141/thumb",
+        "Media": [
+          {
+            "id": 6141,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8141,
+                "key": "/library/parts/8141/file.mkv",
+                "file": "/share/plex/Series/Kingfisher_Unit/Season 01/Kingfisher_Unit.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2151",
+        "key": "/library/metadata/2151",
+        "guid": "tvdb://722151",
+        "Guid": [
+          {
+            "id": "tvdb://722151"
+          }
+        ],
+        "type": "episode",
+        "title": "Perigee",
+        "grandparentRatingKey": "215",
+        "grandparentTitle": "Low Orbit",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2023,
+        "thumb": "/library/metadata/2151/thumb",
+        "Media": [
+          {
+            "id": 6151,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8151,
+                "key": "/library/parts/8151/file.mkv",
+                "file": "/share/plex/Series/Low_Orbit/Season 01/Low_Orbit.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2161",
+        "key": "/library/metadata/2161",
+        "guid": "tvdb://722161",
+        "Guid": [
+          {
+            "id": "tvdb://722161"
+          }
+        ],
+        "type": "episode",
+        "title": "Hollow Road",
+        "grandparentRatingKey": "216",
+        "grandparentTitle": "Moonlit County",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2018,
+        "thumb": "/library/metadata/2161/thumb",
+        "Media": [
+          {
+            "id": 6161,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8161,
+                "key": "/library/parts/8161/file.mkv",
+                "file": "/share/plex/Series/Moonlit_County/Season 01/Moonlit_County.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2171",
+        "key": "/library/metadata/2171",
+        "guid": "tvdb://722171",
+        "Guid": [
+          {
+            "id": "tvdb://722171"
+          }
+        ],
+        "type": "episode",
+        "title": "Last Stop",
+        "grandparentRatingKey": "217",
+        "grandparentTitle": "Northline",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2020,
+        "thumb": "/library/metadata/2171/thumb",
+        "Media": [
+          {
+            "id": 6171,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8171,
+                "key": "/library/parts/8171/file.mkv",
+                "file": "/share/plex/Series/Northline/Season 01/Northline.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2181",
+        "key": "/library/metadata/2181",
+        "guid": "tvdb://722181",
+        "Guid": [
+          {
+            "id": "tvdb://722181"
+          }
+        ],
+        "type": "episode",
+        "title": "The West Wing",
+        "grandparentRatingKey": "218",
+        "grandparentTitle": "Obsidian Hall",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2022,
+        "thumb": "/library/metadata/2181/thumb",
+        "Media": [
+          {
+            "id": 6181,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8181,
+                "key": "/library/parts/8181/file.mkv",
+                "file": "/share/plex/Series/Obsidian_Hall/Season 01/Obsidian_Hall.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2191",
+        "key": "/library/metadata/2191",
+        "guid": "tvdb://722191",
+        "Guid": [
+          {
+            "id": "tvdb://722191"
+          }
+        ],
+        "type": "episode",
+        "title": "Signal Tree",
+        "grandparentRatingKey": "219",
+        "grandparentTitle": "Pine & Wire",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2021,
+        "thumb": "/library/metadata/2191/thumb",
+        "Media": [
+          {
+            "id": 6191,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8191,
+                "key": "/library/parts/8191/file.mkv",
+                "file": "/share/plex/Series/Pine_and_Wire/Season 01/Pine_and_Wire.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2201",
+        "key": "/library/metadata/2201",
+        "guid": "tvdb://722201",
+        "Guid": [
+          {
+            "id": "tvdb://722201"
+          }
+        ],
+        "type": "episode",
+        "title": "Black Start",
+        "grandparentRatingKey": "220",
+        "grandparentTitle": "Quarter Zero",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2017,
+        "thumb": "/library/metadata/2201/thumb",
+        "Media": [
+          {
+            "id": 6201,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8201,
+                "key": "/library/parts/8201/file.mkv",
+                "file": "/share/plex/Series/Quarter_Zero/Season 01/Quarter_Zero.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2211",
+        "key": "/library/metadata/2211",
+        "guid": "tvdb://722211",
+        "Guid": [
+          {
+            "id": "tvdb://722211"
+          }
+        ],
+        "type": "episode",
+        "title": "Kiln",
+        "grandparentRatingKey": "221",
+        "grandparentTitle": "Red Mason",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2013,
+        "thumb": "/library/metadata/2211/thumb",
+        "Media": [
+          {
+            "id": 6211,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8211,
+                "key": "/library/parts/8211/file.mkv",
+                "file": "/share/plex/Series/Red_Mason/Season 01/Red_Mason.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2221",
+        "key": "/library/metadata/2221",
+        "guid": "tvdb://722221",
+        "Guid": [
+          {
+            "id": "tvdb://722221"
+          }
+        ],
+        "type": "episode",
+        "title": "Undertow",
+        "grandparentRatingKey": "222",
+        "grandparentTitle": "Sable Point",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2016,
+        "thumb": "/library/metadata/2221/thumb",
+        "Media": [
+          {
+            "id": 6221,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8221,
+                "key": "/library/parts/8221/file.mkv",
+                "file": "/share/plex/Series/Sable_Point/Season 01/Sable_Point.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2231",
+        "key": "/library/metadata/2231",
+        "guid": "tvdb://722231",
+        "Guid": [
+          {
+            "id": "tvdb://722231"
+          }
+        ],
+        "type": "episode",
+        "title": "Cabin One",
+        "grandparentRatingKey": "223",
+        "grandparentTitle": "Twelve Pines",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2020,
+        "thumb": "/library/metadata/2231/thumb",
+        "Media": [
+          {
+            "id": 6231,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8231,
+                "key": "/library/parts/8231/file.mkv",
+                "file": "/share/plex/Series/Twelve_Pines/Season 01/Twelve_Pines.S01E01.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2241",
+        "key": "/library/metadata/2241",
+        "guid": "tmdb://924241",
+        "Guid": [
+          {
+            "id": "tmdb://924241"
+          },
+          {
+            "id": "tvdb://82241"
+          }
+        ],
+        "type": "episode",
+        "title": "红灯笼",
+        "grandparentRatingKey": "224",
+        "grandparentTitle": "夜市食堂",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 1,
+        "year": 2024,
+        "thumb": "/library/metadata/2241/thumb",
+        "Media": [
+          {
+            "id": 6241,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8241,
+                "key": "/library/parts/8241/file.mkv",
+                "file": "/share/plex/Series/夜市食堂/Season 01/夜市食堂.S01E01.红灯笼.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2242",
+        "key": "/library/metadata/2242",
+        "guid": "tmdb://924242",
+        "Guid": [
+          {
+            "id": "tmdb://924242"
+          },
+          {
+            "id": "tvdb://82242"
+          }
+        ],
+        "type": "episode",
+        "title": "雨の約束",
+        "grandparentRatingKey": "224",
+        "grandparentTitle": "夜市食堂",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 2,
+        "year": 2024,
+        "thumb": "/library/metadata/2242/thumb",
+        "Media": [
+          {
+            "id": 6242,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8242,
+                "key": "/library/parts/8242/file.mkv",
+                "file": "/share/plex/Series/夜市食堂/Season 01/夜市食堂.S01E02.雨の約束.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2243",
+        "key": "/library/metadata/2243",
+        "guid": "tmdb://924243",
+        "Guid": [
+          {
+            "id": "tmdb://924243"
+          },
+          {
+            "id": "tvdb://82243"
+          }
+        ],
+        "type": "episode",
+        "title": "ตลาดกลางคืน",
+        "grandparentRatingKey": "224",
+        "grandparentTitle": "夜市食堂",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 3,
+        "year": 2024,
+        "thumb": "/library/metadata/2243/thumb",
+        "Media": [
+          {
+            "id": 6243,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8243,
+                "key": "/library/parts/8243/file.mkv",
+                "file": "/share/plex/Series/夜市食堂/Season 01/夜市食堂.S01E03E04.ตลาดกลางคืน.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "2244",
+        "key": "/library/metadata/2244",
+        "guid": "tmdb://924244",
+        "Guid": [
+          {
+            "id": "tmdb://924244"
+          },
+          {
+            "id": "tvdb://82244"
+          }
+        ],
+        "type": "episode",
+        "title": "Գիշերային հաց",
+        "grandparentRatingKey": "224",
+        "grandparentTitle": "夜市食堂",
+        "parentTitle": "Season 01",
+        "parentIndex": 1,
+        "index": 4,
+        "year": 2024,
+        "thumb": "/library/metadata/2244/thumb",
+        "Media": [
+          {
+            "id": 6244,
+            "container": "mkv",
+            "Part": [
+              {
+                "id": 8244,
+                "key": "/library/parts/8244/file.mkv",
+                "file": "/share/plex/Series/夜市食堂/Season 01/夜市食堂.S01E03E04.ตลาดกลางคืน.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
       }
     ]
   }
