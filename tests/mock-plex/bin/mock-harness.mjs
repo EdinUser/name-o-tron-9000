@@ -76,6 +76,10 @@ function removeState() {
 }
 
 function isProcessAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return false;
+  }
+
   try {
     process.kill(pid, 0);
     return true;
@@ -93,21 +97,14 @@ async function isReady(baseUrl) {
   }
 }
 
-function logShowsStarted() {
-  if (!fs.existsSync(logPath)) {
-    return false;
-  }
-  return fs.readFileSync(logPath, "utf8").includes("Mock Plex server running at");
-}
-
 async function waitUntilReady(baseUrl, timeoutMs, pid) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     if (await isReady(baseUrl)) {
       return true;
     }
-    if (pid && isProcessAlive(pid) && logShowsStarted()) {
-      return true;
+    if (pid && !isProcessAlive(pid)) {
+      return false;
     }
     await delay(250);
   }
@@ -134,6 +131,16 @@ async function start(options) {
     console.log(`Mock Plex server already running at ${existing.baseUrl} (pid ${existing.pid})`);
     return;
   }
+  if (existing?.baseUrl && await isReady(existing.baseUrl)) {
+    writeState({
+      ...existing,
+      pid: null,
+      startedByHarness: false,
+      observedAt: new Date().toISOString(),
+    });
+    console.log(`Mock Plex server already reachable at ${existing.baseUrl} (manual or external process)`);
+    return;
+  }
   if (existing) {
     removeState();
   }
@@ -158,13 +165,16 @@ async function start(options) {
   const baseUrl = baseUrlFor(options);
   const ready = await waitUntilReady(baseUrl, options.timeoutMs, child.pid);
   if (!ready) {
+    const logTail = fs.existsSync(logPath)
+      ? fs.readFileSync(logPath, "utf8").split(/\r?\n/).slice(-20).join("\n")
+      : "";
     try {
       stopPid(child.pid);
     } catch {
       // ignore secondary stop failure
     }
     throw new Error(
-      `Mock Plex server did not become ready at ${baseUrl} within ${options.timeoutMs}ms. See ${path.relative(repoRoot, logPath)}.`
+      `Mock Plex server did not become ready at ${baseUrl} within ${options.timeoutMs}ms. See ${path.relative(repoRoot, logPath)}.${logTail ? `\n\nRecent log output:\n${logTail}` : ""}`
     );
   }
 
@@ -174,6 +184,7 @@ async function start(options) {
     port: options.port,
     baseUrl,
     logPath,
+    startedByHarness: true,
     startedAt: new Date().toISOString(),
   });
 
@@ -182,28 +193,41 @@ async function start(options) {
   console.log(`Log file: ${path.relative(repoRoot, logPath)}`);
 }
 
-function stop() {
+async function stop() {
   const state = readState();
   if (!state) {
     console.log("Mock Plex server is not running (no state file).");
     return;
   }
 
-  const stopped = stopPid(state.pid);
+  const stopped = state.startedByHarness !== false && stopPid(state.pid);
   removeState();
 
   if (stopped) {
     console.log(`Stopped mock Plex server at ${state.baseUrl} (pid ${state.pid})`);
+  } else if (state.baseUrl && await isReady(state.baseUrl)) {
+    console.log(`Removed mock server state for externally managed server at ${state.baseUrl}; process was not stopped.`);
   } else {
     console.log(`Removed stale mock server state for pid ${state.pid}`);
   }
 }
 
-function status() {
+async function status() {
   const state = readState();
   if (!state) {
     console.log("Mock Plex server is not running.");
     process.exitCode = 1;
+    return;
+  }
+
+  if (state.baseUrl && await isReady(state.baseUrl)) {
+    if (isProcessAlive(state.pid)) {
+      console.log(`Mock Plex server running at ${state.baseUrl} (pid ${state.pid})`);
+    } else {
+      console.log(`Mock Plex server reachable at ${state.baseUrl} (manual or external process; state pid ${state.pid ?? "none"} is not alive).`);
+    }
+    console.log(`State file: ${path.relative(repoRoot, statePath)}`);
+    console.log(`Log file: ${path.relative(repoRoot, state.logPath || logPath)}`);
     return;
   }
 
@@ -226,11 +250,11 @@ async function main() {
       return;
     }
     if (command === "stop") {
-      stop();
+      await stop();
       return;
     }
     if (command === "status") {
-      status();
+      await status();
       return;
     }
     throw new Error(`Unknown command: ${command}`);

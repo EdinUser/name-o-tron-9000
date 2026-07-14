@@ -36,6 +36,18 @@
       "contents": "keep"
     }
   ],
+  "loose_files": [
+    {
+      "library_key": "1",
+      "relative_path": "Incoming/poster.jpg",
+      "contents": "poster-image"
+    },
+    {
+      "library_key": "1",
+      "relative_path": "Incoming/movie.nfo",
+      "contents": "metadata"
+    }
+  ],
   "conflicts": [],
   "assertions": {
     "operations": [

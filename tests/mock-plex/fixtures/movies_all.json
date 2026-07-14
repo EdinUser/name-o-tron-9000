@@ -1,7 +1,7 @@
 {
   "MediaContainer": {
-    "size": 30,
-    "totalSize": 30,
+    "size": 35,
+    "totalSize": 35,
     "offset": 0,
     "Metadata": [
       {
@@ -9,8 +9,12 @@
         "key": "/library/metadata/101",
         "guid": "imdb://tt0816692",
         "Guid": [
-          { "id": "imdb://tt0816692" },
-          { "id": "tmdb://157336" }
+          {
+            "id": "imdb://tt0816692"
+          },
+          {
+            "id": "tmdb://157336"
+          }
         ],
         "type": "movie",
         "title": "Interstellar",
@@ -18,9 +22,24 @@
         "summary": "A test movie fixture for basic rename coverage.",
         "thumb": "/library/metadata/101/thumb",
         "art": "/library/metadata/101/art",
-        "Genre": [{ "tag": "Science Fiction" }, { "tag": "Drama" }],
-        "Collection": [{ "tag": "Christopher Nolan Collection" }],
-        "Studio": [{ "tag": "Warner Bros." }],
+        "Genre": [
+          {
+            "tag": "Science Fiction"
+          },
+          {
+            "tag": "Drama"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Christopher Nolan Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Warner Bros."
+          }
+        ],
         "Media": [
           {
             "id": 5001,
@@ -43,8 +62,12 @@
         "key": "/library/metadata/102",
         "guid": "tmdb://329865",
         "Guid": [
-          { "id": "imdb://tt2543164" },
-          { "id": "tmdb://329865" }
+          {
+            "id": "imdb://tt2543164"
+          },
+          {
+            "id": "tmdb://329865"
+          }
         ],
         "type": "movie",
         "title": "Arrival",
@@ -52,9 +75,21 @@
         "summary": "A test movie fixture with a paired subtitle file.",
         "thumb": "/library/metadata/102/thumb",
         "art": "/library/metadata/102/art",
-        "Genre": [{ "tag": "Science Fiction" }],
-        "Collection": [{ "tag": "Arrival Collection" }],
-        "Studio": [{ "tag": "Paramount Pictures" }],
+        "Genre": [
+          {
+            "tag": "Science Fiction"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Arrival Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Paramount Pictures"
+          }
+        ],
         "Media": [
           {
             "id": 5002,
@@ -82,9 +117,21 @@
         "summary": "A fixture used to verify existing-target conflicts fail safely.",
         "thumb": "/library/metadata/103/thumb",
         "art": "/library/metadata/103/art",
-        "Genre": [{ "tag": "Thriller" }],
-        "Collection": [{ "tag": "Conflict Cases" }],
-        "Studio": [{ "tag": "Mock Studio" }],
+        "Genre": [
+          {
+            "tag": "Thriller"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Conflict Cases"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5003,
@@ -107,9 +154,15 @@
         "key": "/library/metadata/104",
         "guid": "imdb://tt0083658",
         "Guid": [
-          { "id": "imdb://tt0083658" },
-          { "id": "tmdb://78" },
-          { "id": "tvdb://204104" }
+          {
+            "id": "imdb://tt0083658"
+          },
+          {
+            "id": "tmdb://78"
+          },
+          {
+            "id": "tvdb://204104"
+          }
         ],
         "type": "movie",
         "title": "Blade Runner",
@@ -119,9 +172,21 @@
         "summary": "A fixture with an edition token and subtitle sidecar.",
         "thumb": "/library/metadata/104/thumb",
         "art": "/library/metadata/104/art",
-        "Genre": [{ "tag": "Science Fiction" }],
-        "Collection": [{ "tag": "Blade Runner Collection" }],
-        "Studio": [{ "tag": "Warner Bros." }],
+        "Genre": [
+          {
+            "tag": "Science Fiction"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Blade Runner Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Warner Bros."
+          }
+        ],
         "Media": [
           {
             "id": 5004,
@@ -144,8 +209,12 @@
         "key": "/library/metadata/105",
         "guid": "tmdb://1495",
         "Guid": [
-          { "id": "imdb://tt0320661" },
-          { "id": "tmdb://1495" }
+          {
+            "id": "imdb://tt0320661"
+          },
+          {
+            "id": "tmdb://1495"
+          }
         ],
         "type": "movie",
         "title": "Kingdom of Heaven",
@@ -155,9 +224,21 @@
         "summary": "A fixture representing the theatrical cut when multiple editions exist.",
         "thumb": "/library/metadata/105/thumb",
         "art": "/library/metadata/105/art",
-        "Genre": [{ "tag": "Historical Drama" }],
-        "Collection": [{ "tag": "Ridley Scott Collection" }],
-        "Studio": [{ "tag": "20th Century Fox" }],
+        "Genre": [
+          {
+            "tag": "Historical Drama"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Ridley Scott Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "20th Century Fox"
+          }
+        ],
         "Media": [
           {
             "id": 5005,
@@ -180,8 +261,12 @@
         "key": "/library/metadata/106",
         "guid": "imdb://tt0320661",
         "Guid": [
-          { "id": "imdb://tt0320661" },
-          { "id": "tmdb://1495" }
+          {
+            "id": "imdb://tt0320661"
+          },
+          {
+            "id": "tmdb://1495"
+          }
         ],
         "type": "movie",
         "title": "Kingdom of Heaven",
@@ -191,9 +276,21 @@
         "summary": "A fixture representing the director's cut variant.",
         "thumb": "/library/metadata/106/thumb",
         "art": "/library/metadata/106/art",
-        "Genre": [{ "tag": "Historical Drama" }],
-        "Collection": [{ "tag": "Ridley Scott Collection" }],
-        "Studio": [{ "tag": "20th Century Fox" }],
+        "Genre": [
+          {
+            "tag": "Historical Drama"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Ridley Scott Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "20th Century Fox"
+          }
+        ],
         "Media": [
           {
             "id": 5006,
@@ -216,8 +313,12 @@
         "key": "/library/metadata/107",
         "guid": "tmdb://121",
         "Guid": [
-          { "id": "imdb://tt0167261" },
-          { "id": "tmdb://121" }
+          {
+            "id": "imdb://tt0167261"
+          },
+          {
+            "id": "tmdb://121"
+          }
         ],
         "type": "movie",
         "title": "The Lord of the Rings: The Two Towers",
@@ -227,9 +328,24 @@
         "summary": "A theatrical fixture used to verify edition-aware grouping.",
         "thumb": "/library/metadata/107/thumb",
         "art": "/library/metadata/107/art",
-        "Genre": [{ "tag": "Fantasy" }, { "tag": "Adventure" }],
-        "Collection": [{ "tag": "The Lord of the Rings Collection" }],
-        "Studio": [{ "tag": "New Line Cinema" }],
+        "Genre": [
+          {
+            "tag": "Fantasy"
+          },
+          {
+            "tag": "Adventure"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "The Lord of the Rings Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "New Line Cinema"
+          }
+        ],
         "Media": [
           {
             "id": 5007,
@@ -252,8 +368,12 @@
         "key": "/library/metadata/108",
         "guid": "imdb://tt0167261",
         "Guid": [
-          { "id": "imdb://tt0167261" },
-          { "id": "tmdb://121" }
+          {
+            "id": "imdb://tt0167261"
+          },
+          {
+            "id": "tmdb://121"
+          }
         ],
         "type": "movie",
         "title": "The Lord of the Rings: The Two Towers",
@@ -263,9 +383,24 @@
         "summary": "An extended-edition fixture for multi-edition rename behavior.",
         "thumb": "/library/metadata/108/thumb",
         "art": "/library/metadata/108/art",
-        "Genre": [{ "tag": "Fantasy" }, { "tag": "Adventure" }],
-        "Collection": [{ "tag": "The Lord of the Rings Collection" }],
-        "Studio": [{ "tag": "New Line Cinema" }],
+        "Genre": [
+          {
+            "tag": "Fantasy"
+          },
+          {
+            "tag": "Adventure"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "The Lord of the Rings Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "New Line Cinema"
+          }
+        ],
         "Media": [
           {
             "id": 5008,
@@ -293,9 +428,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/109/thumb",
         "art": "/library/metadata/109/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5009,
@@ -323,9 +470,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/110/thumb",
         "art": "/library/metadata/110/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5010,
@@ -353,9 +512,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/111/thumb",
         "art": "/library/metadata/111/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5011,
@@ -383,9 +554,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/112/thumb",
         "art": "/library/metadata/112/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5012,
@@ -413,9 +596,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/113/thumb",
         "art": "/library/metadata/113/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5013,
@@ -443,9 +638,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/114/thumb",
         "art": "/library/metadata/114/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5014,
@@ -473,9 +680,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/115/thumb",
         "art": "/library/metadata/115/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5015,
@@ -503,9 +722,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/116/thumb",
         "art": "/library/metadata/116/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5016,
@@ -533,9 +764,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/117/thumb",
         "art": "/library/metadata/117/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5017,
@@ -563,9 +806,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/118/thumb",
         "art": "/library/metadata/118/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5018,
@@ -593,9 +848,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/119/thumb",
         "art": "/library/metadata/119/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5019,
@@ -623,9 +890,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/120/thumb",
         "art": "/library/metadata/120/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5020,
@@ -653,9 +932,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/121/thumb",
         "art": "/library/metadata/121/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5021,
@@ -683,9 +974,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/122/thumb",
         "art": "/library/metadata/122/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5022,
@@ -713,9 +1016,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/123/thumb",
         "art": "/library/metadata/123/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5023,
@@ -743,9 +1058,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/124/thumb",
         "art": "/library/metadata/124/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5024,
@@ -773,9 +1100,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/125/thumb",
         "art": "/library/metadata/125/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5025,
@@ -803,9 +1142,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/126/thumb",
         "art": "/library/metadata/126/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5026,
@@ -833,9 +1184,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/127/thumb",
         "art": "/library/metadata/127/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5027,
@@ -863,9 +1226,21 @@
         "summary": "Pagination fixture entry for remote search and browsing coverage.",
         "thumb": "/library/metadata/128/thumb",
         "art": "/library/metadata/128/art",
-        "Genre": [{ "tag": "Comedy" }],
-        "Collection": [{ "tag": "Carry On Collection" }],
-        "Studio": [{ "tag": "Mock Comedy Studio" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Carry On Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Comedy Studio"
+          }
+        ],
         "Media": [
           {
             "id": 5028,
@@ -888,8 +1263,12 @@
         "key": "/library/metadata/129",
         "guid": "imdb://tt1160419",
         "Guid": [
-          { "id": "imdb://tt1160419" },
-          { "id": "tmdb://438631" }
+          {
+            "id": "imdb://tt1160419"
+          },
+          {
+            "id": "tmdb://438631"
+          }
         ],
         "type": "movie",
         "title": "Dune",
@@ -897,9 +1276,24 @@
         "summary": "A plain modern movie fixture used to broaden year and studio distribution.",
         "thumb": "/library/metadata/129/thumb",
         "art": "/library/metadata/129/art",
-        "Genre": [{ "tag": "Science Fiction" }, { "tag": "Adventure" }],
-        "Collection": [{ "tag": "Dune Collection" }],
-        "Studio": [{ "tag": "Legendary Pictures" }],
+        "Genre": [
+          {
+            "tag": "Science Fiction"
+          },
+          {
+            "tag": "Adventure"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Dune Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Legendary Pictures"
+          }
+        ],
         "Media": [
           {
             "id": 5029,
@@ -922,8 +1316,12 @@
         "key": "/library/metadata/130",
         "guid": "imdb://tt0113277",
         "Guid": [
-          { "id": "imdb://tt0113277" },
-          { "id": "tmdb://949" }
+          {
+            "id": "imdb://tt0113277"
+          },
+          {
+            "id": "tmdb://949"
+          }
         ],
         "type": "movie",
         "title": "Heat",
@@ -931,9 +1329,24 @@
         "summary": "A plain catalog movie fixture used to broaden genre and studio distribution.",
         "thumb": "/library/metadata/130/thumb",
         "art": "/library/metadata/130/art",
-        "Genre": [{ "tag": "Crime" }, { "tag": "Drama" }],
-        "Collection": [{ "tag": "Michael Mann Collection" }],
-        "Studio": [{ "tag": "Warner Bros." }],
+        "Genre": [
+          {
+            "tag": "Crime"
+          },
+          {
+            "tag": "Drama"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Michael Mann Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Warner Bros."
+          }
+        ],
         "Media": [
           {
             "id": 5030,
@@ -945,6 +1358,265 @@
                 "id": 7030,
                 "key": "/library/parts/7030/file.mkv",
                 "file": "/mount/server/HDD1/Movies/Catalog/Heat.1995.1080p.BluRay.x264.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "131",
+        "key": "/library/metadata/131",
+        "guid": "imdb://tt0190332",
+        "Guid": [
+          {
+            "id": "imdb://tt0190332"
+          },
+          {
+            "id": "tmdb://146"
+          }
+        ],
+        "type": "movie",
+        "title": "卧虎藏龙",
+        "year": 2000,
+        "summary": "Chinese-language fixture with Han characters, provider IDs, and a paired subtitle sidecar.",
+        "thumb": "/library/metadata/131/thumb",
+        "art": "/library/metadata/131/art",
+        "Genre": [
+          {
+            "tag": "Wuxia"
+          },
+          {
+            "tag": "Drama"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "World Cinema Unicode Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Asia Union Film"
+          }
+        ],
+        "Media": [
+          {
+            "id": 5031,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7031,
+                "key": "/library/parts/7031/file.mkv",
+                "file": "/mount/server/HDD1/Movies/World/Chinese/卧虎藏龙.2000.1080p.BluRay.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "132",
+        "key": "/library/metadata/132",
+        "guid": "imdb://tt0245429",
+        "Guid": [
+          {
+            "id": "imdb://tt0245429"
+          },
+          {
+            "id": "tmdb://129"
+          }
+        ],
+        "type": "movie",
+        "title": "千と千尋の神隠し",
+        "year": 2001,
+        "summary": "Japanese fixture with kanji/kana title for Unicode path and search behavior.",
+        "thumb": "/library/metadata/132/thumb",
+        "art": "/library/metadata/132/art",
+        "Genre": [
+          {
+            "tag": "Animation"
+          },
+          {
+            "tag": "Fantasy"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Studio Ghibli Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Studio Ghibli"
+          }
+        ],
+        "Media": [
+          {
+            "id": 5032,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7032,
+                "key": "/library/parts/7032/file.mkv",
+                "file": "/mount/server/HDD1/Movies/World/Japanese/千と千尋の神隠し.2001.1080p.BluRay.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "133",
+        "key": "/library/metadata/133",
+        "guid": "tmdb://14295",
+        "Guid": [
+          {
+            "id": "tmdb://14295"
+          }
+        ],
+        "type": "movie",
+        "title": "ฟ้าทะลายโจร",
+        "year": 2000,
+        "summary": "Thai fixture with Thai script and a local-language subtitle sidecar.",
+        "thumb": "/library/metadata/133/thumb",
+        "art": "/library/metadata/133/art",
+        "Genre": [
+          {
+            "tag": "Action"
+          },
+          {
+            "tag": "Romance"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Thai New Wave Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Bangkok Pictures"
+          }
+        ],
+        "Media": [
+          {
+            "id": 5033,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7033,
+                "key": "/library/parts/7033/file.mkv",
+                "file": "/mount/server/HDD1/Movies/World/Thai/ฟ้าทะลายโจร.2000.1080p.WEB-DL.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "134",
+        "key": "/library/metadata/134",
+        "guid": "imdb://tt0063555",
+        "Guid": [
+          {
+            "id": "imdb://tt0063555"
+          },
+          {
+            "id": "tmdb://26372"
+          }
+        ],
+        "type": "movie",
+        "title": "Նռան գույնը",
+        "year": 1969,
+        "summary": "Armenian fixture for alphabetic grouping, Unicode preservation, and provider-ID templates.",
+        "thumb": "/library/metadata/134/thumb",
+        "art": "/library/metadata/134/art",
+        "Genre": [
+          {
+            "tag": "Biography"
+          },
+          {
+            "tag": "Art House"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Parajanov Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Armenfilm"
+          }
+        ],
+        "Media": [
+          {
+            "id": 5034,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7034,
+                "key": "/library/parts/7034/file.mkv",
+                "file": "/mount/server/HDD1/Movies/World/Armenian/Նռան.գույնը.1969.1080p.BluRay.mkv",
+                "size": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "ratingKey": "135",
+        "key": "/library/metadata/135",
+        "guid": "tmdb://339397",
+        "Guid": [
+          {
+            "id": "tmdb://339397"
+          }
+        ],
+        "type": "movie",
+        "title": "Café Society",
+        "year": 2016,
+        "summary": "Decomposed-accent fixture for Unicode normalization checks; the title uses e plus combining acute.",
+        "thumb": "/library/metadata/135/thumb",
+        "art": "/library/metadata/135/art",
+        "Genre": [
+          {
+            "tag": "Comedy"
+          },
+          {
+            "tag": "Drama"
+          }
+        ],
+        "Collection": [
+          {
+            "tag": "Unicode Normalization Collection"
+          }
+        ],
+        "Studio": [
+          {
+            "tag": "Mock Accent Studio"
+          }
+        ],
+        "Media": [
+          {
+            "id": 5035,
+            "container": "mkv",
+            "videoCodec": "h264",
+            "audioCodec": "aac",
+            "Part": [
+              {
+                "id": 7035,
+                "key": "/library/parts/7035/file.mkv",
+                "file": "/mount/server/HDD1/Movies/World/Normalization/Café.Society.2016.1080p.WEB-DL.mkv",
                 "size": 1
               }
             ]

@@ -145,6 +145,24 @@ function filterHubFixture(payload, query, titleFields) {
   };
 }
 
+function buildHubPayloadFromItems(title, items) {
+  return {
+    MediaContainer: {
+      size: items.length > 0 ? 1 : 0,
+      Hub:
+        items.length > 0
+          ? [
+              {
+                type: "movie",
+                title,
+                Metadata: items,
+              },
+            ]
+          : [],
+    },
+  };
+}
+
 function readTvEpisodes() {
   const payload = readFixture("tv_all_leaves.json");
   return Array.isArray(payload?.MediaContainer?.Metadata) ? payload.MediaContainer.Metadata : [];
@@ -448,15 +466,42 @@ app.get("/library/collections/:id/items", (req, res) => {
 app.get("/hubs/search", (req, res) => {
   const sectionId = String(req.query.sectionId || "");
   const query = String(req.query.query || "");
-  const fixtureName =
-    sectionId === "2" || /abyssal|gate|show|episode|genesis|ova|part/i.test(query)
-      ? "search_tv.json"
-      : "search_movies.json";
-  const titleFields =
-    fixtureName === "search_tv.json"
-      ? ["title", "grandparentTitle", "parentTitle"]
-      : ["title", "editionTitle"];
-  sendJsonFixture(res, fixtureName, (payload) => filterHubFixture(payload, query, titleFields));
+  const useTvSearch = sectionId === "2" || /abyssal|gate|show|episode|genesis|ova|part/i.test(query);
+
+  if (useTvSearch) {
+    try {
+      const tvPayload = readFixture("tv_all_leaves.json");
+      const episodeItems = Array.isArray(tvPayload?.MediaContainer?.Metadata) ? tvPayload.MediaContainer.Metadata : [];
+      const episodeHits = searchItemsByQuery(episodeItems, query, ["title", "grandparentTitle", "parentTitle"]);
+      const byRatingKey = new Map();
+
+      for (const item of episodeHits) {
+        byRatingKey.set(String(item.ratingKey || item.key || byRatingKey.size), item);
+      }
+
+      res.type("application/json; charset=utf-8").json(buildHubPayloadFromItems("TV Shows", Array.from(byRatingKey.values())));
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+    return;
+  }
+
+  try {
+    const searchPayload = filterHubFixture(readFixture("search_movies.json"), query, ["title", "editionTitle"]);
+    const searchHits = searchPayload?.MediaContainer?.Hub?.flatMap((hub) => hub.Metadata || []) || [];
+    const moviePayload = readFixture("movies_all.json");
+    const movieItems = Array.isArray(moviePayload?.MediaContainer?.Metadata) ? moviePayload.MediaContainer.Metadata : [];
+    const movieHits = searchItemsByQuery(movieItems, query, ["title", "editionTitle"]);
+    const byRatingKey = new Map();
+
+    for (const item of [...searchHits, ...movieHits]) {
+      byRatingKey.set(String(item.ratingKey || item.key || byRatingKey.size), item);
+    }
+
+    res.type("application/json; charset=utf-8").json(buildHubPayloadFromItems("Movies", Array.from(byRatingKey.values())));
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
 });
 
 app.post("/api/v2/pins", (_req, res) => {
@@ -520,6 +565,13 @@ app.use((req, res) => {
   res.status(404).json({ error: "Unknown endpoint", path: req.path });
 });
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`Mock Plex server running at http://${HOST}:${PORT}`);
+});
+
+server.on("error", (error) => {
+  console.error(
+    `Mock Plex server failed to listen on ${HOST}:${PORT}: ${error && error.stack ? error.stack : String(error)}`,
+  );
+  process.exitCode = 1;
 });

@@ -1,7 +1,7 @@
 {
   "MediaContainer": {
-    "size": 24,
-    "totalSize": 24,
+    "size": 25,
+    "totalSize": 25,
     "offset": 0,
     "Directory": [
       {
@@ -9,9 +9,15 @@
         "key": "/library/metadata/200",
         "guid": "tvdb://720200",
         "Guid": [
-          { "id": "tvdb://720200" },
-          { "id": "imdb://tt7202001" },
-          { "id": "tmdb://920200" }
+          {
+            "id": "tvdb://720200"
+          },
+          {
+            "id": "imdb://tt7202001"
+          },
+          {
+            "id": "tmdb://920200"
+          }
         ],
         "type": "show",
         "title": "Abyssal Gate",
@@ -19,7 +25,11 @@
         "thumb": "/library/metadata/200/thumb",
         "art": "/library/metadata/200/art",
         "studio": "Mock Network",
-        "Genre": [{ "tag": "Science Fiction" }],
+        "Genre": [
+          {
+            "tag": "Science Fiction"
+          }
+        ],
         "leafCount": 9,
         "viewedLeafCount": 0,
         "year": 2023
@@ -29,8 +39,12 @@
         "key": "/library/metadata/201",
         "guid": "tvdb://720201",
         "Guid": [
-          { "id": "tvdb://720201" },
-          { "id": "imdb://tt7202011" }
+          {
+            "id": "tvdb://720201"
+          },
+          {
+            "id": "imdb://tt7202011"
+          }
         ],
         "type": "show",
         "title": "Northwind Homicide",
@@ -38,7 +52,14 @@
         "thumb": "/library/metadata/201/thumb",
         "art": "/library/metadata/201/art",
         "studio": "Public Channel",
-        "Genre": [{ "tag": "Crime" }, { "tag": "Drama" }],
+        "Genre": [
+          {
+            "tag": "Crime"
+          },
+          {
+            "tag": "Drama"
+          }
+        ],
         "leafCount": 5,
         "viewedLeafCount": 0,
         "year": 2019
@@ -48,8 +69,12 @@
         "key": "/library/metadata/202",
         "guid": "tvdb://720202",
         "Guid": [
-          { "id": "tvdb://720202" },
-          { "id": "tmdb://920202" }
+          {
+            "id": "tvdb://720202"
+          },
+          {
+            "id": "tmdb://920202"
+          }
         ],
         "type": "show",
         "title": "Quiet Harbor",
@@ -57,7 +82,14 @@
         "thumb": "/library/metadata/202/thumb",
         "art": "/library/metadata/202/art",
         "studio": "StreamWorks",
-        "Genre": [{ "tag": "Mystery" }, { "tag": "Drama" }],
+        "Genre": [
+          {
+            "tag": "Mystery"
+          },
+          {
+            "tag": "Drama"
+          }
+        ],
         "leafCount": 3,
         "viewedLeafCount": 0,
         "year": 2021
@@ -67,9 +99,15 @@
         "key": "/library/metadata/203",
         "guid": "tvdb://803203",
         "Guid": [
-          { "id": "tvdb://803203" },
-          { "id": "imdb://tt8032031" },
-          { "id": "tmdb://930203" }
+          {
+            "id": "tvdb://803203"
+          },
+          {
+            "id": "imdb://tt8032031"
+          },
+          {
+            "id": "tmdb://930203"
+          }
         ],
         "type": "show",
         "title": "Two Broke Girls",
@@ -77,7 +115,11 @@
         "thumb": "/library/metadata/203/thumb",
         "art": "/library/metadata/203/art",
         "studio": "City Laughs",
-        "Genre": [{ "tag": "Comedy" }],
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
         "leafCount": 6,
         "viewedLeafCount": 0,
         "year": 2011
@@ -92,8 +134,12 @@
         "thumb": "/library/metadata/204/thumb",
         "art": "/library/metadata/204/art",
         "studio": "North Axis",
-        "Genre": [{ "tag": "Science Fiction" }],
-        "leafCount": 10,
+        "Genre": [
+          {
+            "tag": "Science Fiction"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2018
       },
@@ -107,8 +153,12 @@
         "thumb": "/library/metadata/205/thumb",
         "art": "/library/metadata/205/art",
         "studio": "Riverlight",
-        "Genre": [{ "tag": "Mystery" }],
-        "leafCount": 8,
+        "Genre": [
+          {
+            "tag": "Mystery"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2020
       },
@@ -122,8 +172,12 @@
         "thumb": "/library/metadata/206/thumb",
         "art": "/library/metadata/206/art",
         "studio": "Public Channel",
-        "Genre": [{ "tag": "Crime" }],
-        "leafCount": 12,
+        "Genre": [
+          {
+            "tag": "Crime"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2017
       },
@@ -137,8 +191,12 @@
         "thumb": "/library/metadata/207/thumb",
         "art": "/library/metadata/207/art",
         "studio": "Signal House",
-        "Genre": [{ "tag": "Thriller" }],
-        "leafCount": 11,
+        "Genre": [
+          {
+            "tag": "Thriller"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2022
       },
@@ -152,8 +210,12 @@
         "thumb": "/library/metadata/208/thumb",
         "art": "/library/metadata/208/art",
         "studio": "Forum TV",
-        "Genre": [{ "tag": "Drama" }],
-        "leafCount": 9,
+        "Genre": [
+          {
+            "tag": "Drama"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2016
       },
@@ -167,8 +229,12 @@
         "thumb": "/library/metadata/209/thumb",
         "art": "/library/metadata/209/art",
         "studio": "Evergreen Media",
-        "Genre": [{ "tag": "Fantasy" }],
-        "leafCount": 13,
+        "Genre": [
+          {
+            "tag": "Fantasy"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2021
       },
@@ -182,8 +248,15 @@
         "thumb": "/library/metadata/210/thumb",
         "art": "/library/metadata/210/art",
         "studio": "StreamWorks",
-        "Genre": [{ "tag": "Drama" }, { "tag": "Mystery" }],
-        "leafCount": 7,
+        "Genre": [
+          {
+            "tag": "Drama"
+          },
+          {
+            "tag": "Mystery"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2015
       },
@@ -197,8 +270,12 @@
         "thumb": "/library/metadata/211/thumb",
         "art": "/library/metadata/211/art",
         "studio": "North Axis",
-        "Genre": [{ "tag": "Science Fiction" }],
-        "leafCount": 14,
+        "Genre": [
+          {
+            "tag": "Science Fiction"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2024
       },
@@ -212,8 +289,12 @@
         "thumb": "/library/metadata/212/thumb",
         "art": "/library/metadata/212/art",
         "studio": "Forge One",
-        "Genre": [{ "tag": "Crime" }],
-        "leafCount": 8,
+        "Genre": [
+          {
+            "tag": "Crime"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2014
       },
@@ -227,8 +308,12 @@
         "thumb": "/library/metadata/213/thumb",
         "art": "/library/metadata/213/art",
         "studio": "City Laughs",
-        "Genre": [{ "tag": "Comedy" }],
-        "leafCount": 16,
+        "Genre": [
+          {
+            "tag": "Comedy"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2012
       },
@@ -242,8 +327,12 @@
         "thumb": "/library/metadata/214/thumb",
         "art": "/library/metadata/214/art",
         "studio": "Blue Peak",
-        "Genre": [{ "tag": "Drama" }],
-        "leafCount": 10,
+        "Genre": [
+          {
+            "tag": "Drama"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2019
       },
@@ -257,8 +346,12 @@
         "thumb": "/library/metadata/215/thumb",
         "art": "/library/metadata/215/art",
         "studio": "Mock Network",
-        "Genre": [{ "tag": "Adventure" }],
-        "leafCount": 9,
+        "Genre": [
+          {
+            "tag": "Adventure"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2023
       },
@@ -272,8 +365,12 @@
         "thumb": "/library/metadata/216/thumb",
         "art": "/library/metadata/216/art",
         "studio": "Riverlight",
-        "Genre": [{ "tag": "Mystery" }],
-        "leafCount": 6,
+        "Genre": [
+          {
+            "tag": "Mystery"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2018
       },
@@ -287,8 +384,12 @@
         "thumb": "/library/metadata/217/thumb",
         "art": "/library/metadata/217/art",
         "studio": "Signal House",
-        "Genre": [{ "tag": "Thriller" }],
-        "leafCount": 11,
+        "Genre": [
+          {
+            "tag": "Thriller"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2020
       },
@@ -302,8 +403,12 @@
         "thumb": "/library/metadata/218/thumb",
         "art": "/library/metadata/218/art",
         "studio": "Evergreen Media",
-        "Genre": [{ "tag": "Drama" }],
-        "leafCount": 12,
+        "Genre": [
+          {
+            "tag": "Drama"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2022
       },
@@ -317,8 +422,12 @@
         "thumb": "/library/metadata/219/thumb",
         "art": "/library/metadata/219/art",
         "studio": "Forum TV",
-        "Genre": [{ "tag": "Mystery" }],
-        "leafCount": 8,
+        "Genre": [
+          {
+            "tag": "Mystery"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2021
       },
@@ -332,8 +441,12 @@
         "thumb": "/library/metadata/220/thumb",
         "art": "/library/metadata/220/art",
         "studio": "North Axis",
-        "Genre": [{ "tag": "Science Fiction" }],
-        "leafCount": 10,
+        "Genre": [
+          {
+            "tag": "Science Fiction"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2017
       },
@@ -347,8 +460,15 @@
         "thumb": "/library/metadata/221/thumb",
         "art": "/library/metadata/221/art",
         "studio": "Forge One",
-        "Genre": [{ "tag": "Crime" }, { "tag": "Drama" }],
-        "leafCount": 14,
+        "Genre": [
+          {
+            "tag": "Crime"
+          },
+          {
+            "tag": "Drama"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2013
       },
@@ -362,8 +482,12 @@
         "thumb": "/library/metadata/222/thumb",
         "art": "/library/metadata/222/art",
         "studio": "Blue Peak",
-        "Genre": [{ "tag": "Thriller" }],
-        "leafCount": 9,
+        "Genre": [
+          {
+            "tag": "Thriller"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2016
       },
@@ -377,10 +501,44 @@
         "thumb": "/library/metadata/223/thumb",
         "art": "/library/metadata/223/art",
         "studio": "Riverlight",
-        "Genre": [{ "tag": "Drama" }],
-        "leafCount": 7,
+        "Genre": [
+          {
+            "tag": "Drama"
+          }
+        ],
+        "leafCount": 1,
         "viewedLeafCount": 0,
         "year": 2020
+      },
+      {
+        "ratingKey": "224",
+        "key": "/library/metadata/224",
+        "guid": "tvdb://720224",
+        "Guid": [
+          {
+            "id": "tvdb://720224"
+          },
+          {
+            "id": "tmdb://920224"
+          }
+        ],
+        "type": "show",
+        "title": "夜市食堂",
+        "summary": "Multilingual anthology fixture with Chinese, Japanese, Thai, and Armenian episode titles.",
+        "thumb": "/library/metadata/224/thumb",
+        "art": "/library/metadata/224/art",
+        "studio": "Global Lantern",
+        "Genre": [
+          {
+            "tag": "Drama"
+          },
+          {
+            "tag": "Food"
+          }
+        ],
+        "leafCount": 4,
+        "viewedLeafCount": 0,
+        "year": 2024
       }
     ]
   }
