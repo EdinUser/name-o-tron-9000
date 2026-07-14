@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -72,6 +73,25 @@ fn join_relative_path_components(base: &Path, relative_path: &str) -> PathBuf {
     joined
 }
 
+fn path_starts_with_equivalent(path: &Path, root: &Path, case_insensitive: bool) -> bool {
+    let path_cmp = norm_for_compare(&path.to_string_lossy(), case_insensitive);
+    let root_cmp = norm_for_compare(&root.to_string_lossy(), case_insensitive);
+    if path_cmp == root_cmp || path_cmp.starts_with(&(root_cmp + "/")) {
+        return true;
+    }
+
+    let Ok(path_canonical) = fs::canonicalize(path) else {
+        return false;
+    };
+    let Ok(root_canonical) = fs::canonicalize(root) else {
+        return false;
+    };
+
+    let path_cmp = norm_for_compare(&path_canonical.to_string_lossy(), case_insensitive);
+    let root_cmp = norm_for_compare(&root_canonical.to_string_lossy(), case_insensitive);
+    path_cmp == root_cmp || path_cmp.starts_with(&(root_cmp + "/"))
+}
+
 pub fn path_mappings_from_settings(settings: &serde_json::Value) -> Vec<PathMapping> {
     settings
         .get("pathMappings")
@@ -112,13 +132,19 @@ pub fn extract_library_root_from_path(
     resolved_path: &Path,
     mappings: &[PathMapping],
 ) -> Option<PathBuf> {
-    let path_str = resolved_path.to_string_lossy();
     let mut best_root: Option<&str> = None;
     let mut best_len = 0;
 
     for mapping in mappings {
         let local_root = &mapping.local_root;
-        if path_str.starts_with(local_root) && local_root.len() > best_len {
+        let case_insensitive = mapping
+            .platform
+            .as_deref()
+            .map(|platform| platform.eq_ignore_ascii_case("windows"))
+            .unwrap_or_else(|| is_windows(None));
+        if path_starts_with_equivalent(resolved_path, Path::new(local_root), case_insensitive)
+            && local_root.len() > best_len
+        {
             best_root = Some(local_root);
             best_len = local_root.len();
         }
@@ -186,6 +212,7 @@ pub fn is_already_local_path(
 
         if path_norm_cmp == local_root_norm_cmp
             || path_norm_cmp.starts_with(&(local_root_norm_cmp.clone() + "/"))
+            || path_starts_with_equivalent(Path::new(path), Path::new(&m.local_root), ci)
         {
             return true;
         }
