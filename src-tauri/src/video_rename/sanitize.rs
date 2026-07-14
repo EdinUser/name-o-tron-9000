@@ -36,7 +36,7 @@ pub(super) fn sanitize_and_validate_path(
             }
         }
 
-        if regex::Regex::new(r#"[\\/:*?"<>|]"#)
+        if regex::Regex::new(r#"[\\:*?"<>|]"#)
             .unwrap()
             .is_match(&sanitized)
         {
@@ -74,7 +74,7 @@ pub(super) fn sanitize_and_validate_path(
             ));
         }
 
-        if regex::Regex::new(r#"[\\/:*?"<>|]"#)
+        if regex::Regex::new(r#"[\\:*?"<>|]"#)
             .unwrap()
             .is_match(&sanitized)
         {
@@ -83,12 +83,18 @@ pub(super) fn sanitize_and_validate_path(
     }
 
     sanitized = sanitized
-        .chars()
-        .map(|c| match c {
-            '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
-            c => c,
+        .split('/')
+        .map(|segment| {
+            segment
+                .chars()
+                .map(|c| match c {
+                    '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+                    c => c,
+                })
+                .collect::<String>()
         })
-        .collect();
+        .collect::<Vec<_>>()
+        .join("/");
 
     (sanitized, warnings, blocking_errors)
 }

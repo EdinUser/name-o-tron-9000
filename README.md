@@ -155,8 +155,9 @@ npm install
 Development with the mock Plex server:
 
 ```bash
-npm run mock:setup
-npm run mock:plex
+npm run mock:reset
+npm run mock:start
+npm run mock:verify
 npm run tauri dev
 ```
 
@@ -182,6 +183,7 @@ Common checks from the repo root:
 npm run test:types
 npm test
 npm run test:rust
+npm run test:mock:http
 npm run test:all
 npm run build
 ```
@@ -189,10 +191,17 @@ npm run build
 Mock Plex helpers:
 
 ```bash
-npm run mock:setup
-npm run mock:plex
+npm run mock:reset
+npm run mock:start
 npm run mock:verify
+npm run mock:stop
+npm run test:mock:http
+cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests
 ```
+
+`npm run test:mock:http` runs the mock HTTP server verification path: reset generated media, start the tracked server, verify endpoints and files, then stop the server.
+
+The mock-backed Rust suite uses Plex-shaped fixture metadata but performs real filesystem apply/undo work in temporary media trees, including folders, subtitles, rollback logs, and cleanup-related files.
 
 ## Troubleshooting
 

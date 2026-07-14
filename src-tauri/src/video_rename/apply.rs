@@ -262,6 +262,39 @@ pub(super) fn apply_single_video_operation(operation: &RenameOperation) -> Resul
                 )
             })?;
         }
+        "delete" => {
+            if !original_path.exists() {
+                return Err(format!(
+                    "Source file does not exist: {}",
+                    operation.original_path
+                ));
+            }
+
+            if let Some(backup_path) = operation.backup_path.as_ref() {
+                let backup = Path::new(backup_path);
+                if let Some(parent) = backup.parent() {
+                    fs::create_dir_all(parent).map_err(|e| {
+                        format!(
+                            "Failed to create backup directory {}: {}",
+                            parent.display(),
+                            e
+                        )
+                    })?;
+                }
+                if backup.exists() {
+                    return Err(format!("Backup already exists: {}", backup_path));
+                }
+                fs::rename(&operation.original_path, backup_path).map_err(|e| {
+                    format!(
+                        "Failed to move {} to backup {}: {}",
+                        operation.original_path, backup_path, e
+                    )
+                })?;
+            } else {
+                fs::remove_file(&operation.original_path)
+                    .map_err(|e| format!("Failed to delete {}: {}", operation.original_path, e))?;
+            }
+        }
         _ => {
             return Err(format!(
                 "Unknown operation type: {}",

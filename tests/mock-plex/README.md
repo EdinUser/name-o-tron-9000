@@ -12,6 +12,7 @@ npm run mock:reset
 npm run mock:start
 npm run mock:verify
 npm run mock:stop
+npm run test:mock:http
 npm run tauri dev
 ```
 
@@ -28,13 +29,17 @@ What those do:
 - `npm run mock:plex`
   - starts the tracked server in the foreground on `http://127.0.0.1:32400`
 - `npm run mock:start`
-  - starts the tracked server in the background, waits for readiness, and writes lifecycle state under `tests/mock-plex/generated/`
+  - starts the tracked server in the background, waits for HTTP readiness, and writes lifecycle state under `tests/mock-plex/generated/`
 - `npm run mock:status`
-  - reports whether the background mock server is running
+  - reports whether the mock server is reachable; also tolerates a manually started server when PID state is stale
 - `npm run mock:stop`
-  - stops the background mock server and removes its state file
+  - stops a harness-started background server and removes its state file; for manually managed servers, it removes only the state file
 - `npm run mock:verify`
   - checks the key endpoints and local media files
+- `npm run test:mock:http`
+  - runs `mock:reset`, `mock:start`, `mock:verify`, and `mock:stop`
+  - stops a harness-started server after verification
+  - is included in `npm run test:all`
 
 Reset workflow for local testing:
 
@@ -46,7 +51,9 @@ Lifecycle notes:
 
 - the server now accepts `MOCK_PLEX_HOST` and `MOCK_PLEX_PORT`
 - `npm run mock:start` defaults to `127.0.0.1:32400`
-- `npm run mock:verify` still defaults to `http://localhost:32400`; pass `--base-url` explicitly when using a non-default port
+- `npm run mock:verify` reads the running server base URL from `tests/mock-plex/generated/mock-server-state.json` when available; otherwise it defaults to `http://127.0.0.1:32400`
+- `npm run mock:start` requires an actual `/library/sections` HTTP response before it reports success
+- manual foreground starts with `npm run mock:plex` are supported; `mock:status` now treats HTTP reachability as authoritative when the state-file PID is stale
 - `npm run mock:reset` and `npm run mock:verify` are now Node-based and intended to be Windows-friendly
 - the older shell scripts in `tests/mock-plex/bin/*.sh` remain as compatibility helpers, not the preferred automation path
 
@@ -56,12 +63,18 @@ Lifecycle notes:
   - HTTP entrypoint
 - `fixtures/`
   - tracked endpoint payloads used by the server
+- `bin/mock-harness.mjs`
+  - background lifecycle helper for `mock:start`, `mock:stop`, and `mock:status`
+- `bin/mock-reset.mjs`
+  - Node-based media tree and mapping generator
+- `bin/mock-verify.mjs`
+  - Node-based endpoint and local media verifier
 - `bin/setup-test-media.sh`
-  - tracked local media generator for the current mock bundle
+  - compatibility local media generator
 - `bin/write-path-mappings.sh`
-  - writes a sample path-mappings JSON fragment for the app
+  - compatibility mapping writer
 - `bin/verify-mock-plex.sh`
-  - verifies that the server and local media line up
+  - compatibility verifier
 - `_source/`
   - legacy reference payloads only; do not add new work here
 
@@ -117,20 +130,61 @@ The tracked bundle now includes examples for:
 - sibling movie editions with the same title/year:
   - `Kingdom of Heaven` theatrical + director's cut
   - `The Lord of the Rings: The Two Towers` theatrical + extended
+- multilingual movie titles and paths:
+  - Chinese: `卧虎藏龙`
+  - Japanese: `千と千尋の神隠し`
+  - Thai: `ฟ้าทะลายโจร`
+  - Armenian: `Նռան գույնը`
+  - decomposed Unicode accent normalization: `Café Society`
+- multilingual subtitle sidecars, including local-language and forced subtitle suffixes
 - TV single-episode files
 - TV multi-show library selection with multiple genres/studios
 - TV generated season lists from episode metadata
+- selectable pagination filler shows, each with at least one episode leaf and generated local file
 - TV standard multi-season procedural structure
 - TV limited-series structure
 - TV multi-episode single-file case: `S01E03E04`
 - TV part-style episodes: `Part 1` and `Part 2`
 - TV specials / OVA in season 0
 - TV multi-episode subtitle sidecar
+- multilingual TV anthology fixture: `夜市食堂`
+- multilingual TV episode titles and shared double-episode files across Chinese, Japanese, Thai, and Armenian title/subtitle cases
+
+## Mock-Backed Integration Tests
+
+The Rust mock-backed integration tests live in:
+
+`src-tauri/tests/mock_plex_harness_tests.rs`
+
+Run them with:
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests
+```
+
+These tests are intentionally below full desktop E2E. They parse the tracked Plex-shaped JSON fixtures, build backend rename items, generate operations from real settings/templates, apply them to temporary filesystem media through path mappings, inspect rollback logs, and undo the operations.
+
+Current coverage includes:
+
+- generated movie proposals from Plex metadata, including provider ID templates and genre folders
+- generated TV multi-episode proposals with multilingual titles and subtitle sidecars
+- collection grouping
+- year-decade organization
+- existing-target conflict handling from a generated operation
+- apply/undo round trips with real filesystem changes
+
+When adding fixture rows, keep the mock bundle internally consistent:
+
+- `shows_all.json` show entries that can be selected must have matching leaves in `tv_all_leaves.json`
+- any fake Plex file path used by endpoint fixtures should have a corresponding generated local file in `bin/mock-shared.mjs`
+- add endpoint checks to `endpointChecks` for new representative behavior
+- run `npm run mock:reset`, `npm run mock:start`, `npm run mock:verify`, and the Rust mock-backed test command
 
 ## Notes
 
 - Payloads are static in the current tracked bundle. The mock does not mutate state after apply/undo.
 - Refresh endpoints are request recorders only. They return success and log what the client asked Plex to refresh, but they do not emulate Plex filesystem rescans or change media availability state.
 - Thumbnail routes return a tiny placeholder PNG so image fetches do not hard-fail.
+- TV show mapping status is cached by the app. After fixture or path-mapping changes, clear show mapping caches or restart with fresh app state before judging old unmapped badges.
 - `_helpers/full_plex_examples/` remains the source reference for keeping payload shape realistic.
 - `_helpers/tests/*` should be treated as compatibility or local-only legacy helpers, not the primary tracked flow.

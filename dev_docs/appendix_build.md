@@ -27,8 +27,9 @@ npm install
 
 ```bash
 # Terminal 1: Mock Plex server for testing
-npm run mock:setup
-npm run mock:plex
+npm run mock:reset
+npm run mock:start
+npm run mock:verify
 
 # Terminal 2: Main application
 npm run tauri dev
@@ -39,15 +40,19 @@ npm run tauri dev
 - `npm run build` - Build for production
 - `npm run tauri build` - Build cross-platform packages
 - `npm run bundle:linux` - Build Linux AppImage, `.deb`, and `.rpm` installers locally
-- `npm run mock:plex` - Start mock Plex server with test data
-- `npm run mock:setup` - Rebuild the tracked local `./test_media` tree and sample path mappings
+- `npm run mock:plex` - Start the mock Plex server in the foreground for manual work
+- `npm run mock:start` - Start the mock Plex server in the background and wait for HTTP readiness
+- `npm run mock:stop` - Stop a harness-started mock Plex server or clear external/stale state
+- `npm run mock:reset` - Rebuild the tracked local `./test_media` tree and sample path mappings
 - `npm run mock:verify` - Verify the tracked mock server endpoints and generated media tree
 - `npm test` - Run the frontend Vitest suite once
 - `npm run test:watch` - Run Vitest in watch mode
 - `npm run test:coverage` - Run tests with coverage report
 - `npm run test:types` - Run TypeScript compiler checks
 - `npm run test:rust` - Run Rust tests from the root via `src-tauri/Cargo.toml`
-- `npm run test:all` - Run TypeScript, Vitest, and Rust tests from the repo root
+- `npm run test:mock:http` - Reset mock media, start the tracked HTTP mock server, verify endpoints/files, then stop the server
+- `npm run test:all` - Run TypeScript, Vitest, Rust, and mock HTTP verification tests from the repo root
+- `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests` - Run mock-backed rename integration tests
 
 ### Building from Source
 
@@ -69,12 +74,13 @@ npm run tauri dev
 
 2. **Development with mock server**:
    ```bash
-   npm run mock:setup # Optional: rebuild local media/reset mock state
-   npm run mock:plex  # Terminal A - starts mock Plex server
-   npm run tauri dev  # Terminal B - starts the app
+   npm run mock:reset  # Rebuild local media/reset mock state
+   npm run mock:start  # Terminal A - starts mock Plex server in the background
+   npm run mock:verify # Confirms endpoints and generated media are aligned
+   npm run tauri dev   # Terminal B - starts the app
    ```
 
-You do not need to restart `npm run mock:plex` after `npm run mock:setup` unless you changed server code or fixture payloads.
+For manual debugging, `npm run mock:plex` still starts the mock server in the foreground. The harness commands tolerate an already-running manual server and stale PID state; use `npm run mock:status` when checking which mode is active.
 
 3. **Production build**:
 
@@ -142,8 +148,10 @@ npm run tauri dev
 # Builds and runs the application in development mode
 
 # With comprehensive testing
-npm run tauri dev &
-npm run mock:plex  # In separate terminal
+npm run mock:reset
+npm run mock:start
+npm run mock:verify
+npm run tauri dev
 ```
 
 #### Production Builds
@@ -168,8 +176,11 @@ npm run tauri build -- --target x86_64-unknown-linux-gnu
 
 #### Mock Plex Server
 - **Location**: `tests/mock-plex/mock-plex-server.cjs`
-- **Data**: Comprehensive test fixtures in `tests/` directory
-- **Libraries**: Movies, TV Shows, Music with realistic metadata
+- **Harness**: `tests/mock-plex/bin/mock-harness.mjs` provides background start/stop/status with HTTP readiness checks and stale-state handling
+- **Data**: Tracked fixtures under `tests/mock-plex/fixtures/` plus generated local media under `./test_media`
+- **Libraries**: Movies, TV Shows, Music with realistic metadata, multilingual Unicode titles, subtitle sidecars, and selectable TV pagination filler shows with episode leaves
+- **Verify**: `npm run mock:verify` checks important Plex endpoints and confirms the generated media tree matches fixture expectations
+- **Automated HTTP Test**: `npm run test:mock:http` wraps reset/start/verify/stop for use in `npm run test:all`
 
 #### Automated Test Suites
 
@@ -187,9 +198,16 @@ Comprehensive Rust backend functionality testing:
 - **Coverage**: Settings persistence, deep merge, concurrency, integration
 - **Run**: `npm run test:rust` or `cargo test --manifest-path src-tauri/Cargo.toml --test <test_name>`
 
+##### Mock-Backed Rename Integration Tests
+Plex-shaped fixture tests for rename behavior without driving the desktop UI:
+- **Location**: `src-tauri/tests/mock_plex_harness_tests.rs`
+- **Behavior**: Builds temporary media trees from mock Plex fixtures, then performs real filesystem rename/move/delete-backup operations and undo
+- **Coverage**: Movie and TV rename proposals, settings/templates, path mappings, real filesystem apply, subtitle moves, cleanup-related artifacts, rollback logs, undo, collection/year folders, multilingual titles, and existing-target conflicts
+- **Run**: `cargo test --manifest-path src-tauri/Cargo.toml --test mock_plex_harness_tests`
+
 #### Test Categories
 - **Unit Tests**: Individual function and component testing
-- **Integration Tests**: Full workflow testing with mock server
+- **Mock-Backed Integration Tests**: Rename workflows using Plex-shaped fixtures, generated media files, and real apply/undo operations
 - **E2E Tests**: Complete user journey validation
 - **Settings Tests**: Deep merge logic, persistence, error recovery
 

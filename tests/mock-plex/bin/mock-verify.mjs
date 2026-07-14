@@ -5,12 +5,28 @@ import {
   defaultMediaRoot,
   endpointChecks,
   expectedFiles,
+  repoRoot,
   resolveFromRepo,
 } from "./mock-shared.mjs";
 
+const defaultStatePath = path.join(repoRoot, "tests", "mock-plex", "generated", "mock-server-state.json");
+
+function baseUrlFromState() {
+  if (!fs.existsSync(defaultStatePath)) {
+    return null;
+  }
+
+  try {
+    const state = JSON.parse(fs.readFileSync(defaultStatePath, "utf8"));
+    return typeof state.baseUrl === "string" ? state.baseUrl : null;
+  } catch {
+    return null;
+  }
+}
+
 function parseArgs(argv) {
   const options = {
-    baseUrl: process.env.MOCK_PLEX_BASE_URL || "http://localhost:32400",
+    baseUrl: process.env.MOCK_PLEX_BASE_URL || baseUrlFromState() || "http://127.0.0.1:32400",
     mediaRoot: defaultMediaRoot,
   };
 

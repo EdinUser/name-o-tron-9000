@@ -110,6 +110,20 @@ for (const directory of manifest.directories || []) {
   });
 }
 
+const resolvedLooseFiles = [];
+for (const looseFile of manifest.loose_files || []) {
+  const library = librariesByKey.get(String(looseFile.library_key));
+  if (!library) {
+    throw new Error(`Unknown library key for loose file: ${looseFile.library_key}`);
+  }
+  const resolvedPath = relativeToLibrary(library, looseFile.relative_path);
+  writeFile(resolvedPath, looseFile.contents || "");
+  resolvedLooseFiles.push({
+    ...looseFile,
+    resolved_path: resolvedPath,
+  });
+}
+
 const resolvedConflicts = [];
 for (const conflict of manifest.conflicts || []) {
   const library = librariesByKey.get(String(conflict.library_key));
@@ -133,6 +147,7 @@ const resolvedFixture = {
   path_mappings: pathMappings,
   libraries: resolvedLibraries,
   directories: resolvedDirectories,
+  loose_files: resolvedLooseFiles,
   conflicts: resolvedConflicts,
   assertions: manifest.assertions || {},
 };
