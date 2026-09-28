@@ -47,15 +47,17 @@
     "autoprefixer": "^10.4.21",
     "express": "^5.2.1",
     "jsdom": "^27.0.0",
-    "postcss": "^8.5.6",
-    "sharp": "^0.33.0",
+    "postcss": "^8.5.28",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.1.13",
     "typescript": "~5.9",
     "vite": "^7.2.4",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.11"
   },
   "overrides": {
-    "qs": "6.15.3"
+    "baseline-browser-mapping": "2.11.26",
+    "browserslist": "4.29.2",
+    "qs": "6.16.0"
   },
   "allowScripts": {
     "esbuild@0.28.1": true,
