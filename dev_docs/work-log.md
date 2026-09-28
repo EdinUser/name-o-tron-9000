@@ -13,6 +13,18 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 - Follow-ups:
 ```
 
+## 2026-09-28
+
+- Summary: Remediated the 22 open Dependabot alerts across npm and Rust. Updated direct npm tooling dependencies, pinned patched transitive npm resolutions, and refreshed the Cargo lockfile to the current compatible Tauri dependency graph.
+- Files or areas: `package.json`, `package-lock.json`, `src-tauri/Cargo.lock`.
+- Verification:
+  - `npm audit --json` reported 0 vulnerabilities.
+  - `npm run test:types`, `npm test`, and `npm run build` passed (the build retains its existing Vite dynamic/static-import warnings).
+  - `npm run test:rust` passed with 51 unit, 22 integration, 15 mock-harness, and 18 settings tests.
+  - `npm run test:mock:http` passed with the local fixture server and stopped it afterward.
+- Follow-ups:
+  - Push these lockfile changes so GitHub can rescan and close the corresponding Dependabot alerts.
+
 ## 2026-07-14
 
 - Summary: Added `npm run build` to Linux PR CI so production frontend bundling is checked before merge without slowing the Windows release-gate job.
