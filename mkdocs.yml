@@ -7,6 +7,8 @@ theme:
   name: material
   logo: assets/name-o-tron-9000.svg
   favicon: assets/name-o-tron-9000.svg
+extra_javascript:
+  - javascripts/pinger.js
 plugins:
   - search
   - macros

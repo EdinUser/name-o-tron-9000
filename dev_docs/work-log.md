@@ -15,6 +15,14 @@ Use this file for dated, high-signal traces of audits, implementation batches, a
 
 ## 2026-09-28
 
+- Summary: Refreshed compatible npm and Tauri JavaScript packages after the security remediation. The lockfile now resolves Tauri API/CLI 2.12.0, dialog 2.8.0, opener 2.6.0, plus compatible React, Tailwind, and test/build tooling updates; Cargo already had no newer compatible resolution.
+- Files or areas: `package-lock.json`.
+- Verification:
+  - `npm audit --json` reported 0 vulnerabilities.
+  - `npm run test:types`, `npm test`, and `npm run build` passed (with existing Vite import/chunk-size warnings).
+- Follow-ups:
+  - The `esbuild@0.28.2` postinstall remains blocked by the repository's `allowScripts` policy; the installed platform package still allowed the test and production build to pass.
+
 - Summary: Remediated the 22 open Dependabot alerts across npm and Rust. Updated direct npm tooling dependencies, pinned patched transitive npm resolutions, and refreshed the Cargo lockfile to the current compatible Tauri dependency graph.
 - Files or areas: `package.json`, `package-lock.json`, `src-tauri/Cargo.lock`.
 - Verification:
