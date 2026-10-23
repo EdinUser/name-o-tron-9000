@@ -185,10 +185,11 @@ jobs:
       - name: Create remote release directories
         uses: appleboy/ssh-action@v0.1.7
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 10222
+          host: ${{ secrets.VPS_NEW_HOST }}
+          username: ${{ secrets.VPS_NEW_USER }}
+          key: ${{ secrets.VPS_NEW_SSH_KEY }}
+          port: 22
+          fingerprint: ${{ secrets.VPS_NEW_HOST_FINGERPRINT }}
           script: |
             set -euo pipefail
             VERSION="${{ needs.validate-release.outputs.version }}"
@@ -199,20 +200,22 @@ jobs:
       - name: Test SSH connectivity
         uses: appleboy/ssh-action@v0.1.7
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 10222
+          host: ${{ secrets.VPS_NEW_HOST }}
+          username: ${{ secrets.VPS_NEW_USER }}
+          key: ${{ secrets.VPS_NEW_SSH_KEY }}
+          port: 22
+          fingerprint: ${{ secrets.VPS_NEW_HOST_FINGERPRINT }}
           script: echo "SSH OK"
 
       # Upload to VPS
       - name: Upload installers to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 10222
+          host: ${{ secrets.VPS_NEW_HOST }}
+          username: ${{ secrets.VPS_NEW_USER }}
+          key: ${{ secrets.VPS_NEW_SSH_KEY }}
+          port: 22
+          fingerprint: ${{ secrets.VPS_NEW_HOST_FINGERPRINT }}
           source: "upload/${{ needs.validate-release.outputs.version }}/**"
           strip_components: 2
           target: "/var/www/name-o-tron.kirilov.dev/web/downloads/${{ needs.validate-release.outputs.version }}/"
@@ -220,34 +223,25 @@ jobs:
       - name: Upload release.json
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 10222
+          host: ${{ secrets.VPS_NEW_HOST }}
+          username: ${{ secrets.VPS_NEW_USER }}
+          key: ${{ secrets.VPS_NEW_SSH_KEY }}
+          port: 22
+          fingerprint: ${{ secrets.VPS_NEW_HOST_FINGERPRINT }}
           source: "release.json"
           target: "/var/www/name-o-tron.kirilov.dev/web/${{ needs.validate-release.outputs.version }}/"
 
       - name: Upload release.json (latest pointer)
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 10222
+          host: ${{ secrets.VPS_NEW_HOST }}
+          username: ${{ secrets.VPS_NEW_USER }}
+          key: ${{ secrets.VPS_NEW_SSH_KEY }}
+          port: 22
+          fingerprint: ${{ secrets.VPS_NEW_HOST_FINGERPRINT }}
           source: "release.json"
           target: "/var/www/name-o-tron.kirilov.dev/web/"
 
-      - name: Fix SPConfig permissions
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 10222
-          script: |
-            chown -R web22:client1 /var/www/name-o-tron.kirilov.dev/web/
-            find /var/www/name-o-tron.kirilov.dev/web/ -type d -exec chmod 755 {} \;
-            find /var/www/name-o-tron.kirilov.dev/web/ -type f -exec chmod 644 {} \;
 
   # =====================================================
   # RELEASE DOCS REFRESH
@@ -267,17 +261,26 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Fetch latest release.json from VPS
+      - name: Configure deployment SSH
         env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_SSH_KEY: ${{ secrets.VPS_NEW_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_NEW_KNOWN_HOSTS }}
         shell: bash
         run: |
           set -euo pipefail
+          umask 077
           mkdir -p ~/.ssh
-          echo "$VPS_SSH_KEY" > ~/.ssh/vps_key
-          chmod 600 ~/.ssh/vps_key
-          scp -P 10222 -i ~/.ssh/vps_key -o StrictHostKeyChecking=no root@"$VPS_HOST":/var/www/name-o-tron.kirilov.dev/web/release.json ./release.json
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/vps_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Fetch latest release.json from VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_NEW_HOST }}
+          VPS_USER: ${{ secrets.VPS_NEW_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -P 22 -i ~/.ssh/vps_key -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST":/var/www/name-o-tron.kirilov.dev/web/release.json ./release.json
 
       - name: Install MkDocs
         run: |
@@ -291,29 +294,18 @@ jobs:
 
       - name: Sync site to VPS (preserve downloads & release.json)
         env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_NEW_HOST }}
+          VPS_USER: ${{ secrets.VPS_NEW_USER }}
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p ~/.ssh
-          echo "$VPS_SSH_KEY" > ~/.ssh/vps_key
-          chmod 600 ~/.ssh/vps_key
-          rsync -avz --delete \
+          rsync -avz --delete --chmod=D755,F644 \
             --exclude 'downloads/' \
             --exclude 'release.json' \
             --exclude 'community/' \
-            -e "ssh -i ~/.ssh/vps_key -p 10222 -o StrictHostKeyChecking=no" \
-            site/ root@"$VPS_HOST":/var/www/name-o-tron.kirilov.dev/web/
-
-      - name: Fix ISPConfig permissions
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 10222
-          script: |
-            chown -R web22:client1 /var/www/name-o-tron.kirilov.dev/web/
-            find /var/www/name-o-tron.kirilov.dev/web/ -type d -exec chmod 755 {} \;
-            find /var/www/name-o-tron.kirilov.dev/web/ -type f -exec chmod 644 {} \;
+            --exclude '/[0-9]*.[0-9]*.[0-9]*/' \
+            --exclude '/stats/' \
+            --exclude '/error/' \
+            --exclude '/.ht*' \
+            -e "ssh -i ~/.ssh/vps_key -p 22 -o StrictHostKeyChecking=yes" \
+            site/ "$VPS_USER@$VPS_HOST":/var/www/name-o-tron.kirilov.dev/web/
